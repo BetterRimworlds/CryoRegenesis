@@ -1,20 +1,18 @@
-﻿using RimWorld;
+using RimWorld;
 using System;
 using System.Linq;
 using Verse;
 
-namespace CryptoRestore
+namespace CryoRegenesis
 {
-    public class Building_CryptoRestore : Building_CryptosleepCasket
+    public class Building_CryoRegenesis : Building_CryptosleepCasket
     {
         int cryptoHediffCooldown;
-        int cryptoHediffCooldownBase = GenDate.TicksPerQuadrum / 2;
+        int cryptoHediffCooldownBase = GenDate.TicksPerMonth / 2;
         int enterTime;
         int rate = 30;
         int fuelConsumption = 20;
-        HediffDef luciAddiDef = HediffDef.Named("LuciferiumAddiction");
-        HediffDef luciDef = HediffDef.Named("LuciferiumHigh");
-        NeedDef luciNeed = DefDatabase<NeedDef>.GetNamed("Chemical_Luciferium", true);
+        HediffDef cryosickness = HediffDef.Named("CryptosleepSickness");
         CompRefuelable refuelable;
         CompPowerTrader power;
         CompProperties_Power props;
@@ -47,9 +45,10 @@ namespace CryptoRestore
             }
             return 0;
         }
-        public override void SpawnSetup(Map map, bool respawningAfterLoad)
+
+        public override void SpawnSetup()
         {
-            base.SpawnSetup(map, respawningAfterLoad);
+            base.SpawnSetup();
             refuelable = GetComp<CompRefuelable>();
             power = GetComp<CompPowerTrader>();
             props = power.Props;
@@ -60,14 +59,15 @@ namespace CryptoRestore
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref cryptoHediffCooldown, "cryptoHediffCooldown");
-            Scribe_Values.Look(ref enterTime, "enterTime");
+            Scribe_Values.LookValue<int>(ref cryptoHediffCooldown, "cryptoHediffCooldown");
+            Scribe_Values.LookValue<int>(ref enterTime, "enterTime");
         }
         public override void Tick()
         {
             if (HasAnyContents && refuelable.HasFuel)
             {
                 Pawn pawn = ContainedThing as Pawn;
+
                 bool hasHediffs = AgeHediffs(pawn) > 0;
                 if (hasHediffs || pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
                 {
@@ -127,7 +127,8 @@ namespace CryptoRestore
                                 }
                                 else if (hediffName == "alzheimer's" && pawn.ageTracker.AgeBiologicalYears < 72)
                                 {
-                                    oldHediff.Heal(1 / 7.5f);
+                                    //oldHediff.Heal(1 / 7.5f);
+                                    oldHediff.DirectHeal(1 / 7.5f);
                                     if (oldHediff.Severity > 0) cryptoHediffCooldown = GenDate.TicksPerDay;
                                     else
                                     {
@@ -151,10 +152,7 @@ namespace CryptoRestore
             Pawn pawn = ContainedThing as Pawn;
             if (pawn.ageTracker.AgeBiologicalTicks >= GenDate.TicksPerYear * 21)
             {
-                pawn.health.AddHediff(luciDef);
-                pawn.health.AddHediff(luciAddiDef);
-                if (Find.TickManager.TicksGame  - enterTime >= GenDate.TicksPerDay * 3)
-                    pawn.needs.TryGetNeed(luciNeed).CurLevelPercentage = 1f;
+                pawn.health.AddHediff(cryosickness);
             }
             power.PowerOutput = 0;
             base.EjectContents();
@@ -167,9 +165,13 @@ namespace CryptoRestore
                 cryptoHediffCooldown = cryptoHediffCooldownBase;
                 enterTime = Find.TickManager.TicksGame;
                 if (refuelable.HasFuel && (AgeHediffs(thing as Pawn) > 0 || (thing as Pawn).ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21))
+                {
                     power.PowerOutput = -props.basePowerConsumption;
+                }
+
                 return true;
             }
+
             return false;
         }
 
@@ -180,7 +182,7 @@ namespace CryptoRestore
                 Pawn pawn = ContainedThing as Pawn;
                 pawn.ageTracker.AgeBiologicalTicks.TicksToPeriod(out int years, out int quadrums, out int days, out float hours);
                 string bioTime = "AgeBiological".Translate(new object[]{years,quadrums,days});
-                return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Hediffs\n" + bioTime;
+                return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Hediffs, " + bioTime;
             }
             else return base.GetInspectString();
         }
