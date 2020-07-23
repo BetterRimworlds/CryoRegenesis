@@ -9,6 +9,7 @@ namespace CryoRegenesis
     {
         int cryptoHediffCooldown;
         int cryptoHediffCooldownBase = GenDate.TicksPerMonth / 2;
+        long restoreCoolDown = 4294967295;
         int enterTime;
         int rate = 30;
         int fuelConsumption = 20;
@@ -46,6 +47,18 @@ namespace CryoRegenesis
             return 0;
         }
 
+        protected int InjuryHediffs(Pawn pawn)
+        {
+            if (pawn != null)
+            {
+                int OldAgeHediffs = this.AgeHediffs(pawn);
+
+                return pawn.health.hediffSet.GetHediffs<Hediff>().Count() - OldAgeHediffs;
+            }
+
+            return 0;
+        }
+
         public override void SpawnSetup()
         {
             base.SpawnSetup();
@@ -67,6 +80,46 @@ namespace CryoRegenesis
             if (HasAnyContents && refuelable.HasFuel)
             {
                 Pawn pawn = ContainedThing as Pawn;
+
+                // Remove all health-related injuries if they're younger than age 21.
+                if (restoreCoolDown > 0 &&  pawn.ageTracker.AgeBiologicalTicks <= GenDate.TicksPerYear * 24)
+                {
+                    // Heal brain injuries
+                    if (power.PowerOn)
+                    {
+                        long ticksLeft = (pawn.ageTracker.AgeBiologicalTicks - restoreCoolDown);
+                        refuelable.ConsumeFuel(fuelConsumption / GenDate.TicksPerYear);
+                        if (ticksLeft % (rate * 100) == 0)
+                        {
+                            Log.Message("Restore Cooldown: " + ticksLeft);
+                        }
+
+                        if (restoreCoolDown >= pawn.ageTracker.AgeBiologicalTicks)
+                        {
+                            Log.Message("Cooled down");
+                            string hediffName;
+                            foreach (Hediff oldHediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
+                            {
+                                hediffName = oldHediff.def.label;
+
+                                if (hediffName == "gunshot")
+                                {
+                                    pawn.health.RemoveHediff(oldHediff);
+                                }
+                                else
+                                {
+                                    pawn.health.RemoveHediff(oldHediff);
+                                }
+
+                                restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
+                                //restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerSeason;
+                                Log.Message("Cured HEDIFF: " + hediffName);
+                                
+                                break;
+                            }
+                        }
+                    }
+                }
 
                 bool hasHediffs = AgeHediffs(pawn) > 0;
                 if (hasHediffs || pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
@@ -182,7 +235,7 @@ namespace CryoRegenesis
                 Pawn pawn = ContainedThing as Pawn;
                 pawn.ageTracker.AgeBiologicalTicks.TicksToPeriod(out int years, out int quadrums, out int days, out float hours);
                 string bioTime = "AgeBiological".Translate(new object[]{years,quadrums,days});
-                return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Hediffs, " + bioTime;
+                return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime;
             }
             else return base.GetInspectString();
         }
