@@ -1,0 +1,18 @@
+<Defs>
+	<ResearchProjectDef>
+		<defName>Cryptorestore</defName>
+		<label>cryptorestore casket</label>
+		<description>Allows colonists to construct cryptorestore caskets, which can reduce colonists age using large amounts of luciferium.</description>
+		<baseCost>1200</baseCost>
+		<techLevel>Spacer</techLevel>
+		<prerequisites>
+			<li>Cryptosleep</li>
+		</prerequisites>
+		<requiredResearchBuilding>HiTechResearchBench</requiredResearchBuilding>
+		<requiredResearchFacilities>
+			<li>MultiAnalyzer</li>
+		</requiredResearchFacilities>
+		<researchViewX>11</researchViewX>
+		<researchViewY>4.3</researchViewY>
+	</ResearchProjectDef>
+</Defs>
