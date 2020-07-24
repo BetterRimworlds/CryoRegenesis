@@ -9,6 +9,7 @@ namespace CryoRegenesis
     {
         private Random rnd = new Random();
 
+        bool isSafeToRepair = true;
         int cryptoHediffCooldown;
         int cryptoHediffCooldownBase = GenDate.TicksPerMonth / 2;
         long restoreCoolDown = -1000;
@@ -127,22 +128,29 @@ namespace CryoRegenesis
 
         public override void Tick()
         {
+            bool hasInjuries;
             bool is21OrYounger;
+
             if (HasAnyContents && refuelable.HasFuel)
             {
                 Pawn pawn = ContainedThing as Pawn;
 
                 float pawnAge = pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear;
 
+                is21OrYounger = pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * 21) + rate);
+                hasInjuries = (pawn.health.hediffSet.GetHediffs<Hediff>().Count() > 0);
+
+                if (this.isSafeToRepair == false)
+                {
+                    power.PowerOutput = 0;
+
+                    return;
+                }
+
                 if (power.PowerOn)
                 {
-                    bool hasInjuries;
-
                     long ticksLeft = (pawn.ageTracker.AgeBiologicalTicks - restoreCoolDown);
                     double targetAge = (double)restoreCoolDown / (double)GenDate.TicksPerYear;
-
-                    is21OrYounger = pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * 21) + rate);
-                    hasInjuries = (pawn.health.hediffSet.GetHediffs<Hediff>().Count() > 0);
 
                     if (is21OrYounger && !hasInjuries)
                     {
@@ -252,6 +260,22 @@ namespace CryoRegenesis
                     power.PowerOutput = -props.basePowerConsumption;
                 }
 
+                Pawn pawn = (Pawn)thing;
+
+                foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
+                {
+                    if (hediff.def.hediffClass.ToString() == "Verse.Hediff_AddedPart")
+                    {
+                        isSafeToRepair = false;
+                        break;
+                    }
+                    else if (hediff.def.hediffClass.ToString() == "Verse.Hediff_Pregnant")
+                    {
+                        isSafeToRepair = false;
+                        break;
+                    }
+                }
+
                 return true;
             }
 
@@ -265,7 +289,15 @@ namespace CryoRegenesis
                 Pawn pawn = ContainedThing as Pawn;
                 pawn.ageTracker.AgeBiologicalTicks.TicksToPeriod(out int years, out int quadrums, out int days, out float hours);
                 string bioTime = "AgeBiological".Translate(new object[]{years,quadrums,days});
-                return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime;
+
+                if (isSafeToRepair)
+                {
+                    return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime;
+                }
+                else
+                {
+                    return base.GetInspectString() + " [Error] Has artificial body parts.\n" + bioTime;
+                }
             }
             else return base.GetInspectString();
         }
