@@ -16,7 +16,7 @@ namespace CryoRegenesis
         int enterTime;
         //int rate = 30;
         //int rate = 150;
-        int rate = 1000;
+        int rate = 500;
         float fuelConsumption;
         HediffDef cryosickness = HediffDef.Named("CryptosleepSickness");
         CompRefuelable refuelable;
@@ -161,34 +161,31 @@ namespace CryoRegenesis
                         return;
                     }
 
-                    //refuelable.ConsumeFuel(fuelConsumption);
-                    //if (pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason == 0)
                     if (power.PowerOn && hasInjuries && !is21OrYounger && pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
                     {
                         Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksLeft / (double)GenDate.TicksPerYear) + " | Target age: " + targetAge);
                     }
 
-                    if (is21OrYounger)
-                    {
-                        restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks;
-                    }
-
-                    if (refuelable.FuelPercent < 0.10f)
+                    if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercent < 0.25f)
                     {
                         Log.Message("Not enough Uranium to heal.");
                     }
 
-                    // Remove all health-related injuries if they're younger than the targetAge.
-                    if (hasInjuries && refuelable.FuelPercent >= 0.10f && restoreCoolDown > -1000 && pawn.ageTracker.AgeBiologicalTicks <= restoreCoolDown)
+                    if (is21OrYounger)
                     {
-                        Log.Message("Fuel count to fully refueled: " + refuelable.GetFuelCountToFullyRefuel());
-                        Log.Message("Cooled down");
+                        restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks + ticksLeft;
+                    }
 
+                    // Remove all health-related injuries if they're younger than the targetAge.
+                    if (restoreCoolDown > -1000 && pawn.ageTracker.AgeBiologicalTicks <= restoreCoolDown)
+                    {
+                        Log.Message("Cooled down");
+                        
                         string hediffName;
                         foreach (Hediff oldHediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
                         {
                             hediffName = oldHediff.def.label;
-                            refuelable.ConsumeFuel(1f);
+                            refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercent * 0.25f, 25));
 
                             if (hediffName == "gunshot")
                             {
@@ -219,8 +216,8 @@ namespace CryoRegenesis
                     }
                 }
 
-                bool hasHediffs = AgeHediffs(pawn) > 0;
-                if (hasHediffs || pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
+                //if ((!hasInjuries || (hasInjuries && refuelable.FuelPercent >= 0.25f)) && pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
+                if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
                 {
                     power.PowerOutput = -props.basePowerConsumption;
                     if (power.PowerOn)
