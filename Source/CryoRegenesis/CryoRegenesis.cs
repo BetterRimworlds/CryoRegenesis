@@ -15,7 +15,7 @@ namespace CryoRegenesis
         int enterTime;
         //int rate = 30;
         //int rate = 150;
-        int rate = 1500;
+        int rate = 1000;
         float fuelConsumption;
         HediffDef cryosickness = HediffDef.Named("CryptosleepSickness");
         CompRefuelable refuelable;
@@ -70,15 +70,12 @@ namespace CryoRegenesis
             power = GetComp<CompPowerTrader>();
             props = power.Props;
             fuelprops = refuelable.Props;
-            fuelprops.fuelConsumptionRate = fuelConsumption / 60f;
-            fuelConsumption = (refuelable.Props.fuelCapacity * fuelprops.fuelConsumptionRate) / GenDate.TicksPerYear;
 
-            //fuelprops.fuelConsumptionRate = 0.33333f;
-            Log.Message("Fuel capacity: " + refuelable.Props.fuelCapacity);
-            Log.Message("Fuel capacity v2: " + fuelprops.fuelCapacity);
-            Log.Message("Fuel consumption rate: " + fuelprops.fuelConsumptionRate);
-            Log.Message("Fuel consumption rate v2: " + fuelprops.fuelConsumptionRate);
-            Log.Message("Fuel consumption per Year: " + (refuelable.Props.fuelCapacity * refuelable.Props.fuelConsumptionRate));
+            // Require more fuel for faster rates.
+            float fuelPerReversedYear = 1.5f * ((float)rate / 250);
+
+            fuelConsumption =  fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
+
             Log.Message("Fuel consumption per Tick: " + fuelConsumption);
         }
 
@@ -135,6 +132,8 @@ namespace CryoRegenesis
             {
                 Pawn pawn = ContainedThing as Pawn;
 
+                float pawnAge = pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear;
+
                 if (power.PowerOn)
                 {
                     bool hasInjuries;
@@ -154,7 +153,7 @@ namespace CryoRegenesis
                         return;
                     }
 
-                    refuelable.ConsumeFuel(fuelConsumption);
+                    //refuelable.ConsumeFuel(fuelConsumption);
                     //if (pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason == 0)
                     if (power.PowerOn && hasInjuries && !is21OrYounger && pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
                     {
@@ -218,70 +217,11 @@ namespace CryoRegenesis
                     power.PowerOutput = -props.basePowerConsumption;
                     if (power.PowerOn)
                     {
-                        refuelable.ConsumeFuel(fuelConsumption);
-                        cryptoHediffCooldown = Math.Max(cryptoHediffCooldown - 1, 0);
                         if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
-                            pawn.ageTracker.AgeBiologicalTicks = Math.Max(pawn.ageTracker.AgeBiologicalTicks - rate, GenDate.TicksPerYear * 21);
-                        if (hasHediffs && cryptoHediffCooldown == 0)
                         {
-                            foreach (Hediff oldHediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
-                            {
-                                string hediffName = oldHediff.def.label;
-                                if (hediffName == "bad back" && pawn.ageTracker.AgeBiologicalYears < 39)
-                                {
-                                    pawn.health.RemoveHediff(oldHediff);
-                                    cryptoHediffCooldown = cryptoHediffCooldownBase;
-                                    break;
-                                }
-                                else if (hediffName == "frail" && pawn.ageTracker.AgeBiologicalYears < 48)
-                                {
-                                    pawn.health.RemoveHediff(oldHediff);
-                                    cryptoHediffCooldown = cryptoHediffCooldownBase;
-                                    break;
-                                }
-                                else if (hediffName == "cataract" && pawn.ageTracker.AgeBiologicalYears < 52)
-                                {
-                                    foreach (Hediff cataractHediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
-                                    {
-                                        if (cataractHediff.def.label == "cataract")
-                                        {
-                                            pawn.health.RemoveHediff(cataractHediff);
-                                        }
-                                    }
-                                    cryptoHediffCooldown = cryptoHediffCooldownBase;
-                                    break;
-                                }
-                                else if (hediffName == "hearing loss" && pawn.ageTracker.AgeBiologicalYears < 52)
-                                {
-                                    foreach (Hediff hearingHediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
-                                    {
-                                        if (hearingHediff.def.label.ToString() == "hearing loss")
-                                        {
-                                            pawn.health.RemoveHediff(hearingHediff);
-                                        }
-                                    }
-                                    cryptoHediffCooldown = cryptoHediffCooldownBase;
-                                    break;
-                                }
-                                else if (hediffName == "dementia" && pawn.ageTracker.AgeBiologicalYears < 66)
-                                {
-                                    pawn.health.RemoveHediff(oldHediff);
-                                    cryptoHediffCooldown = cryptoHediffCooldownBase;
-                                    break;
-                                }
-                                else if (hediffName == "alzheimer's" && pawn.ageTracker.AgeBiologicalYears < 72)
-                                {
-                                    //oldHediff.Heal(1 / 7.5f);
-                                    oldHediff.DirectHeal(1 / 7.5f);
-                                    if (oldHediff.Severity > 0) cryptoHediffCooldown = GenDate.TicksPerDay;
-                                    else
-                                    {
-                                        cryptoHediffCooldown = cryptoHediffCooldownBase;
-                                        pawn.health.RemoveHediff(oldHediff);
-                                    }
-                                    break;
-                                }
-                            }
+                            refuelable.ConsumeFuel(fuelConsumption * ((pawnAge - 10) * 0.1f));
+
+                            pawn.ageTracker.AgeBiologicalTicks = Math.Max(pawn.ageTracker.AgeBiologicalTicks - rate, GenDate.TicksPerYear * 21);
                         }
                     }
                 }
@@ -294,10 +234,8 @@ namespace CryoRegenesis
         public override void EjectContents()
         {
             Pawn pawn = ContainedThing as Pawn;
-            if (pawn.ageTracker.AgeBiologicalTicks >= GenDate.TicksPerYear * 21)
-            {
-                pawn.health.AddHediff(cryosickness);
-            }
+            pawn.health.AddHediff(cryosickness);
+
             power.PowerOutput = 0;
             base.EjectContents();
         }
