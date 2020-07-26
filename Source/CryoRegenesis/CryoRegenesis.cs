@@ -96,33 +96,44 @@ namespace CryoRegenesis
                 return GenDate.TicksPerYear / rnd.Next(1, 4);
             }
 
-            // Get the decade. e.g., 7th decade
-            int decadeOfLife = (pawnAge / 10) + 1;
+            if (pawnAge < 100)
+            {
+                // Get the decade. e.g., 7th decade
+                int decadeOfLife = (pawnAge / 10) + 1;
 
-            // 10  =   ?? - 10    = 10
-            //  9  =   11 -  9      20
-            //  8  =   11 -  8      30
-            //  7  =   11 -  7      40
-            //  6  =   11 -  6      50
-            //  5  =   11 -  5      60
-            //  4  =   11 -  4      70
-            //  3  =   11 -  3      80
-            //  2  =   11 -  2      90
-            //  1  =   11 -  1   = 100
+                // 10  =   ?? - 10    = 10
+                //  9  =   11 -  9      20
+                //  8  =   11 -  8      30
+                //  7  =   11 -  7      40
+                //  6  =   11 -  6      50
+                //  5  =   11 -  5      60
+                //  4  =   11 -  4      70
+                //  3  =   11 -  3      80
+                //  2  =   11 -  2      90
+                //  1  =   11 -  1   = 100
 
-            int baseFrequency = (11 - decadeOfLife) * 10;
-            // E.g., if decade = 8, base = 30, min = 30 * (30/100) = 9
-            // E.g., if decade = 4, base = 70, min = 70 * (70/100) = 49
-            int minFrequency = (int)((double)baseFrequency * (double)baseFrequency / 100);
-            // E.g., if decade = 8, base = 30, max = 30 * ((30+100) / 100) = 39
-            // E.g., if decade = 4, base = 70, max = 70 * ((70+100) / 100) = 119
-            int maxFrequency = (int)((double)baseFrequency * (((double)baseFrequency + 100) / 100));
+                int baseFrequency = (11 - decadeOfLife) * 10;
+                // E.g., if decade = 8, base = 30, min = 30 * (30/100) = 9
+                // E.g., if decade = 4, base = 70, min = 70 * (70/100) = 49
+                int minFrequency = (int)((double)baseFrequency * (double)baseFrequency / 100);
+                // E.g., if decade = 8, base = 30, max = 30 * ((30+100) / 100) = 39
+                // E.g., if decade = 4, base = 70, max = 70 * ((70+100) / 100) = 119
+                int maxFrequency = (int)((double)baseFrequency * (((double)baseFrequency + 100) / 100));
+                Log.Message("Base Frequency: " + baseFrequency);
+                Log.Message("Min Frequency: " + minFrequency);
+                Log.Message("Max Frequency: " + maxFrequency);
 
-            double frequency = rnd.Next(minFrequency, maxFrequency);
+                double frequency = rnd.Next(minFrequency, maxFrequency);
 
-            Log.Message("Healing Frequency: Base (" + baseFrequency + ") Min (" + minFrequency + ") Max (" + maxFrequency + ") Actual: " + frequency + "%");
+                Log.Message("Healing Frequency: Base (" + baseFrequency + ") Min (" + minFrequency + ") Max (" + maxFrequency + ") Actual: " + frequency + "%");
 
-            return (int)Math.Round((frequency / 100) * (GenDate.TicksPerYear * decadeOfLife));
+                return (int)Math.Round((frequency / 100) * (GenDate.TicksPerYear * decadeOfLife));
+            }
+            else
+            {
+                // For immortals and other long-living creatures, like Thrumbos, it's 8-12 years.
+                return GenDate.TicksPerYear * (8 + rnd.Next(0, 4));
+            }
         }
 
         public override void Tick()
