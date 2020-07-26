@@ -73,10 +73,9 @@ namespace CryoRegenesis
             fuelprops = refuelable.Props;
 
             // Require more fuel for faster rates.
-            float fuelPerReversedYear = 1.5f * ((float)rate / 250);
+            float fuelPerReversedYear = 1.0f * ((float)rate / 250);
 
             fuelConsumption =  fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
-
             Log.Message("Fuel consumption per Tick: " + fuelConsumption);
         }
 
@@ -166,7 +165,7 @@ namespace CryoRegenesis
                         Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksLeft / (double)GenDate.TicksPerYear) + " | Target age: " + targetAge);
                     }
 
-                    if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercent < 0.25f)
+                    if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercent < 0.10f)
                     {
                         Log.Message("Not enough Uranium to heal.");
                     }
@@ -185,7 +184,7 @@ namespace CryoRegenesis
                         foreach (Hediff oldHediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
                         {
                             hediffName = oldHediff.def.label;
-                            refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercent * 0.25f, 25));
+                            refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercent * 0.10f, 10));
 
                             if (hediffName == "gunshot")
                             {
