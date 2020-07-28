@@ -14,6 +14,7 @@ namespace CryoRegenesis
         int cryptoHediffCooldownBase = GenDate.TicksPerMonth / 2;
         long restoreCoolDown = -1000;
         int enterTime;
+        int targetAge; // 21 for humans. 25% of life expectancy for every other lifeform.
         //int rate = 30;
         //int rate = 150;
         int rate = 500;
@@ -77,6 +78,12 @@ namespace CryoRegenesis
 
             fuelConsumption =  fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
             Log.Message("Fuel consumption per Tick: " + fuelConsumption);
+
+            if (HasAnyContents)
+            {
+                Pawn pawn = ContainedThing as Pawn;
+                this.configTargetAge(pawn);
+            }
         }
 
         public override void ExposeData()
@@ -95,8 +102,7 @@ namespace CryoRegenesis
             if (pawnAge <= 25) {
                 return GenDate.TicksPerYear / rnd.Next(1, 4);
             }
-
-            if (pawnAge < 100)
+            else if (pawnAge < 100)
             {
                 // Get the decade. e.g., 7th decade
                 int decadeOfLife = (pawnAge / 10) + 1;
@@ -139,7 +145,7 @@ namespace CryoRegenesis
         public override void Tick()
         {
             bool hasInjuries;
-            bool is21OrYounger;
+            bool isTargetAge;
 
             if (HasAnyContents && refuelable.HasFuel)
             {
@@ -147,7 +153,7 @@ namespace CryoRegenesis
 
                 float pawnAge = pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear;
 
-                is21OrYounger = pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * 21) + rate);
+                isTargetAge = pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * this.targetAge) + rate);
                 hasInjuries = (pawn.health.hediffSet.GetHediffs<Hediff>().Count() > 0);
 
                 if (this.isSafeToRepair == false)
@@ -160,20 +166,20 @@ namespace CryoRegenesis
                 if (power.PowerOn)
                 {
                     long ticksLeft = (pawn.ageTracker.AgeBiologicalTicks - restoreCoolDown);
-                    double targetAge = (double)restoreCoolDown / (double)GenDate.TicksPerYear;
+                    double repairAge = (double)restoreCoolDown / (double)GenDate.TicksPerYear;
 
-                    if (is21OrYounger && !hasInjuries)
+                    if (isTargetAge && !hasInjuries)
                     {
-                        //this.props.basePowerConsumption = 0;
+                        this.props.basePowerConsumption = 0;
                         power.PowerOn = false;
                         power.PowerOutput = 0;
 
                         return;
                     }
 
-                    if (power.PowerOn && hasInjuries && !is21OrYounger && pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
+                    if (power.PowerOn && hasInjuries && !isTargetAge && pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
                     {
-                        Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksLeft / (double)GenDate.TicksPerYear) + " | Target age: " + targetAge);
+                        Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksLeft / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
                     }
 
                     if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercent < 0.10f)
@@ -181,13 +187,13 @@ namespace CryoRegenesis
                         Log.Message("Not enough Uranium to heal.");
                     }
 
-                    if (is21OrYounger)
+                    if (isTargetAge)
                     {
-                        restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks + ticksLeft;
+                        restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks;
                     }
 
-                    // Remove all health-related injuries if they're younger than the targetAge.
-                    if (restoreCoolDown > -1000 && pawn.ageTracker.AgeBiologicalTicks <= restoreCoolDown)
+                    // Remove all health-related injuries if they're younger than the repairAge.
+                    if (hasInjuries && restoreCoolDown > -1000 && pawn.ageTracker.AgeBiologicalTicks <= restoreCoolDown)
                     {
                         Log.Message("Cooled down");
                         
@@ -207,6 +213,10 @@ namespace CryoRegenesis
                             }
 
                             restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
+                            if (ticksLeft < 0)
+                            {
+                                restoreCoolDown += ticksLeft;
+                            }
                             //restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerSeason;
                             Log.Message("Cured HEDIFF: " + hediffName + " @ " + oldHediff.def.description + " | " + oldHediff.ToString());
 
@@ -219,29 +229,26 @@ namespace CryoRegenesis
                         int ticksToWait = this.CalculateHealingTime(pawn);
 
                         restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - ticksToWait;
-
-                        targetAge = (double)restoreCoolDown / (double)GenDate.TicksPerYear;
+                        repairAge = (double)restoreCoolDown / (double)GenDate.TicksPerYear;
                         Log.Message("Current Age in Ticks: " + pawn.ageTracker.AgeBiologicalTicks + " vs. " + restoreCoolDown);
-                        Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Target age: " + targetAge);
+                        Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
                     }
                 }
 
                 //if ((!hasInjuries || (hasInjuries && refuelable.FuelPercent >= 0.25f)) && pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
-                if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
+                if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
                 {
                     power.PowerOutput = -props.basePowerConsumption;
                     if (power.PowerOn)
                     {
-                        if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
+                        if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
                         {
                             refuelable.ConsumeFuel(fuelConsumption * ((pawnAge - 10) * 0.1f));
 
-                            pawn.ageTracker.AgeBiologicalTicks = Math.Max(pawn.ageTracker.AgeBiologicalTicks - rate, GenDate.TicksPerYear * 21);
+                            pawn.ageTracker.AgeBiologicalTicks = Math.Max(pawn.ageTracker.AgeBiologicalTicks - rate, GenDate.TicksPerYear * targetAge);
                         }
                     }
                 }
-                else
-                    power.PowerOutput = 0;
             }
             else
                 power.PowerOutput = 0;
@@ -283,6 +290,8 @@ namespace CryoRegenesis
                     }
                 }
 
+                this.configTargetAge(pawn);
+
                 return true;
             }
 
@@ -307,6 +316,25 @@ namespace CryoRegenesis
                 }
             }
             else return base.GetInspectString();
+        }
+
+        private int configTargetAge(Pawn pawn)
+        {
+            // Determine the pawn's target age based on their species' life expectancy.
+            // 21 for humans. 25% of life expectancy for everything else.
+            if (pawn.def.defName == "Human")
+            {
+                this.targetAge = 21;
+            }
+            else
+            {
+                this.targetAge = (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25);
+            }
+            Log.Warning("Pawn name: " + pawn.def.defName);
+            Log.Warning("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
+            Log.Warning("Target age: " + this.targetAge);
+
+            return this.targetAge;
         }
     }
 }
