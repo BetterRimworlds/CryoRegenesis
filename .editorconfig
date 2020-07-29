@@ -1,0 +1,4 @@
+# Create an .editorconfig file
+# Add this to save all new files as LF.
+end_of_line = lf
+
