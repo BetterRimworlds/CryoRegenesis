@@ -203,14 +203,7 @@ namespace CryoRegenesis
                             hediffName = oldHediff.def.label;
                             refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercent * 0.10f, 10));
 
-                            if (hediffName == "gunshot")
-                            {
-                                pawn.health.RemoveHediff(oldHediff);
-                            }
-                            else
-                            {
-                                pawn.health.RemoveHediff(oldHediff);
-                            }
+                            pawn.health.RemoveHediff(oldHediff);
 
                             restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
                             if (ticksLeft < 0)
