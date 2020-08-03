@@ -276,14 +276,14 @@ namespace CryoRegenesis
                 {
                     if (hediff.def.hediffClass.ToString() == "Verse.Hediff_AddedPart")
                     {
-                        Log.Error("[CryoRegenesis] " + pawn.NameStringShort + " has an added part: " + hediff.def.label);
+                        Messages.Message("Won't repair: " + pawn.NameStringShort + " has an added part: " + hediff.def.label, MessageSound.RejectInput);
                         isSafeToRepair = false;
 
                         return false;
                     }
                     else if (hediff.def.hediffClass.ToString() == "Verse.Hediff_Pregnant")
                     {
-                        Log.Error("Won't repair: Pregnant");
+                        Messages.Message("Won't repair: Pregnant", MessageSound.RejectInput);
                         isSafeToRepair = false;
 
                         return false;
