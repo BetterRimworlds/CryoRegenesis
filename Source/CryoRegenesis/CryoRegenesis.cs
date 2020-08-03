@@ -263,6 +263,21 @@ namespace CryoRegenesis
             Pawn pawn = ContainedThing as Pawn;
             pawn.health.AddHediff(cryosickness);
 
+            if (pawn.def.defName == "Human")
+            {
+                // Remove negative and now-irrelevant thoughts:
+                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.MyOrganHarvested);
+                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.BotchedMySurgery);
+                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleptInCold);
+                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleptInHeat);
+                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleptOnGround);
+                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleptOutside);
+                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleepDisturbed);
+                pawn.needs.mood.thoughts.memories.TryGainMemoryThought(ThoughtDefOf.ArtifactMoodBoost);
+                pawn.needs.mood.thoughts.memories.TryGainMemoryThought(ThoughtDefOf.Catharsis);
+                pawn.needs.rest.SetInitialLevel();
+            }
+
             power.PowerOutput = 0;
             base.EjectContents();
         }
