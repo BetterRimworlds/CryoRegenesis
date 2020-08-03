@@ -158,6 +158,8 @@ namespace CryoRegenesis
 
                 if (this.isSafeToRepair == false)
                 {
+                    this.EjectContents();
+                    this.props.basePowerConsumption = 0;
                     power.PowerOutput = 0;
 
                     return;
@@ -170,6 +172,7 @@ namespace CryoRegenesis
 
                     if (isTargetAge && !hasInjuries)
                     {
+                        this.EjectContents();
                         this.props.basePowerConsumption = 0;
                         power.PowerOn = false;
                         power.PowerOutput = 0;
@@ -273,13 +276,17 @@ namespace CryoRegenesis
                 {
                     if (hediff.def.hediffClass.ToString() == "Verse.Hediff_AddedPart")
                     {
+                        Log.Error("[CryoRegenesis] " + pawn.NameStringShort + " has an added part: " + hediff.def.label);
                         isSafeToRepair = false;
-                        break;
+
+                        return false;
                     }
                     else if (hediff.def.hediffClass.ToString() == "Verse.Hediff_Pregnant")
                     {
+                        Log.Error("Won't repair: Pregnant");
                         isSafeToRepair = false;
-                        break;
+
+                        return false;
                     }
                 }
 
