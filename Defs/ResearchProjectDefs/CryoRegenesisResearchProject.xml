@@ -1,0 +1,18 @@
+<Defs>
+	<ResearchProjectDef>
+		<defName>CryoRegenesis</defName>
+		<label>cryoregenesis casket</label>
+		<description>Allows colonists to construct CryoRegenesis™ caskets, which can reduce colonists age using large amounts of uranium.</description>
+		<baseCost>1200</baseCost>
+		<techLevel>Spacer</techLevel>
+		<prerequisites>
+			<li>Cryptosleep</li>
+		</prerequisites>
+		<requiredResearchBuilding>HiTechResearchBench</requiredResearchBuilding>
+		<requiredResearchFacilities>
+			<li>MultiAnalyzer</li>
+		</requiredResearchFacilities>
+		<researchViewX>11</researchViewX>
+		<researchViewY>4.3</researchViewY>
+	</ResearchProjectDef>
+</Defs>
