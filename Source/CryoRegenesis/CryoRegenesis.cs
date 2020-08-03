@@ -146,6 +146,7 @@ namespace CryoRegenesis
         {
             bool hasInjuries;
             bool isTargetAge;
+            int brainImplantCount = 0;
 
             if (HasAnyContents && refuelable.HasFuel)
             {
@@ -154,7 +155,7 @@ namespace CryoRegenesis
                 float pawnAge = pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear;
 
                 isTargetAge = pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * this.targetAge) + rate);
-                hasInjuries = (pawn.health.hediffSet.GetHediffs<Hediff>().Count() > 0);
+                hasInjuries = (pawn.health.hediffSet.GetHediffs<Hediff>().Count() > brainImplantCount);
 
                 if (this.isSafeToRepair == false)
                 {
@@ -204,6 +205,14 @@ namespace CryoRegenesis
                         foreach (Hediff oldHediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
                         {
                             hediffName = oldHediff.def.label;
+                            // Ignore joywires.
+                            if (hediffName == "joywire")
+                            {
+                                ++brainImplantCount;
+                                hasInjuries = (pawn.health.hediffSet.GetHediffs<Hediff>().Count() > brainImplantCount);
+                                continue;
+                            }
+
                             refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercent * 0.10f, 10));
 
                             pawn.health.RemoveHediff(oldHediff);
