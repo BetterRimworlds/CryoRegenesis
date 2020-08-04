@@ -65,9 +65,10 @@ namespace CryoRegenesis
             return 0;
         }
 
-        public override void SpawnSetup()
+        public override void SpawnSetup(Map map)
         {
-            base.SpawnSetup();
+            base.SpawnSetup(map);
+
             refuelable = GetComp<CompRefuelable>();
             power = GetComp<CompPowerTrader>();
             props = power.Props;
@@ -186,7 +187,7 @@ namespace CryoRegenesis
                         Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksLeft / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
                     }
 
-                    if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercent < 0.10f)
+                    if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercentOfMax < 0.10f)
                     {
                         Log.Message("Not enough Uranium to heal.");
                     }
@@ -213,7 +214,7 @@ namespace CryoRegenesis
                                 continue;
                             }
 
-                            refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercent * 0.10f, 10));
+                            refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercentOfMax * 0.10f, 10));
 
                             pawn.health.RemoveHediff(oldHediff);
 
@@ -240,7 +241,6 @@ namespace CryoRegenesis
                     }
                 }
 
-                //if ((!hasInjuries || (hasInjuries && refuelable.FuelPercent >= 0.25f)) && pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
                 if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
                 {
                     power.PowerOutput = -props.basePowerConsumption;

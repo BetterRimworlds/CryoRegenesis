@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-	<name>CryoRegenesis Caskets (1.0)</name>
+	<name>CryoRegenesis Caskets</name>
 	<author>hopeseekr</author>
-	<targetVersion>0.15.1284</targetVersion>
+	<targetVersion>0.16.1393</targetVersion>
 	<description>Adds a new Cryo Casket which reverses aging and related illnesses.\n\nCredit to cat2002 for the source code and Allet for the art</description>
 </ModMetaData>
