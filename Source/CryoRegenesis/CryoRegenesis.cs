@@ -1,5 +1,7 @@
 using RimWorld;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Verse;
 
@@ -25,6 +27,52 @@ namespace CryoRegenesis
         CompProperties_Power props;
         CompProperties_Refuelable fuelprops;
 
+        private IList<Hediff> hediffsToHeal;
+
+        private void determineCurableInjuries(Pawn pawn)
+        {
+            List<string> hediffsToIgnore = new List<string>()
+            {
+                "joywire",
+                "painstopper",
+                "luciferium",
+                "penoxycyline",
+            };
+            this.hediffsToHeal = new List<Hediff>();
+
+            foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
+            {
+                // Ignore joywires, luciferium and more!
+                if (hediffsToIgnore.Contains(hediff.def.label)) {
+                    continue;
+                }
+
+                // Ignore all highs.
+                if (hediff.def.label.Contains("high on ")) {
+                    continue;
+                }
+
+                //// Ignore all tolerances.
+                //if (hediff.def.label.Contains(" tolerance"))
+                //{
+                //    continue;
+                //}
+
+                // Ignore addictions.
+                if (hediff.def.IsAddiction) {
+                    continue;
+                }
+
+                // Ignore everything alcohol related.
+                if (hediff.def.label.Contains("alcohol")) {
+                    continue;
+                }
+
+                this.hediffsToHeal.Add(hediff);
+                Log.Message(hediff.def.label + "( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
+            }
+        }
+
         public int AgeHediffs(Pawn pawn)
         {
             if (pawn != null)
@@ -32,7 +80,7 @@ namespace CryoRegenesis
                 bool hasCataracts = false;
                 bool hasHearingLoss = false;
                 int hediffs = 0;
-                foreach (Hediff injury in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
+                foreach (Hediff injury in this.hediffsToHeal)
                 {
                     string injuryName = injury.def.label;
                     if (injuryName == "cataract" && !hasCataracts)
@@ -59,7 +107,7 @@ namespace CryoRegenesis
             {
                 int OldAgeHediffs = this.AgeHediffs(pawn);
 
-                return pawn.health.hediffSet.GetHediffs<Hediff>().Count() - OldAgeHediffs;
+                return this.hediffsToHeal.Count() - OldAgeHediffs;
             }
 
             return 0;
@@ -84,6 +132,7 @@ namespace CryoRegenesis
             {
                 Pawn pawn = ContainedThing as Pawn;
                 this.configTargetAge(pawn);
+                this.determineCurableInjuries(pawn);
             }
         }
 
@@ -147,7 +196,6 @@ namespace CryoRegenesis
         {
             bool hasInjuries;
             bool isTargetAge;
-            int brainImplantCount = 0;
 
             if (HasAnyContents && refuelable.HasFuel)
             {
@@ -156,7 +204,7 @@ namespace CryoRegenesis
                 float pawnAge = pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear;
 
                 isTargetAge = pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * this.targetAge) + rate);
-                hasInjuries = (pawn.health.hediffSet.GetHediffs<Hediff>().Count() > brainImplantCount);
+                hasInjuries = this.hediffsToHeal != null && this.hediffsToHeal.Any();
 
                 if (this.isSafeToRepair == false)
                 {
@@ -200,23 +248,15 @@ namespace CryoRegenesis
                     // Remove all health-related injuries if they're younger than the repairAge.
                     if (hasInjuries && restoreCoolDown > -1000 && pawn.ageTracker.AgeBiologicalTicks <= restoreCoolDown)
                     {
-                        Log.Message("Cooled down");
-                        
                         string hediffName;
-                        foreach (Hediff oldHediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
+                        foreach (Hediff hediff in this.hediffsToHeal)
                         {
-                            hediffName = oldHediff.def.label;
-                            // Ignore joywires.
-                            if (hediffName == "joywire")
-                            {
-                                ++brainImplantCount;
-                                hasInjuries = (pawn.health.hediffSet.GetHediffs<Hediff>().Count() > brainImplantCount);
-                                continue;
-                            }
+                            hediffName = hediff.def.label;
 
                             refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercentOfMax * 0.10f, 10));
 
-                            pawn.health.RemoveHediff(oldHediff);
+                            pawn.health.RemoveHediff(hediff);
+                            this.hediffsToHeal.RemoveAt(0);
 
                             restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
                             if (ticksLeft < 0)
@@ -224,7 +264,7 @@ namespace CryoRegenesis
                                 restoreCoolDown += ticksLeft;
                             }
                             //restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerSeason;
-                            Log.Message("Cured HEDIFF: " + hediffName + " @ " + oldHediff.def.description + " | " + oldHediff.ToString());
+                            Log.Message("Cured HEDIFF: " + hediffName + " @ " + hediff.def.description + " | " + hediff.ToString());
 
                             break;
                         }
@@ -289,7 +329,7 @@ namespace CryoRegenesis
                 cryptoHediffCooldown = cryptoHediffCooldownBase;
                 restoreCoolDown = -1000;
                 enterTime = Find.TickManager.TicksGame;
-                if (refuelable.HasFuel && (AgeHediffs(thing as Pawn) > 0 || (thing as Pawn).ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21))
+                if ((thing as Pawn).ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
                 {
                     power.PowerOutput = -props.basePowerConsumption;
                 }
@@ -315,6 +355,7 @@ namespace CryoRegenesis
                 }
 
                 this.configTargetAge(pawn);
+                this.determineCurableInjuries(pawn);
 
                 return true;
             }
