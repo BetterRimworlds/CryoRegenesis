@@ -12,8 +12,6 @@ namespace CryoRegenesis
         private Random rnd = new Random();
 
         bool isSafeToRepair = true;
-        int cryptoHediffCooldown;
-        int cryptoHediffCooldownBase = GenDate.TicksPerMonth / 2;
         long restoreCoolDown = -1000;
         int enterTime;
         int targetAge; // 21 for humans. 25% of life expectancy for every other lifeform.
@@ -113,9 +111,9 @@ namespace CryoRegenesis
             return 0;
         }
 
-        public override void SpawnSetup(Map map)
+        public override void SpawnSetup(Map map, bool respawningAfterLoad)
         {
-            base.SpawnSetup(map);
+            base.SpawnSetup(map, respawningAfterLoad);
 
             refuelable = GetComp<CompRefuelable>();
             power = GetComp<CompPowerTrader>();
@@ -139,8 +137,7 @@ namespace CryoRegenesis
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.LookValue<int>(ref cryptoHediffCooldown, "cryptoHediffCooldown");
-            Scribe_Values.LookValue<int>(ref enterTime, "enterTime");
+            Scribe_Values.Look<int>(ref enterTime, "enterTime");
         }
 
         private int CalculateHealingTime(Pawn pawn)
@@ -306,15 +303,15 @@ namespace CryoRegenesis
             if (pawn.def.defName == "Human")
             {
                 // Remove negative and now-irrelevant thoughts:
-                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.MyOrganHarvested);
-                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.BotchedMySurgery);
-                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleptInCold);
-                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleptInHeat);
-                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleptOnGround);
-                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleptOutside);
-                pawn.needs.mood.thoughts.memories.RemoveMemoryThoughtsOfDef(ThoughtDefOf.SleepDisturbed);
-                pawn.needs.mood.thoughts.memories.TryGainMemoryThought(ThoughtDefOf.ArtifactMoodBoost);
-                pawn.needs.mood.thoughts.memories.TryGainMemoryThought(ThoughtDefOf.Catharsis);
+                pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.MyOrganHarvested);
+                pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.BotchedMySurgery);
+                pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.SleptInCold);
+                pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.SleptInHeat);
+                pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.SleptOnGround);
+                pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.SleptOutside);
+                pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.SleepDisturbed);
+                pawn.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.ArtifactMoodBoost);
+                pawn.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.Catharsis);
                 pawn.needs.rest.SetInitialLevel();
             }
 
@@ -326,7 +323,6 @@ namespace CryoRegenesis
         {
             if (base.TryAcceptThing(thing, allowSpecialEffects))
             {
-                cryptoHediffCooldown = cryptoHediffCooldownBase;
                 restoreCoolDown = -1000;
                 enterTime = Find.TickManager.TicksGame;
                 if ((thing as Pawn).ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
@@ -340,14 +336,14 @@ namespace CryoRegenesis
                 {
                     if (hediff.def.hediffClass.ToString() == "Verse.Hediff_AddedPart")
                     {
-                        Messages.Message("Won't repair: " + pawn.NameStringShort + " has an added part: " + hediff.def.label, MessageSound.RejectInput);
+                        Messages.Message("Won't repair: " + pawn.NameStringShort + " has an added part: " + hediff.def.label, MessageTypeDefOf.RejectInput);
                         isSafeToRepair = false;
 
                         return false;
                     }
                     else if (hediff.def.hediffClass.ToString() == "Verse.Hediff_Pregnant")
                     {
-                        Messages.Message("Won't repair: Pregnant", MessageSound.RejectInput);
+                        Messages.Message("Won't repair: Pregnant", MessageTypeDefOf.RejectInput);
                         isSafeToRepair = false;
 
                         return false;
