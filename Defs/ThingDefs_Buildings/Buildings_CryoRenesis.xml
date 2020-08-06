@@ -12,6 +12,7 @@
 		<researchPrerequisites>
 			<li>CryoRegenesis</li>
 		</researchPrerequisites>
+		<leaveResourcesWhenKilled>true</leaveResourcesWhenKilled>
 		<altitudeLayer>Building</altitudeLayer>
 		<passability>PassThroughOnly</passability>
 		<pathCost>70</pathCost>
@@ -35,9 +36,10 @@
 			<ai_chillDestination>false</ai_chillDestination>
 		</building>
 		<costList>
-			<Steel>220</Steel>
-			<Uranium>10</Uranium>
-			<Component>8</Component>
+			<Steel>250</Steel>
+			<Uranium>100</Uranium>
+			<ComponentIndustrial>6</ComponentIndustrial>
+			<ComponentSpacer>2</ComponentSpacer>
 		</costList>
 		<comps>
 			<li Class="CompProperties_Power">

@@ -229,7 +229,7 @@ namespace CryoRegenesis
 
                     if (power.PowerOn && hasInjuries && !isTargetAge && pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
                     {
-                        Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksLeft / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
+                        Log.Message("(" + pawn.Name.ToStringShort + ") Years to Wait: " + ((double)ticksLeft / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
                     }
 
                     if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercentOfMax < 0.10f)
@@ -274,7 +274,7 @@ namespace CryoRegenesis
                         restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - ticksToWait;
                         repairAge = (double)restoreCoolDown / (double)GenDate.TicksPerYear;
                         Log.Message("Current Age in Ticks: " + pawn.ageTracker.AgeBiologicalTicks + " vs. " + restoreCoolDown);
-                        Log.Message("(" + pawn.NameStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
+                        Log.Message("(" + pawn.Name.ToStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
                     }
                 }
 
@@ -336,7 +336,7 @@ namespace CryoRegenesis
                 {
                     if (hediff.def.hediffClass.ToString() == "Verse.Hediff_AddedPart")
                     {
-                        Messages.Message("Won't repair: " + pawn.NameStringShort + " has an added part: " + hediff.def.label, MessageTypeDefOf.RejectInput);
+                        Messages.Message("Won't repair: " + pawn.Name.ToStringShort + " has an added part: " + hediff.def.label, MessageTypeDefOf.RejectInput);
                         isSafeToRepair = false;
 
                         return false;
