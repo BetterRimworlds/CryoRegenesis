@@ -229,7 +229,15 @@ namespace CryoRegenesis
 
                     if (power.PowerOn && hasInjuries && !isTargetAge && pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
                     {
-                        Log.Message("(" + pawn.Name.ToStringShort + ") Years to Wait: " + ((double)ticksLeft / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
+                        //float timeLeft = ((float) ticksLeft / (float) GenDate.TicksPerYear);
+                        float totalDays = (float) ticksLeft / (float) GenDate.TicksPerDay;
+                        ticksLeft.TicksToPeriod(out int years, out int quadrums, out int days, out float hours);
+                        string timeToWait = "";
+                        timeToWait += TranslatorFormattedStringExtensions.Translate(years == 1 ? "Period1Year" : "PeriodYears", (NamedArgument) years);
+                        timeToWait += ", " + TranslatorFormattedStringExtensions.Translate(quadrums == 1 ? "Period1Quadrum" : "PeriodQuadrums", (NamedArgument) quadrums);
+                        timeToWait += " (" + TranslatorFormattedStringExtensions.Translate(days == 1 ? "Period1Day" : "PeriodDays", string.Format("{0:0.00}", totalDays)) + ")";
+
+                        Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
                     }
 
                     if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercentOfMax < 0.10f)
@@ -365,7 +373,9 @@ namespace CryoRegenesis
             {
                 Pawn pawn = ContainedThing as Pawn;
                 pawn.ageTracker.AgeBiologicalTicks.TicksToPeriod(out int years, out int quadrums, out int days, out float hours);
-                string bioTime = "AgeBiological".Translate(new object[]{years,quadrums,days});
+                //string bioTime = "AgeBiological".Translate(new object[]{years,quadrums,days});
+                string bioTime = "AgeBiological".Translate((NamedArgument) years,
+                    (NamedArgument) quadrums, (NamedArgument) days);
 
                 if (isSafeToRepair)
                 {
