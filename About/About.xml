@@ -2,6 +2,8 @@
 <ModMetaData>
 	<name>CryoRegenesis Caskets</name>
 	<author>hopeseekr</author>
-	<targetVersion>1.0.2559</targetVersion>
-	<description>Adds a new Cryo Casket which reverses aging and related illnesses.\n\nCredit to cat2002 for the source code and Allet for the art</description>
+	<supportedVersions>
+		<li>1.1.2654</li>
+	</supportedVersions>
+	<description>Adds a new Cryo Casket which reverses aging and related illnesses.\n\nCredit to cat2002 for the original project and Allet for the art</description>
 </ModMetaData>

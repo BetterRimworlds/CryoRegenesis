@@ -5,7 +5,7 @@
 		<label>cryoregenesis casket</label>
 		<thingClass>CryoRegenesis.Building_CryoRegenesis</thingClass>
 		<graphicData>
-			<texPath>Things/Building/CryoRegenesisCasket/CryoRegenesisCasket</texPath>
+			<texPath>Things/Building/CryoRegenesisCasket</texPath>
 			<graphicClass>Graphic_Multi</graphicClass>
 			<drawSize>(2,3)</drawSize>
 		</graphicData>
