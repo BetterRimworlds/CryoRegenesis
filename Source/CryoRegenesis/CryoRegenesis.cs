@@ -337,10 +337,15 @@ namespace CryoRegenesis
                 pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.SleepDisturbed);
                 pawn.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.ArtifactMoodBoost);
                 pawn.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.Catharsis);
-                pawn.needs.rest.SetInitialLevel();
+
+                pawn.needs.joy.SetInitialLevel();
+                pawn.needs.comfort.SetInitialLevel();
 
                 this.possiblyChangeHairColor(pawn);
             }
+
+            pawn.needs.rest.SetInitialLevel();
+            pawn.needs.food.SetInitialLevel();
 
             power.PowerOutput = 0;
             base.EjectContents();
