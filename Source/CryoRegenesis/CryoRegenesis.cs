@@ -78,6 +78,13 @@ namespace CryoRegenesis
                 {
                     continue;
                 }
+                
+                // Ignore surgically-removed parts (bionics / arcotech)
+                if (hediff.def.label == "missing body part" &&
+                    hediff.def.description == "A body part is entirely missing")
+                {
+                    continue;
+                }
 
                 this.hediffsToHeal.Add(hediff);
                 Log.Message(hediff.def.label + "( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
