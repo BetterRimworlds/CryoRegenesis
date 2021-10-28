@@ -10,7 +10,7 @@ using Verse;
 
 namespace CryoRegenesis
 {
-    public class Building_CryoRegenesis : Building_CryptosleepCasket
+    public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     {
         private Random rnd = new Random();
 
@@ -195,6 +195,8 @@ namespace CryoRegenesis
                 this.configTargetAge(pawn);
                 this.determineCurableInjuries(pawn);
             }
+
+            this.contentsKnown = true;
         }
 
         public override void ExposeData()
