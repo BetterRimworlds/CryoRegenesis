@@ -10,7 +10,7 @@ using Verse;
 
 namespace CryoRegenesis
 {
-    public class Building_CryoRegenesis : Building_CryptosleepCasket
+    public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     {
         private Random rnd = new Random();
 
@@ -32,6 +32,41 @@ namespace CryoRegenesis
         private IList<Hediff> hediffsToHeal;
 
         protected Map currentMap;
+
+        protected string TTLToHeal;
+
+        // @see https://github.com/goudaQuiche/BloodAndStains/blob/c8fdf1a312186eb17505c9b2f3e6e5cd3c408e7c/Source/BloodDripping/ToolsHediff.cs
+        public static bool HasBionicParent(Pawn pawn, BodyPartRecord BPR)
+        {
+            List<BodyPartRecord> allParents = new List<BodyPartRecord>();
+
+            if (BPR.IsCorePart)
+                return false;
+
+            BodyPartRecord recursiveBPR = BPR.parent;
+
+            while (!recursiveBPR.IsCorePart)
+            {
+                if (!recursiveBPR.IsCorePart)
+                    allParents.Add(recursiveBPR);
+
+                recursiveBPR = recursiveBPR.parent;
+            }
+
+            if (allParents.NullOrEmpty())
+                return false;
+
+            //Log.Warning("Found " + allParents.Count + " parent bpr");
+
+            foreach(BodyPartRecord curP in allParents)
+            {
+                IEnumerable<Hediff> hList = pawn.health.hediffSet.hediffs.Where(h => h.Part == curP && h.def.countsAsAddedPartOrImplant);
+                if (!hList.EnumerableNullOrEmpty())
+                    return true;
+            }
+
+            return false;
+        }
 
         private void determineCurableInjuries(Pawn pawn)
         {
@@ -78,16 +113,23 @@ namespace CryoRegenesis
                 {
                     continue;
                 }
-                
+
                 // Ignore surgically-removed parts (bionics / arcotech)
                 if (hediff.def.label == "missing body part" &&
-                    hediff.def.description == "A body part is entirely missing")
+                    hediff.def.description == "A body part is entirely missing.")
                 {
-                    continue;
+                    // But only if they have a bionic or archotech part...
+                    //if (new [] {"bionic", "archotech"}.Any(hediff.Part.parent.def.label.Contains))
+                    // if (pawn.health.hediffSet.GetHediffs<Hediff_Injury>().Any(predicate: h =>
+                    //     h.def.label.Contains("bionic") || h.def.label.Contains("archotech")))
+                    if (HasBionicParent(pawn, hediff.Part))
+                    {
+                        continue;
+                    }
                 }
 
                 this.hediffsToHeal.Add(hediff);
-                Log.Message(hediff.def.label + "( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
+                Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
             }
         }
 
@@ -153,6 +195,8 @@ namespace CryoRegenesis
                 this.configTargetAge(pawn);
                 this.determineCurableInjuries(pawn);
             }
+
+            this.contentsKnown = true;
         }
 
         public override void ExposeData()
@@ -244,7 +288,7 @@ namespace CryoRegenesis
                         return;
                     }
 
-                    if (power.PowerOn && hasInjuries && !isTargetAge && pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
+                    if (power.PowerOn && hasInjuries && !isTargetAge /*&& pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate*/)
                     {
                         //float timeLeft = ((float) ticksLeft / (float) GenDate.TicksPerYear);
                         float totalDays = (float) ticksLeft / (float) GenDate.TicksPerDay;
@@ -254,7 +298,11 @@ namespace CryoRegenesis
                         timeToWait += ", " + TranslatorFormattedStringExtensions.Translate(quadrums == 1 ? "Period1Quadrum" : "PeriodQuadrums", (NamedArgument) quadrums);
                         timeToWait += " (" + TranslatorFormattedStringExtensions.Translate(days == 1 ? "Period1Day" : "PeriodDays", string.Format("{0:0.00}", totalDays)) + ")";
 
-                        Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
+                        this.TTLToHeal = timeToWait;
+                        if (pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
+                        {
+                            Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
+                        }
                     }
 
                     if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercentOfMax < 0.10f)
@@ -546,7 +594,14 @@ namespace CryoRegenesis
 
                 if (isSafeToRepair)
                 {
-                    return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime;
+                    if (this.hediffsToHeal.Any())
+                    {
+                        return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime + "\nTime To Heal: " + this.TTLToHeal;
+                    }
+                    else
+                    {
+                        return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries";
+                    }
                 }
                 else
                 {
