@@ -25,3 +25,10 @@ Stock up on Uranium. You'll need a whole lot of it!
 **Version 1.1: 2021-06-17**
  * Ignore "missing body parts" for more efficient handling of bionics.
  * Reset the pawn's rest, joy and comfort levels on reawakening.
+
+**Version 2.0: 2021-10-28**
+ * Show the Contents tab with the pawn inside.
+ * Added the "Time To Heal" to the casket display.
+ * Added support for compiling for both Rimworld v1.2 and v1.3.
+ * Don't heal over bionics, but do heal peg legs, etc.
+ * Added Linux build support.
