@@ -33,6 +33,8 @@ namespace CryoRegenesis
 
         protected Map currentMap;
 
+        protected string TTLToHeal;
+
         // @see https://github.com/goudaQuiche/BloodAndStains/blob/c8fdf1a312186eb17505c9b2f3e6e5cd3c408e7c/Source/BloodDripping/ToolsHediff.cs
         public static bool HasBionicParent(Pawn pawn, BodyPartRecord BPR)
         {
@@ -111,7 +113,7 @@ namespace CryoRegenesis
                 {
                     continue;
                 }
-                
+
                 // Ignore surgically-removed parts (bionics / arcotech)
                 if (hediff.def.label == "missing body part" &&
                     hediff.def.description == "A body part is entirely missing.")
@@ -127,7 +129,7 @@ namespace CryoRegenesis
                 }
 
                 this.hediffsToHeal.Add(hediff);
-                Log.Message(hediff.def.description + $" [{hediff.Part.parent.def.label}] - "+ "( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
+                Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
             }
         }
 
@@ -284,7 +286,7 @@ namespace CryoRegenesis
                         return;
                     }
 
-                    if (power.PowerOn && hasInjuries && !isTargetAge && pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
+                    if (power.PowerOn && hasInjuries && !isTargetAge /*&& pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate*/)
                     {
                         //float timeLeft = ((float) ticksLeft / (float) GenDate.TicksPerYear);
                         float totalDays = (float) ticksLeft / (float) GenDate.TicksPerDay;
@@ -294,7 +296,11 @@ namespace CryoRegenesis
                         timeToWait += ", " + TranslatorFormattedStringExtensions.Translate(quadrums == 1 ? "Period1Quadrum" : "PeriodQuadrums", (NamedArgument) quadrums);
                         timeToWait += " (" + TranslatorFormattedStringExtensions.Translate(days == 1 ? "Period1Day" : "PeriodDays", string.Format("{0:0.00}", totalDays)) + ")";
 
-                        Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
+                        this.TTLToHeal = timeToWait;
+                        if (pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
+                        {
+                            Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
+                        }
                     }
 
                     if (hasInjuries && ticksLeft <= 0 && refuelable.FuelPercentOfMax < 0.10f)
@@ -586,7 +592,14 @@ namespace CryoRegenesis
 
                 if (isSafeToRepair)
                 {
-                    return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime;
+                    if (this.hediffsToHeal.Any())
+                    {
+                        return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime + "\nTime To Heal: " + this.TTLToHeal;
+                    }
+                    else
+                    {
+                        return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries";
+                    }
                 }
                 else
                 {
