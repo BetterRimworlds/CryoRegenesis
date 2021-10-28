@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
 	<name>CryoRegenesis Caskets</name>
+	<packageId>HopeSeekr.BetterRimworlds.LCryoRegenesis</packageId>
 	<author>hopeseekr</author>
 	<supportedVersions>
 		<li>1.2</li>
+		<li>1.3</li>
 	</supportedVersions>
-	<description>Adds a new Cryo Casket which reverses aging and related illnesses.\n\nCredit to cat2002 for the original project and Allet for the art</description>
+	<description>Adds a new Crygito Casket which reverses aging and related illnesses.\n\nCredit to cat2002 for the original project and Allet for the art</description>
 </ModMetaData>
