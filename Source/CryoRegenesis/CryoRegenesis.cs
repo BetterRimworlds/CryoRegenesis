@@ -33,6 +33,39 @@ namespace CryoRegenesis
 
         protected Map currentMap;
 
+        // @see https://github.com/goudaQuiche/BloodAndStains/blob/c8fdf1a312186eb17505c9b2f3e6e5cd3c408e7c/Source/BloodDripping/ToolsHediff.cs
+        public static bool HasBionicParent(Pawn pawn, BodyPartRecord BPR)
+        {
+            List<BodyPartRecord> allParents = new List<BodyPartRecord>();
+
+            if (BPR.IsCorePart)
+                return false;
+
+            BodyPartRecord recursiveBPR = BPR.parent;
+
+            while (!recursiveBPR.IsCorePart)
+            {
+                if (!recursiveBPR.IsCorePart)
+                    allParents.Add(recursiveBPR);
+
+                recursiveBPR = recursiveBPR.parent;
+            }
+
+            if (allParents.NullOrEmpty())
+                return false;
+
+            //Log.Warning("Found " + allParents.Count + " parent bpr");
+
+            foreach(BodyPartRecord curP in allParents)
+            {
+                IEnumerable<Hediff> hList = pawn.health.hediffSet.hediffs.Where(h => h.Part == curP && h.def.countsAsAddedPartOrImplant);
+                if (!hList.EnumerableNullOrEmpty())
+                    return true;
+            }
+
+            return false;
+        }
+
         private void determineCurableInjuries(Pawn pawn)
         {
             List<string> hediffsToIgnore = new List<string>()
@@ -81,13 +114,20 @@ namespace CryoRegenesis
                 
                 // Ignore surgically-removed parts (bionics / arcotech)
                 if (hediff.def.label == "missing body part" &&
-                    hediff.def.description == "A body part is entirely missing")
+                    hediff.def.description == "A body part is entirely missing.")
                 {
-                    continue;
+                    // But only if they have a bionic or archotech part...
+                    //if (new [] {"bionic", "archotech"}.Any(hediff.Part.parent.def.label.Contains))
+                    // if (pawn.health.hediffSet.GetHediffs<Hediff_Injury>().Any(predicate: h =>
+                    //     h.def.label.Contains("bionic") || h.def.label.Contains("archotech")))
+                    if (HasBionicParent(pawn, hediff.Part))
+                    {
+                        continue;
+                    }
                 }
 
                 this.hediffsToHeal.Add(hediff);
-                Log.Message(hediff.def.label + "( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
+                Log.Message(hediff.def.description + $" [{hediff.Part.parent.def.label}] - "+ "( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
             }
         }
 
