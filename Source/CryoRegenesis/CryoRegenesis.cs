@@ -600,7 +600,7 @@ namespace CryoRegenesis
                     }
                     else
                     {
-                        return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries";
+                        return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime;
                     }
                 }
                 else
