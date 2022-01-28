@@ -351,6 +351,12 @@ namespace CryoRegenesis
                     }
                 }
 
+                if (!hasInjuries)
+                {
+                    Log.Warning("No more injuries; ejecting.");
+                    this.EjectContents();
+                }
+
                 if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
                 {
                     power.PowerOutput = -props.basePowerConsumption;
