@@ -38,9 +38,13 @@
 		<costList>
 			<Steel>250</Steel>
 			<Uranium>100</Uranium>
+            <Gold>250</Gold>
 			<ComponentIndustrial>6</ComponentIndustrial>
 			<ComponentSpacer>2</ComponentSpacer>
 		</costList>
+         <inspectorTabs>
+      <li>ITab_ContentsCasket</li>
+    </inspectorTabs>
 		<comps>
 			<li Class="CompProperties_Power">
 				<compClass>CompPowerTrader</compClass>
@@ -61,8 +65,5 @@
 		<terrainAffordanceNeeded>Heavy</terrainAffordanceNeeded>
 		<staticSunShadowHeight>0.4</staticSunShadowHeight>
 		<constructionSkillPrerequisite>12</constructionSkillPrerequisite>
-		<inspectorTabs>
-			<li>ITab_ContentsCasket</li>
-		</inspectorTabs>
 	</ThingDef>
 </Defs>
