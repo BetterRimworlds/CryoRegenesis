@@ -336,6 +336,9 @@ namespace CryoRegenesis
                             //restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerSeason;
                             Log.Message("Cured HEDIFF: " + hediffName + " @ " + hediff.def.description + " | " + hediff.ToString());
 
+                            // Look for new injuries caused by the healing. E.g., removing a prostetic leg will lead to numerous new
+                            // injuries in the feet.
+                            this.determineCurableInjuries(pawn);
                             break;
                         }
                     }
@@ -556,10 +559,7 @@ namespace CryoRegenesis
                     return false;
                 }
 
-                if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
-                {
-                    power.PowerOutput = -props.basePowerConsumption;
-                }
+                power.PowerOutput = -props.basePowerConsumption;
 
                 // foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
                 // {
