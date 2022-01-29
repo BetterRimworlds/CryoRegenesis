@@ -14,6 +14,8 @@ namespace CryoRegenesis
     {
         private Random rnd = new Random();
 
+        private bool enteredHealthy = false;
+
         bool isSafeToRepair = true;
         long restoreCoolDown = -1000;
         int enterTime;
@@ -29,7 +31,7 @@ namespace CryoRegenesis
         CompProperties_Power props;
         CompProperties_Refuelable fuelprops;
 
-        private IList<Hediff> hediffsToHeal;
+        private IList<Hediff> hediffsToHeal = new List<Hediff>();
 
         protected Map currentMap;
 
@@ -60,7 +62,11 @@ namespace CryoRegenesis
 
             foreach(BodyPartRecord curP in allParents)
             {
-                IEnumerable<Hediff> hList = pawn.health.hediffSet.hediffs.Where(h => h.Part == curP && h.def.countsAsAddedPartOrImplant);
+                IEnumerable<Hediff> hList = pawn.health.hediffSet.hediffs.Where(
+                    h => h.Part == curP
+                         && h.def.countsAsAddedPartOrImplant
+                         && (h.def.label.Contains("bionic") || h.def.label.Contains("archotech"))
+                );
                 if (!hList.EnumerableNullOrEmpty())
                     return true;
             }
@@ -68,7 +74,7 @@ namespace CryoRegenesis
             return false;
         }
 
-        private void determineCurableInjuries(Pawn pawn)
+        private int determineCurableInjuries(Pawn pawn)
         {
             List<string> hediffsToIgnore = new List<string>()
             {
@@ -115,13 +121,9 @@ namespace CryoRegenesis
                 }
 
                 // Ignore surgically-removed parts (bionics / arcotech)
-                if (hediff.def.label == "missing body part" &&
-                    hediff.def.description == "A body part is entirely missing.")
+                if (hediff.def.label == "missing body part")
                 {
                     // But only if they have a bionic or archotech part...
-                    //if (new [] {"bionic", "archotech"}.Any(hediff.Part.parent.def.label.Contains))
-                    // if (pawn.health.hediffSet.GetHediffs<Hediff_Injury>().Any(predicate: h =>
-                    //     h.def.label.Contains("bionic") || h.def.label.Contains("archotech")))
                     if (HasBionicParent(pawn, hediff.Part))
                     {
                         continue;
@@ -131,27 +133,25 @@ namespace CryoRegenesis
                 this.hediffsToHeal.Add(hediff);
                 Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
             }
+
+            return this.hediffsToHeal.Count;
         }
 
         public int AgeHediffs(Pawn pawn)
         {
             if (pawn != null)
             {
-                bool hasCataracts = false;
-                bool hasHearingLoss = false;
                 int hediffs = 0;
                 foreach (Hediff injury in this.hediffsToHeal)
                 {
                     string injuryName = injury.def.label;
-                    if (injuryName == "cataract" && !hasCataracts)
+                    if (injuryName == "cataract")
                     {
                         hediffs += 1;
-                        hasCataracts = true;
                     }
-                    else if (injuryName == "hearing loss" && !hasHearingLoss)
+                    else if (injuryName == "hearing loss")
                     {
                         hediffs += 1;
-                        hasHearingLoss = true;
                     }
                     else if (injuryName == "bad back" || injuryName == "frail" || injuryName == "dementia" || injuryName == "alzheimer's")
                         hediffs += 1;
@@ -193,7 +193,7 @@ namespace CryoRegenesis
             {
                 Pawn pawn = ContainedThing as Pawn;
                 this.configTargetAge(pawn);
-                this.determineCurableInjuries(pawn);
+                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
             }
 
             this.contentsKnown = true;
@@ -210,8 +210,8 @@ namespace CryoRegenesis
             // Get the pawn's age in Years. e.g., 65 years.
             int pawnAge = (int) (pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear);
 
-            // If the pawn is age 25 or younger, set it for a year or less.
-            if (pawnAge <= 25) {
+            // If the pawn is 25% of its max age or younger, set it for a year or less.
+            if (pawnAge <= (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25)) {
                 return GenDate.TicksPerYear / rnd.Next(1, 4);
             }
             else if (pawnAge < 100)
@@ -264,14 +264,14 @@ namespace CryoRegenesis
                 isTargetAge = pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * this.targetAge) + rate);
                 hasInjuries = this.hediffsToHeal != null && this.hediffsToHeal.Any();
 
-                if (this.isSafeToRepair == false)
-                {
-                    this.EjectContents();
-                    this.props.basePowerConsumption = 0;
-                    power.PowerOutput = 0;
-
-                    return;
-                }
+                // if (this.isSafeToRepair == false)
+                // {
+                //     this.EjectContents();
+                //     this.props.basePowerConsumption = 0;
+                //     power.PowerOutput = 0;
+                //
+                //     return;
+                // }
 
                 if (power.PowerOn)
                 {
@@ -336,6 +336,9 @@ namespace CryoRegenesis
                             //restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerSeason;
                             Log.Message("Cured HEDIFF: " + hediffName + " @ " + hediff.def.description + " | " + hediff.ToString());
 
+                            // Look for new injuries caused by the healing. E.g., removing a prostetic leg will lead to numerous new
+                            // injuries in the feet.
+                            this.determineCurableInjuries(pawn);
                             break;
                         }
                     }
@@ -349,6 +352,12 @@ namespace CryoRegenesis
                         Log.Message("Current Age in Ticks: " + pawn.ageTracker.AgeBiologicalTicks + " vs. " + restoreCoolDown);
                         Log.Message("(" + pawn.Name.ToStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
                     }
+                }
+
+                if (this.enteredHealthy == false && !this.hediffsToHeal.Any())
+                {
+                    Log.Warning("No more injuries; ejecting.");
+                    this.EjectContents();
                 }
 
                 if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
@@ -550,31 +559,28 @@ namespace CryoRegenesis
                     return false;
                 }
 
-                if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * 21)
-                {
-                    power.PowerOutput = -props.basePowerConsumption;
-                }
+                power.PowerOutput = -props.basePowerConsumption;
 
-                foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
-                {
-                    // if (hediff.def.hediffClass.ToString() == "Verse.Hediff_AddedPart")
-                    // {
-                    //     Messages.Message("Won't repair: " + pawn.Name.ToStringShort + " has an added part: " + hediff.def.label, MessageTypeDefOf.RejectInput);
-                    //     isSafeToRepair = false;
-                    //
-                    //     return false;
-                    // }
-                    if (hediff.def.hediffClass.ToString() == "Verse.Hediff_Pregnant")
-                    {
-                        Messages.Message("Won't repair: Pregnant", MessageTypeDefOf.RejectInput);
-                        isSafeToRepair = false;
-
-                        return false;
-                    }
-                }
+                // foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
+                // {
+                //     // if (hediff.def.hediffClass.ToString() == "Verse.Hediff_AddedPart")
+                //     // {
+                //     //     Messages.Message("Won't repair: " + pawn.Name.ToStringShort + " has an added part: " + hediff.def.label, MessageTypeDefOf.RejectInput);
+                //     //     isSafeToRepair = false;
+                //     //
+                //     //     return false;
+                //     // }
+                //     if (hediff.def.hediffClass.ToString() == "Verse.Hediff_Pregnant")
+                //     {
+                //         Messages.Message("Won't repair: Pregnant", MessageTypeDefOf.RejectInput);
+                //         isSafeToRepair = false;
+                //
+                //         return false;
+                //     }
+                // }
 
                 this.configTargetAge(pawn);
-                this.determineCurableInjuries(pawn);
+                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
 
                 return true;
             }
