@@ -210,8 +210,8 @@ namespace CryoRegenesis
             // Get the pawn's age in Years. e.g., 65 years.
             int pawnAge = (int) (pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear);
 
-            // If the pawn is age 25 or younger, set it for a year or less.
-            if (pawnAge <= 25) {
+            // If the pawn is 25% of its max age or younger, set it for a year or less.
+            if (pawnAge <= (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25)) {
                 return GenDate.TicksPerYear / rnd.Next(1, 4);
             }
             else if (pawnAge < 100)
