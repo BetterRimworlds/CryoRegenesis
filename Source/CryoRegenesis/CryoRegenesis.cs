@@ -141,21 +141,17 @@ namespace CryoRegenesis
         {
             if (pawn != null)
             {
-                bool hasCataracts = false;
-                bool hasHearingLoss = false;
                 int hediffs = 0;
                 foreach (Hediff injury in this.hediffsToHeal)
                 {
                     string injuryName = injury.def.label;
-                    if (injuryName == "cataract" && !hasCataracts)
+                    if (injuryName == "cataract")
                     {
                         hediffs += 1;
-                        hasCataracts = true;
                     }
-                    else if (injuryName == "hearing loss" && !hasHearingLoss)
+                    else if (injuryName == "hearing loss")
                     {
                         hediffs += 1;
-                        hasHearingLoss = true;
                     }
                     else if (injuryName == "bad back" || injuryName == "frail" || injuryName == "dementia" || injuryName == "alzheimer's")
                         hediffs += 1;
