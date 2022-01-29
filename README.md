@@ -32,3 +32,14 @@ Stock up on Uranium. You'll need a whole lot of it!
  * Added support for compiling for both Rimworld v1.2 and v1.3.
  * Don't heal over bionics, but do heal peg legs, etc.
  * Added Linux build support.
+
+**Version 2.5: 2022-01-29**
+ * Heal the pawn no matter what.
+ * Eject the pawn when there are no more injuries. origin/master
+ * Increased the cost to build by 250 Gold.
+ * Reverse age any pawn that enters healthy.
+ * Completely ignore missing body parts due to bionics.
+ * Properly count Old Age disabilities.
+ * Properly determine healing frequency for species with lower life expenctancies.
+ * Now the chamber reanalyzes for new injuries after each healing.
+
