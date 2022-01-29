@@ -62,7 +62,11 @@ namespace CryoRegenesis
 
             foreach(BodyPartRecord curP in allParents)
             {
-                IEnumerable<Hediff> hList = pawn.health.hediffSet.hediffs.Where(h => h.Part == curP && h.def.countsAsAddedPartOrImplant);
+                IEnumerable<Hediff> hList = pawn.health.hediffSet.hediffs.Where(
+                    h => h.Part == curP
+                         && h.def.countsAsAddedPartOrImplant
+                         && (h.def.label.Contains("bionic") || h.def.label.Contains("archotech"))
+                );
                 if (!hList.EnumerableNullOrEmpty())
                     return true;
             }
@@ -117,18 +121,14 @@ namespace CryoRegenesis
                 }
 
                 // Ignore surgically-removed parts (bionics / arcotech)
-                // if (hediff.def.label == "missing body part" &&
-                //     hediff.def.description == "A body part is entirely missing.")
-                // {
-                //     // But only if they have a bionic or archotech part...
-                //     //if (new [] {"bionic", "archotech"}.Any(hediff.Part.parent.def.label.Contains))
-                //     // if (pawn.health.hediffSet.GetHediffs<Hediff_Injury>().Any(predicate: h =>
-                //     //     h.def.label.Contains("bionic") || h.def.label.Contains("archotech")))
-                //     if (HasBionicParent(pawn, hediff.Part))
-                //     {
-                //         continue;
-                //     }
-                // }
+                if (hediff.def.label == "missing body part")
+                {
+                    // But only if they have a bionic or archotech part...
+                    if (HasBionicParent(pawn, hediff.Part))
+                    {
+                        continue;
+                    }
+                }
 
                 this.hediffsToHeal.Add(hediff);
                 Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
