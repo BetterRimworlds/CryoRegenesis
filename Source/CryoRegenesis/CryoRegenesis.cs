@@ -14,6 +14,8 @@ namespace CryoRegenesis
     {
         private Random rnd = new Random();
 
+        private bool enteredHealthy = false;
+
         bool isSafeToRepair = true;
         long restoreCoolDown = -1000;
         int enterTime;
@@ -29,7 +31,7 @@ namespace CryoRegenesis
         CompProperties_Power props;
         CompProperties_Refuelable fuelprops;
 
-        private IList<Hediff> hediffsToHeal;
+        private IList<Hediff> hediffsToHeal = new List<Hediff>();
 
         protected Map currentMap;
 
@@ -68,7 +70,7 @@ namespace CryoRegenesis
             return false;
         }
 
-        private void determineCurableInjuries(Pawn pawn)
+        private int determineCurableInjuries(Pawn pawn)
         {
             List<string> hediffsToIgnore = new List<string>()
             {
@@ -131,6 +133,8 @@ namespace CryoRegenesis
                 this.hediffsToHeal.Add(hediff);
                 Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
             }
+
+            return this.hediffsToHeal.Count;
         }
 
         public int AgeHediffs(Pawn pawn)
@@ -193,7 +197,7 @@ namespace CryoRegenesis
             {
                 Pawn pawn = ContainedThing as Pawn;
                 this.configTargetAge(pawn);
-                this.determineCurableInjuries(pawn);
+                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
             }
 
             this.contentsKnown = true;
@@ -351,7 +355,7 @@ namespace CryoRegenesis
                     }
                 }
 
-                if (!hasInjuries)
+                if (this.enteredHealthy == false && !this.hediffsToHeal.Any())
                 {
                     Log.Warning("No more injuries; ejecting.");
                     this.EjectContents();
@@ -580,7 +584,7 @@ namespace CryoRegenesis
                 // }
 
                 this.configTargetAge(pawn);
-                this.determineCurableInjuries(pawn);
+                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
 
                 return true;
             }
