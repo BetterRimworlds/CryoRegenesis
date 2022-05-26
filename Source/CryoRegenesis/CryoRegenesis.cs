@@ -354,7 +354,7 @@ namespace CryoRegenesis
                     }
                 }
 
-                if (this.enteredHealthy == false && !this.hediffsToHeal.Any())
+                if (this.enteredHealthy == false && pawn.RaceProps.Humanlike && !this.hediffsToHeal.Any())
                 {
                     Log.Warning("No more injuries; ejecting.");
                     this.EjectContents();
