@@ -41,5 +41,10 @@ Stock up on Uranium. You'll need a whole lot of it!
  * Completely ignore missing body parts due to bionics.
  * Properly count Old Age disabilities.
  * Properly determine healing frequency for species with lower life expenctancies.
- * Now the chamber reanalyzes for new injuries after each healing.
+ * [2022-01-29] - Now the chamber reanalyzes for new injuries after each healing.
 
+**Version 2.6: 2023-01-13**
+ * [2022-05-26] - Reverse the age of animals completely.
+ * [2023-01-13] - Moved the Defs into the standard location.
+ * [2023-01-13] - Automatically package all of the supported versions DLLs into the v1.2 Mod directory.
+ * [2023-01-13] - Upgraded to Rimworld v1.4.3580.
