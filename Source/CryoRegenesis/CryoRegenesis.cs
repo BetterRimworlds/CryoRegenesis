@@ -86,7 +86,13 @@ namespace CryoRegenesis
             };
             this.hediffsToHeal = new List<Hediff>();
 
+            #if RIMWORLD14
+            var hediffsOfPawn = new List<Hediff>();
+            pawn.health.hediffSet.GetHediffs<Hediff>(ref hediffsOfPawn);
+            foreach (Hediff hediff in hediffsOfPawn.ToList())
+            #else
             foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
+            #endif
             {
                 // Ignore joywires, luciferium and more!
                 if (hediffsToIgnore.Contains(hediff.def.label)) {
@@ -281,7 +287,7 @@ namespace CryoRegenesis
                     if (isTargetAge && !hasInjuries)
                     {
                         this.EjectContents();
-                        this.props.basePowerConsumption = 0;
+                        // this.props.basePowerConsumption = 0;
                         power.PowerOn = false;
                         power.PowerOutput = 0;
 
@@ -354,7 +360,7 @@ namespace CryoRegenesis
                     }
                 }
 
-                if (this.enteredHealthy == false && !this.hediffsToHeal.Any())
+                if (this.enteredHealthy == false && pawn.RaceProps.Humanlike && !this.hediffsToHeal.Any())
                 {
                     Log.Warning("No more injuries; ejecting.");
                     this.EjectContents();
@@ -362,7 +368,12 @@ namespace CryoRegenesis
 
                 if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
                 {
+                    #if RIMWORLD14
+                    power.PowerOutput = -props.PowerConsumption;
+                    #else
                     power.PowerOutput = -props.basePowerConsumption;
+                    #endif
+
                     if (power.PowerOn)
                     {
                         if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
@@ -440,7 +451,11 @@ namespace CryoRegenesis
 
         protected void changeHairColor(Pawn pawn, Color hairColor)
         {
+            #if RIMWORLD14
+            pawn.story.HairColor = hairColor;
+            #else
             pawn.story.hairColor = hairColor;
+            #endif
             this.rerenderPawn(pawn);
         }
 
@@ -462,12 +477,17 @@ namespace CryoRegenesis
         protected bool hasWhiteOrGrayHair(Pawn pawn)
         {
             string hsv;
-            Color.RGBToHSV(pawn.story.hairColor, out float H, out float S, out float V);
+            #if RIMWORLD14
+            Color hairColor = pawn.story.HairColor;
+            #else
+            Color hairColor = pawn.story.hairColor;
+            #endif
+            Color.RGBToHSV(hairColor, out float H, out float S, out float V);
             S *= 100;
             V *= 100;
             hsv = string.Format("{0:0.00}°, {1:0.00}%, {2:0.00}%", H, S, V);
 
-            Log.Message("Pawn's hair color: " + pawn.story.hairColor + " (" + hsv + " HSV)" + "; melanin: " + pawn.story.melanin + "; body type: " + pawn.story.bodyType);
+            Log.Message("Pawn's hair color: " + hairColor + " (" + hsv + " HSV)" + "; body type: " + pawn.story.bodyType);
 
             // if (H <= 5 && S <= 5 && V >= 40)
             // {
@@ -559,7 +579,11 @@ namespace CryoRegenesis
                     return false;
                 }
 
+                #if RIMWORLD14
+                power.PowerOutput = -props.PowerConsumption;
+                #else
                 power.PowerOutput = -props.basePowerConsumption;
+                #endif
 
                 // foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
                 // {
