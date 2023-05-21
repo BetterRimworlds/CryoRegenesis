@@ -16,6 +16,11 @@ cure all age-related infirmities as well as every physical injury!
 
 Stock up on Uranium. You'll need a whole lot of it!
 
+![Cargo](https://github.com/BetterRimworlds/CryoRegenesis/assets/1125541/e76d8ca0-2616-44d6-9f7e-f89fa014a633)
+
+Here's our illustrious pup, Cargo! He's been with the colonists 101 years and is 107 years old! He's lived
+on more Rimworlds than most humans!
+
 ## Changelog
 
 **Version 1.0: 2020-08-11**
