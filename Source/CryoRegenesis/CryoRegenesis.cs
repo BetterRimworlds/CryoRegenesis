@@ -173,6 +173,12 @@ namespace BetterRimworlds.CryoRegenesis
                     continue;
                 }
 
+                // Ignore all implants.
+                if (hediff.def.hediffClass == typeof(Hediff_Implant))
+                {
+                    continue;
+                }
+
                 // Ignore bionic body parts.
                 if (hediff.def.label.Contains("bionic") || hediff.def.label.Contains("archotech"))
                 {
