@@ -3,7 +3,7 @@
 	<ThingDef ParentName="BuildingBase">
 		<defName>CryoRegenesisCasket</defName>
 		<label>cryoregenesis casket</label>
-		<thingClass>CryoRegenesis.Building_CryoRegenesis</thingClass>
+		<thingClass>BetterRimworlds.CryoRegenesis.Building_CryoRegenesis</thingClass>
 		<graphicData>
 			<texPath>Things/Building/CryoRegenesisCasket</texPath>
 			<graphicClass>Graphic_Multi</graphicClass>

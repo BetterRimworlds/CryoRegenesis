@@ -8,8 +8,15 @@ using UnityEngine;
 using Verse;
 // ReSharper disable All
 
-namespace CryoRegenesis
+namespace BetterRimworlds.CryoRegenesis
 {
+    public class CryoRegenesis: Mod
+    {
+        public CryoRegenesis(ModContentPack content) : base(content)
+        {
+        }
+    }
+
     public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     {
         private Random rnd = new Random();
