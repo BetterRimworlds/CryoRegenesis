@@ -12,8 +12,22 @@ namespace BetterRimworlds.CryoRegenesis
 {
     public class CryoRegenesis: Mod
     {
+        public static Settings Settings;
+
         public CryoRegenesis(ModContentPack content) : base(content)
         {
+            Settings = GetSettings<Settings>() ?? new Settings();
+        }
+
+        public override void DoSettingsWindowContents(Rect inRect)
+        {
+            base.DoSettingsWindowContents(inRect);
+            Settings.DoSettingsWindowContents(inRect);
+        }
+
+        public override string SettingsCategory()
+        {
+            return "CryoRegenesis";
         }
     }
 
