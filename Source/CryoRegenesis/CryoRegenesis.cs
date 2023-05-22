@@ -381,7 +381,7 @@ namespace BetterRimworlds.CryoRegenesis
                     }
                 }
 
-                if (this.enteredHealthy == false && pawn.RaceProps.Humanlike && !this.hediffsToHeal.Any())
+                if (CryoRegenesis.Settings.regenUntilHealed == true && this.enteredHealthy == false && pawn.RaceProps.Humanlike && !this.hediffsToHeal.Any())
                 {
                     Log.Warning("No more injuries; ejecting.");
                     this.EjectContents();
