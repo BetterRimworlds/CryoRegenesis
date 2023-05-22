@@ -95,6 +95,32 @@ namespace BetterRimworlds.CryoRegenesis
             return false;
         }
 
+        public override void SpawnSetup(Map map, bool respawningAfterLoad)
+        {
+            base.SpawnSetup(map, respawningAfterLoad);
+            this.currentMap = map;
+
+            refuelable = GetComp<CompRefuelable>();
+            power = GetComp<CompPowerTrader>();
+            props = power.Props;
+            fuelprops = refuelable.Props;
+
+            // Require more fuel for faster rates.
+            float fuelPerReversedYear = 1.0f * ((float)rate / 250);
+
+            fuelConsumption =  fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
+            // Log.Message("Fuel consumption per Tick: " + fuelConsumption);
+
+            if (HasAnyContents)
+            {
+                Pawn pawn = ContainedThing as Pawn;
+                this.configTargetAge(pawn);
+                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
+            }
+
+            this.contentsKnown = true;
+        }
+
         private int determineCurableInjuries(Pawn pawn)
         {
             List<string> hediffsToIgnore = new List<string>()
@@ -198,32 +224,6 @@ namespace BetterRimworlds.CryoRegenesis
             }
 
             return 0;
-        }
-
-        public override void SpawnSetup(Map map, bool respawningAfterLoad)
-        {
-            base.SpawnSetup(map, respawningAfterLoad);
-            this.currentMap = map;
-
-            refuelable = GetComp<CompRefuelable>();
-            power = GetComp<CompPowerTrader>();
-            props = power.Props;
-            fuelprops = refuelable.Props;
-
-            // Require more fuel for faster rates.
-            float fuelPerReversedYear = 1.0f * ((float)rate / 250);
-
-            fuelConsumption =  fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
-            // Log.Message("Fuel consumption per Tick: " + fuelConsumption);
-
-            if (HasAnyContents)
-            {
-                Pawn pawn = ContainedThing as Pawn;
-                this.configTargetAge(pawn);
-                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
-            }
-
-            this.contentsKnown = true;
         }
 
         public override void ExposeData()
