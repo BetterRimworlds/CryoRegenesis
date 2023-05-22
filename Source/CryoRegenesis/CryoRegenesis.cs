@@ -668,7 +668,7 @@ namespace BetterRimworlds.CryoRegenesis
             // 21 for humans. 25% of life expectancy for everything else.
             if (pawn.def.defName == "Human")
             {
-                this.targetAge = 21;
+                this.targetAge = CryoRegenesis.Settings.targetAge;
             }
             else
             {
