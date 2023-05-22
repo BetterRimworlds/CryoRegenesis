@@ -167,6 +167,12 @@ namespace BetterRimworlds.CryoRegenesis
                     continue;
                 }
 
+                // Don't heal anything not marked as "bad", if they have the setting enabled.
+                if (CryoRegenesis.Settings.healSimpleProsthetics == false && hediff.def.tendable == false)
+                {
+                    continue;
+                }
+
                 // Ignore bionic body parts.
                 if (hediff.def.label.Contains("bionic") || hediff.def.label.Contains("archotech"))
                 {
