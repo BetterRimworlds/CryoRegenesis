@@ -184,7 +184,7 @@ namespace BetterRimworlds.CryoRegenesis
                 }
 
                 this.hediffsToHeal.Add(hediff);
-                Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
+                if (CryoRegenesis.Settings.debugMode) Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
             }
 
             return this.hediffsToHeal.Count;
@@ -267,7 +267,7 @@ namespace BetterRimworlds.CryoRegenesis
 
                 double frequency = rnd.Next(minFrequency, maxFrequency);
 
-                Log.Message("Healing Frequency: Base (" + baseFrequency + ") Min (" + minFrequency + ") Max (" + maxFrequency + ") Actual: " + frequency + "%");
+                if (CryoRegenesis.Settings.debugMode) Log.Message("Healing Frequency: Base (" + baseFrequency + ") Min (" + minFrequency + ") Max (" + maxFrequency + ") Actual: " + frequency + "%");
 
                 return (int)Math.Round((frequency / 100) * (GenDate.TicksPerYear * decadeOfLife));
             }
@@ -328,7 +328,7 @@ namespace BetterRimworlds.CryoRegenesis
                         this.TTLToHeal = timeToWait;
                         if (pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
                         {
-                            Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
+                            if (CryoRegenesis.Settings.debugMode) Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
                         }
                     }
 
@@ -361,7 +361,7 @@ namespace BetterRimworlds.CryoRegenesis
                                 restoreCoolDown += ticksLeft;
                             }
                             //restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerSeason;
-                            Log.Message("Cured HEDIFF: " + hediffName + " @ " + hediff.def.description + " | " + hediff.ToString());
+                            if (CryoRegenesis.Settings.debugMode) Log.Message("Cured HEDIFF: " + hediffName + " @ " + hediff.def.description + " | " + hediff.ToString());
 
                             // Look for new injuries caused by the healing. E.g., removing a prostetic leg will lead to numerous new
                             // injuries in the feet.
@@ -376,8 +376,8 @@ namespace BetterRimworlds.CryoRegenesis
 
                         restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - ticksToWait;
                         repairAge = (double)restoreCoolDown / (double)GenDate.TicksPerYear;
-                        Log.Message("Current Age in Ticks: " + pawn.ageTracker.AgeBiologicalTicks + " vs. " + restoreCoolDown);
-                        Log.Message("(" + pawn.Name.ToStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
+                        if (CryoRegenesis.Settings.debugMode) Log.Message("Current Age in Ticks: " + pawn.ageTracker.AgeBiologicalTicks + " vs. " + restoreCoolDown);
+                        if (CryoRegenesis.Settings.debugMode) Log.Message("(" + pawn.Name.ToStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
                     }
                 }
 
@@ -482,7 +482,7 @@ namespace BetterRimworlds.CryoRegenesis
 
         protected bool changeHairColorRandomly(Pawn pawn)
         {
-            Log.Message($"Pawn is {pawn.ageTracker.AgeChronologicalYears} chronological years old ({pawn.ageTracker.AgeChronologicalTicks} Ticks)");
+            if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawn.ageTracker.AgeChronologicalYears} chronological years old ({pawn.ageTracker.AgeChronologicalTicks} Ticks)");
             int seed = Convert.ToInt32(pawn.ageTracker.AgeChronologicalTicks > Int32.MaxValue - 1
                 ? pawn.ageTracker.AgeChronologicalTicks % Int32.MaxValue
                 : pawn.ageTracker.AgeChronologicalTicks);
@@ -508,7 +508,7 @@ namespace BetterRimworlds.CryoRegenesis
             V *= 100;
             hsv = string.Format("{0:0.00}°, {1:0.00}%, {2:0.00}%", H, S, V);
 
-            Log.Message("Pawn's hair color: " + hairColor + " (" + hsv + " HSV)" + "; body type: " + pawn.story.bodyType);
+            if (CryoRegenesis.Settings.debugMode) Log.Message("Pawn's hair color: " + hairColor + " (" + hsv + " HSV)" + "; body type: " + pawn.story.bodyType);
 
             // if (H <= 5 && S <= 5 && V >= 40)
             // {
@@ -530,24 +530,24 @@ namespace BetterRimworlds.CryoRegenesis
             if (this.hasWhiteOrGrayHair(pawn))
             {
                 int pawnAge = pawn.ageTracker.AgeBiologicalYears;
-                Log.Message($"Pawn is {pawn.gender} and {pawnAge} years old.");
+                if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawn.gender} and {pawnAge} years old.");
                 // Substantially reduce the odds if the pawn is over the age of 50 (-10% per year).
                 if (pawnAge >= 50)
                 {
                     if (pawnAge >= 60)
                     {
-                        Log.Message($"Pawn age ({pawnAge}) is over 60, not changing hair color.");
+                        if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn age ({pawnAge}) is over 60, not changing hair color.");
                         return false;
                     }
 
                     int rangeMax = pawnAge - 50 + 1;
                     int randomNum = rnd.Next(0, pawnAge - 50 + 1);
-                    Log.Message($"Pawn age ({pawnAge}) is >= 50 < 60, max range: {rangeMax}. Random number = {randomNum}.");
+                    if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn age ({pawnAge}) is >= 50 < 60, max range: {rangeMax}. Random number = {randomNum}.");
 
                     // 0-1 @ 50 = 50%; 0-2 @ 51 = 33% chance, 0-3 @ 52 = 25% ... 0-10 @ 59 = 9%
                     if (randomNum == 0)
                     {
-                        Log.Message("Changing the hair color!!");
+                        if (CryoRegenesis.Settings.debugMode) Log.Message("Changing the hair color!!");
                         return this.changeHairColorRandomly(pawn);
                     }
 
@@ -561,7 +561,7 @@ namespace BetterRimworlds.CryoRegenesis
                     (pawn.gender == Gender.Female && pawnAge <= 30)
                     )
                 {
-                    Log.Message($"Pawn is {pawnAge} years old and prematurely balding. Changing the hair color!!");
+                    if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawnAge} years old and prematurely balding. Changing the hair color!!");
                     return this.changeHairColorRandomly(pawn);
                 }
             }
@@ -570,7 +570,7 @@ namespace BetterRimworlds.CryoRegenesis
             var dice2 = rnd.Next(1, 7);
             var diceSum = dice1 + dice2;
 
-            Log.Message($"Dice rolls: ({dice1}, {dice2}) = {diceSum}");
+            if (CryoRegenesis.Settings.debugMode) Log.Message($"Dice rolls: ({dice1}, {dice2}) = {diceSum}");
 
             // One in Three chance that their hair color will be changed otherwise. 
             // Stats taken from https://statweb.stanford.edu/~susan/courses/s60/split/node65.html (http://archive.is/wip/v39lj)
