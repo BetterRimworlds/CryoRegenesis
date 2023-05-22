@@ -443,6 +443,13 @@ namespace BetterRimworlds.CryoRegenesis
                 pawn.needs.comfort.SetInitialLevel();
 
                 this.possiblyChangeHairColor(pawn);
+
+                // if (pawn.IsColonist == false)
+                // {
+                //     // Remove the guest from the Forcefully Kept WorldPawns.
+                //     RimWorld.Planet.WorldPawns worldPawns = Find.WorldPawns;
+                //     worldPawns.ForcefullyKeptPawns.Remove(pawn);
+                // }
             }
 
             pawn.needs.rest.SetInitialLevel();
@@ -602,15 +609,18 @@ namespace BetterRimworlds.CryoRegenesis
             {
                 return false;
             }
+
+            var pawn = thing as Pawn;
+            if (thing is Pawn && pawn.IsColonist == false)
+            {
+                // Reject to avoid the bad bug.
+                return false;
+            }
+
             if (base.TryAcceptThing(thing, allowSpecialEffects))
             {
                 restoreCoolDown = -1000;
                 enterTime = Find.TickManager.TicksGame;
-                var pawn = thing as Pawn;
-                if (pawn == null)
-                {
-                    return false;
-                }
 
                 #if RIMWORLD14
                 power.PowerOutput = -props.PowerConsumption;
