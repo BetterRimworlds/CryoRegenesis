@@ -8,8 +8,29 @@ using UnityEngine;
 using Verse;
 // ReSharper disable All
 
-namespace CryoRegenesis
+namespace BetterRimworlds.CryoRegenesis
 {
+    public class CryoRegenesis: Mod
+    {
+        public static Settings Settings;
+
+        public CryoRegenesis(ModContentPack content) : base(content)
+        {
+            Settings = GetSettings<Settings>() ?? new Settings();
+        }
+
+        public override void DoSettingsWindowContents(Rect inRect)
+        {
+            base.DoSettingsWindowContents(inRect);
+            Settings.DoSettingsWindowContents(inRect);
+        }
+
+        public override string SettingsCategory()
+        {
+            return "CryoRegenesis";
+        }
+    }
+
     public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     {
         private Random rnd = new Random();
@@ -74,6 +95,32 @@ namespace CryoRegenesis
             return false;
         }
 
+        public override void SpawnSetup(Map map, bool respawningAfterLoad)
+        {
+            base.SpawnSetup(map, respawningAfterLoad);
+            this.currentMap = map;
+
+            refuelable = GetComp<CompRefuelable>();
+            power = GetComp<CompPowerTrader>();
+            props = power.Props;
+            fuelprops = refuelable.Props;
+
+            // Require more fuel for faster rates.
+            float fuelPerReversedYear = 1.0f * ((float)rate / 250);
+
+            fuelConsumption =  fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
+            // Log.Message("Fuel consumption per Tick: " + fuelConsumption);
+
+            if (HasAnyContents)
+            {
+                Pawn pawn = ContainedThing as Pawn;
+                this.configTargetAge(pawn);
+                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
+            }
+
+            this.contentsKnown = true;
+        }
+
         private int determineCurableInjuries(Pawn pawn)
         {
             List<string> hediffsToIgnore = new List<string>()
@@ -120,6 +167,18 @@ namespace CryoRegenesis
                     continue;
                 }
 
+                // Don't heal anything not marked as "bad", if they have the setting enabled.
+                if (CryoRegenesis.Settings.healSimpleProsthetics == false && hediff.def.tendable == false)
+                {
+                    continue;
+                }
+
+                // Ignore all implants.
+                if (hediff.def.hediffClass == typeof(Hediff_Implant))
+                {
+                    continue;
+                }
+
                 // Ignore bionic body parts.
                 if (hediff.def.label.Contains("bionic") || hediff.def.label.Contains("archotech"))
                 {
@@ -137,7 +196,7 @@ namespace CryoRegenesis
                 }
 
                 this.hediffsToHeal.Add(hediff);
-                Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
+                if (CryoRegenesis.Settings.debugMode) Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
             }
 
             return this.hediffsToHeal.Count;
@@ -177,32 +236,6 @@ namespace CryoRegenesis
             }
 
             return 0;
-        }
-
-        public override void SpawnSetup(Map map, bool respawningAfterLoad)
-        {
-            base.SpawnSetup(map, respawningAfterLoad);
-            this.currentMap = map;
-
-            refuelable = GetComp<CompRefuelable>();
-            power = GetComp<CompPowerTrader>();
-            props = power.Props;
-            fuelprops = refuelable.Props;
-
-            // Require more fuel for faster rates.
-            float fuelPerReversedYear = 1.0f * ((float)rate / 250);
-
-            fuelConsumption =  fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
-            // Log.Message("Fuel consumption per Tick: " + fuelConsumption);
-
-            if (HasAnyContents)
-            {
-                Pawn pawn = ContainedThing as Pawn;
-                this.configTargetAge(pawn);
-                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
-            }
-
-            this.contentsKnown = true;
         }
 
         public override void ExposeData()
@@ -246,7 +279,7 @@ namespace CryoRegenesis
 
                 double frequency = rnd.Next(minFrequency, maxFrequency);
 
-                Log.Message("Healing Frequency: Base (" + baseFrequency + ") Min (" + minFrequency + ") Max (" + maxFrequency + ") Actual: " + frequency + "%");
+                if (CryoRegenesis.Settings.debugMode) Log.Message("Healing Frequency: Base (" + baseFrequency + ") Min (" + minFrequency + ") Max (" + maxFrequency + ") Actual: " + frequency + "%");
 
                 return (int)Math.Round((frequency / 100) * (GenDate.TicksPerYear * decadeOfLife));
             }
@@ -307,7 +340,7 @@ namespace CryoRegenesis
                         this.TTLToHeal = timeToWait;
                         if (pawn.ageTracker.AgeBiologicalTicks % GenDate.TicksPerSeason <= rate)
                         {
-                            Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
+                            if (CryoRegenesis.Settings.debugMode) Log.Message("(" + pawn.Name.ToStringShort + ") Time to Wait: " + timeToWait + " | Next repair at: " + repairAge);
                         }
                     }
 
@@ -340,7 +373,7 @@ namespace CryoRegenesis
                                 restoreCoolDown += ticksLeft;
                             }
                             //restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerSeason;
-                            Log.Message("Cured HEDIFF: " + hediffName + " @ " + hediff.def.description + " | " + hediff.ToString());
+                            if (CryoRegenesis.Settings.debugMode) Log.Message("Cured HEDIFF: " + hediffName + " @ " + hediff.def.description + " | " + hediff.ToString());
 
                             // Look for new injuries caused by the healing. E.g., removing a prostetic leg will lead to numerous new
                             // injuries in the feet.
@@ -355,12 +388,12 @@ namespace CryoRegenesis
 
                         restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - ticksToWait;
                         repairAge = (double)restoreCoolDown / (double)GenDate.TicksPerYear;
-                        Log.Message("Current Age in Ticks: " + pawn.ageTracker.AgeBiologicalTicks + " vs. " + restoreCoolDown);
-                        Log.Message("(" + pawn.Name.ToStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
+                        if (CryoRegenesis.Settings.debugMode) Log.Message("Current Age in Ticks: " + pawn.ageTracker.AgeBiologicalTicks + " vs. " + restoreCoolDown);
+                        if (CryoRegenesis.Settings.debugMode) Log.Message("(" + pawn.Name.ToStringShort + ") Years to Wait: " + ((double)ticksToWait / (double)GenDate.TicksPerYear) + " | Next repair at: " + repairAge);
                     }
                 }
 
-                if (this.enteredHealthy == false && pawn.RaceProps.Humanlike && !this.hediffsToHeal.Any())
+                if (CryoRegenesis.Settings.regenUntilHealed == true && this.enteredHealthy == false && pawn.RaceProps.Humanlike && !this.hediffsToHeal.Any())
                 {
                     Log.Warning("No more injuries; ejecting.");
                     this.EjectContents();
@@ -410,6 +443,13 @@ namespace CryoRegenesis
                 pawn.needs.comfort.SetInitialLevel();
 
                 this.possiblyChangeHairColor(pawn);
+
+                // if (pawn.IsColonist == false)
+                // {
+                //     // Remove the guest from the Forcefully Kept WorldPawns.
+                //     RimWorld.Planet.WorldPawns worldPawns = Find.WorldPawns;
+                //     worldPawns.ForcefullyKeptPawns.Remove(pawn);
+                // }
             }
 
             pawn.needs.rest.SetInitialLevel();
@@ -424,10 +464,10 @@ namespace CryoRegenesis
             var BRIGHTRED   = new Color(237.00f / 256.0f, 41.00f / 256.0f, 57.00f / 256.0f);
             var DARKRED     = new Color(146.00f / 256.0f, 39.00f / 256.0f, 36.00f / 256.0f);
             var HAZEL       = new Color(132.61f / 256.0f, 83.20f / 256.0f, 47.10f / 256.0f);
-            // var BROWN       = new Color(64.00f / 256.0f, 51.20f / 256.0f, 38.40f / 256.0f);
-            // var DARKBROWN   = new Color(51.20f / 256.0f, 51.20f / 256.0f, 51.20f / 256.0f);
-            // var BLACK       = new Color(51.20f / 256.0f, 51.20f / 256.0f, 51.20f / 256.0f);
-            // var DARKBLACK   = new Color(20.20f / 256.0f, 20.20f / 256.0f, 20.20f / 256.0f);
+            var BROWN       = new Color(64.00f / 256.0f, 51.20f / 256.0f, 38.40f / 256.0f);
+            var DARKBROWN   = new Color(51.20f / 256.0f, 51.20f / 256.0f, 51.20f / 256.0f);
+            var BLACK       = new Color(51.20f / 256.0f, 51.20f / 256.0f, 51.20f / 256.0f);
+            var DARKBLACK   = new Color(20.20f / 256.0f, 20.20f / 256.0f, 20.20f / 256.0f);
             var BLONDE      = new Color(222.00f / 256.0f, 188.00f / 256.0f, 153.00f / 256.0f);
             var LIGHTBLONDE = new Color(250.00f / 256.0f, 240.00f / 256.0f, 190.00f / 256.0f);
 
@@ -461,7 +501,7 @@ namespace CryoRegenesis
 
         protected bool changeHairColorRandomly(Pawn pawn)
         {
-            Log.Message($"Pawn is {pawn.ageTracker.AgeChronologicalYears} chronological years old ({pawn.ageTracker.AgeChronologicalTicks} Ticks)");
+            if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawn.ageTracker.AgeChronologicalYears} chronological years old ({pawn.ageTracker.AgeChronologicalTicks} Ticks)");
             int seed = Convert.ToInt32(pawn.ageTracker.AgeChronologicalTicks > Int32.MaxValue - 1
                 ? pawn.ageTracker.AgeChronologicalTicks % Int32.MaxValue
                 : pawn.ageTracker.AgeChronologicalTicks);
@@ -487,7 +527,7 @@ namespace CryoRegenesis
             V *= 100;
             hsv = string.Format("{0:0.00}°, {1:0.00}%, {2:0.00}%", H, S, V);
 
-            Log.Message("Pawn's hair color: " + hairColor + " (" + hsv + " HSV)" + "; body type: " + pawn.story.bodyType);
+            if (CryoRegenesis.Settings.debugMode) Log.Message("Pawn's hair color: " + hairColor + " (" + hsv + " HSV)" + "; body type: " + pawn.story.bodyType);
 
             // if (H <= 5 && S <= 5 && V >= 40)
             // {
@@ -509,24 +549,24 @@ namespace CryoRegenesis
             if (this.hasWhiteOrGrayHair(pawn))
             {
                 int pawnAge = pawn.ageTracker.AgeBiologicalYears;
-                Log.Message($"Pawn is {pawn.gender} and {pawnAge} years old.");
+                if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawn.gender} and {pawnAge} years old.");
                 // Substantially reduce the odds if the pawn is over the age of 50 (-10% per year).
                 if (pawnAge >= 50)
                 {
                     if (pawnAge >= 60)
                     {
-                        Log.Message($"Pawn age ({pawnAge}) is over 60, not changing hair color.");
+                        if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn age ({pawnAge}) is over 60, not changing hair color.");
                         return false;
                     }
 
                     int rangeMax = pawnAge - 50 + 1;
                     int randomNum = rnd.Next(0, pawnAge - 50 + 1);
-                    Log.Message($"Pawn age ({pawnAge}) is >= 50 < 60, max range: {rangeMax}. Random number = {randomNum}.");
+                    if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn age ({pawnAge}) is >= 50 < 60, max range: {rangeMax}. Random number = {randomNum}.");
 
                     // 0-1 @ 50 = 50%; 0-2 @ 51 = 33% chance, 0-3 @ 52 = 25% ... 0-10 @ 59 = 9%
                     if (randomNum == 0)
                     {
-                        Log.Message("Changing the hair color!!");
+                        if (CryoRegenesis.Settings.debugMode) Log.Message("Changing the hair color!!");
                         return this.changeHairColorRandomly(pawn);
                     }
 
@@ -540,7 +580,7 @@ namespace CryoRegenesis
                     (pawn.gender == Gender.Female && pawnAge <= 30)
                     )
                 {
-                    Log.Message($"Pawn is {pawnAge} years old and prematurely balding. Changing the hair color!!");
+                    if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawnAge} years old and prematurely balding. Changing the hair color!!");
                     return this.changeHairColorRandomly(pawn);
                 }
             }
@@ -549,7 +589,7 @@ namespace CryoRegenesis
             var dice2 = rnd.Next(1, 7);
             var diceSum = dice1 + dice2;
 
-            Log.Message($"Dice rolls: ({dice1}, {dice2}) = {diceSum}");
+            if (CryoRegenesis.Settings.debugMode) Log.Message($"Dice rolls: ({dice1}, {dice2}) = {diceSum}");
 
             // One in Three chance that their hair color will be changed otherwise. 
             // Stats taken from https://statweb.stanford.edu/~susan/courses/s60/split/node65.html (http://archive.is/wip/v39lj)
@@ -569,15 +609,18 @@ namespace CryoRegenesis
             {
                 return false;
             }
+
+            var pawn = thing as Pawn;
+            if (thing is Pawn && pawn.IsColonist == false)
+            {
+                // Reject to avoid the bad bug.
+                return false;
+            }
+
             if (base.TryAcceptThing(thing, allowSpecialEffects))
             {
                 restoreCoolDown = -1000;
                 enterTime = Find.TickManager.TicksGame;
-                var pawn = thing as Pawn;
-                if (pawn == null)
-                {
-                    return false;
-                }
 
                 #if RIMWORLD14
                 power.PowerOutput = -props.PowerConsumption;
@@ -647,7 +690,7 @@ namespace CryoRegenesis
             // 21 for humans. 25% of life expectancy for everything else.
             if (pawn.def.defName == "Human")
             {
-                this.targetAge = 21;
+                this.targetAge = CryoRegenesis.Settings.targetAge;
             }
             else
             {
