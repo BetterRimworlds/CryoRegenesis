@@ -48,3 +48,13 @@ Stock up on Uranium. You'll need a whole lot of it!
  * [2023-01-13] - Moved the Defs into the standard location.
  * [2023-01-13] - Automatically package all of the supported versions DLLs into the v1.2 Mod directory.
  * [2023-01-13] - Upgraded to Rimworld v1.4.3580.
+
+**Version 3.0: 2023-05-22**
+ * **[2023-03-26 06:41:29 CDT]** Re-added more hair colors.
+ * **[2023-05-22 00:32:17 CDT]** Added Mod Settings.
+ * **[2023-05-22 00:42:55 CDT]** Enabled the new optional debug messaging system.
+ * **[2023-05-22 00:43:34 CDT]** Added a new option to only regen until the pawn is healed.
+ * **[2023-05-22 00:44:19 CDT]** Added a new option for the target age of Human pawns.
+ * **[2023-05-22 00:47:24 CDT]** Added an option to not try to heal anything that isn't tendable.
+ * **[2023-05-22 00:47:45 CDT]** Added functionality to never heal implants.
+ * **[2023-05-22 01:31:53 CDT]** Block non-colonist humans from being placed in the casket.
