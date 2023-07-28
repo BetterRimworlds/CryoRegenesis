@@ -16,6 +16,11 @@ cure all age-related infirmities as well as every physical injury!
 
 Stock up on Uranium. You'll need a whole lot of it!
 
+![Cargo](https://github.com/BetterRimworlds/CryoRegenesis/assets/1125541/e76d8ca0-2616-44d6-9f7e-f89fa014a633)
+
+Here's our illustrious pup, Cargo! He's been with the colonists 101 years and is 107 years old! He's lived
+on more Rimworlds than most humans!
+
 ## Changelog
 
 **Version 1.0: 2020-08-11**
@@ -48,7 +53,7 @@ Stock up on Uranium. You'll need a whole lot of it!
  * [2023-01-13] - Moved the Defs into the standard location.
  * [2023-01-13] - Automatically package all of the supported versions DLLs into the v1.2 Mod directory.
  * [2023-01-13] - Upgraded to Rimworld v1.4.3580.
-
+<
 **Version 3.0: 2023-05-22**
  * Re-added more hair colors.
  * Added Mod Settings.
