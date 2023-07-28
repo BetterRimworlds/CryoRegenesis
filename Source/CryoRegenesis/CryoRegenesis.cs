@@ -611,7 +611,7 @@ namespace BetterRimworlds.CryoRegenesis
             }
 
             var pawn = thing as Pawn;
-            if (thing is Pawn && pawn.IsColonist == false)
+            if (thing is Pawn && pawn.RaceProps.Humanlike && pawn.IsColonist == false)
             {
                 // Reject to avoid the bad bug.
                 return false;
