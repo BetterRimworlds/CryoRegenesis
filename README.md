@@ -1,6 +1,6 @@
 # CryoRegenesis: Forever Young
 
-![CryoRegenesis: Live forever!](https://github.com/BetterRimworlds/CryoRegenesis/blob/master/About/Preview.png?raw=true)
+![CryoRegenesis: Live forever!](https://raw.githubusercontent.com/BetterRimworlds/CryoRegenesis/master/CryoRegenesis/About/Preview.png)
 
 With this Glittertech, all of your colonists (and pets, and even enemies, if you're so 
 inclined!) can live forever young!
