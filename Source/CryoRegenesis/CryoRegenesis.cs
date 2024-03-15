@@ -133,7 +133,7 @@ namespace BetterRimworlds.CryoRegenesis
             };
             this.hediffsToHeal = new List<Hediff>();
 
-            #if RIMWORLD14
+            #if RIMWORLD14 || RIMWORLD15
             var hediffsOfPawn = new List<Hediff>();
             pawn.health.hediffSet.GetHediffs<Hediff>(ref hediffsOfPawn);
             foreach (Hediff hediff in hediffsOfPawn.ToList())
@@ -401,7 +401,7 @@ namespace BetterRimworlds.CryoRegenesis
 
                 if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
                 {
-                    #if RIMWORLD14
+                    #if RIMWORLD14 || RIMWORLD15
                     power.PowerOutput = -props.PowerConsumption;
                     #else
                     power.PowerOutput = -props.basePowerConsumption;
@@ -481,17 +481,21 @@ namespace BetterRimworlds.CryoRegenesis
 
         protected void rerenderPawn(Pawn pawn)
         {
+            #if !RIMWORLD15
             // Tell the pawn's Drawer that the Person has had a hair-change makeover.
             // This code is from https://github.com/KiameV/rimworld-changedresser/blob/f0b8fcf9073cd1c232fcd26b0b083cb3137924a3/Source/UI/DresserUI.cs
             // Copyright (c) 2017 Travis Offtermatt
             // MIT License
             pawn.Drawer.renderer.graphics.ResolveAllGraphics();
+            #else
+            pawn.Drawer.renderer.renderTree.SetDirty();
+            #endif
             PortraitsCache.SetDirty(pawn);
         }
 
         protected void changeHairColor(Pawn pawn, Color hairColor)
         {
-            #if RIMWORLD14
+            #if RIMWORLD14 || RIMWORLD15
             pawn.story.HairColor = hairColor;
             #else
             pawn.story.hairColor = hairColor;
@@ -517,7 +521,7 @@ namespace BetterRimworlds.CryoRegenesis
         protected bool hasWhiteOrGrayHair(Pawn pawn)
         {
             string hsv;
-            #if RIMWORLD14
+            #if RIMWORLD14 || RIMWORLD15
             Color hairColor = pawn.story.HairColor;
             #else
             Color hairColor = pawn.story.hairColor;
@@ -622,7 +626,7 @@ namespace BetterRimworlds.CryoRegenesis
                 restoreCoolDown = -1000;
                 enterTime = Find.TickManager.TicksGame;
 
-                #if RIMWORLD14
+                #if RIMWORLD14 || RIMWORLD15
                 power.PowerOutput = -props.PowerConsumption;
                 #else
                 power.PowerOutput = -props.basePowerConsumption;
