@@ -195,6 +195,12 @@ namespace BetterRimworlds.CryoRegenesis
                     }
                 }
 
+                // Ignore a hediff not marked as bad...
+                if (CryoRegenesis.Settings.healNotBad == false && hediff.def.isBad == false)
+                {
+                    continue;
+                }
+
                 this.hediffsToHeal.Add(hediff);
                 if (CryoRegenesis.Settings.debugMode) Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
             }
