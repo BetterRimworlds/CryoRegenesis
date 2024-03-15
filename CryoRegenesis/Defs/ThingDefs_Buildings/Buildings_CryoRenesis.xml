@@ -61,6 +61,7 @@
 				</fuelFilter>
 				<destroyOnNoFuel>false</destroyOnNoFuel>
 			</li>
+			<li Class="CompProperties_Flickable"/>
 		</comps>
 		<terrainAffordanceNeeded>Heavy</terrainAffordanceNeeded>
 		<staticSunShadowHeight>0.4</staticSunShadowHeight>

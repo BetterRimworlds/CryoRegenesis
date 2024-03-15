@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using Verse;
 
@@ -9,6 +8,7 @@ namespace BetterRimworlds.CryoRegenesis
         public int targetAge = 21;
         public bool regenUntilHealed = true;
         public bool healSimpleProsthetics = true;
+        public bool healNotBad = false;
 
         public bool debugMode = false;
 
@@ -17,6 +17,7 @@ namespace BetterRimworlds.CryoRegenesis
             Scribe_Values.Look(ref targetAge,             "brw.cryoregenesis.targetAge", 21);
             Scribe_Values.Look(ref regenUntilHealed,      "brw.cryoregenesis.regenUntilHealed", true);
             Scribe_Values.Look(ref healSimpleProsthetics, "brw.cryoregenesis.healSimpleProsthetics", true);
+            Scribe_Values.Look(ref healNotBad,            "brw.cryoregenesis.healNotBad", false);
             Scribe_Values.Look(ref debugMode,             "brw.cryoregenesis.debugMode", false);
         }
 
@@ -29,6 +30,7 @@ namespace BetterRimworlds.CryoRegenesis
                 "Target age for regening Humans:",
                 "Stop regenerating when a Human is fully healed? ",
                 "Heal simple and wooden prosthetics?",
+                "Heal non-bad body mods?",
                 "Print debug messages?",
             };
 
@@ -38,7 +40,8 @@ namespace BetterRimworlds.CryoRegenesis
 
             listing_Standard.CheckboxLabeled(labels[1],  ref regenUntilHealed);
             listing_Standard.CheckboxLabeled(labels[2],  ref healSimpleProsthetics);
-            listing_Standard.CheckboxLabeled(labels[3],  ref debugMode);
+            listing_Standard.CheckboxLabeled(labels[3],  ref healNotBad);
+            listing_Standard.CheckboxLabeled(labels[4],  ref debugMode);
 
             listing_Standard.End();
 
