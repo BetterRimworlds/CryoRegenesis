@@ -432,7 +432,7 @@ namespace BetterRimworlds.CryoRegenesis
             Pawn pawn = ContainedThing as Pawn;
             pawn.health.AddHediff(cryosickness);
 
-            if (pawn.def.defName == "Human")
+            if (pawn.IsColonist == true && pawn.NonHumanlikeOrWildMan() == false)
             {
                 // Remove negative and now-irrelevant thoughts:
                 pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.MyOrganHarvested);
@@ -449,13 +449,6 @@ namespace BetterRimworlds.CryoRegenesis
                 pawn.needs.comfort.SetInitialLevel();
 
                 this.possiblyChangeHairColor(pawn);
-
-                // if (pawn.IsColonist == false)
-                // {
-                //     // Remove the guest from the Forcefully Kept WorldPawns.
-                //     RimWorld.Planet.WorldPawns worldPawns = Find.WorldPawns;
-                //     worldPawns.ForcefullyKeptPawns.Remove(pawn);
-                // }
             }
 
             pawn.needs.rest.SetInitialLevel();
@@ -463,6 +456,13 @@ namespace BetterRimworlds.CryoRegenesis
 
             power.PowerOutput = 0;
             base.EjectContents();
+
+            // if (pawn.IsColonist == false)
+            // {
+            //     // Remove the guest from the Forcefully Kept WorldPawns.
+            //     RimWorld.Planet.WorldPawns worldPawns = Find.WorldPawns;
+            //     worldPawns.ForcefullyKeptPawns.Remove(pawn);
+            // }
         }
 
         protected List<Color> getHairColors()
@@ -621,11 +621,6 @@ namespace BetterRimworlds.CryoRegenesis
             }
 
             var pawn = thing as Pawn;
-            if (thing is Pawn && pawn.RaceProps.Humanlike && pawn.IsColonist == false)
-            {
-                // Reject to avoid the bad bug.
-                return false;
-            }
 
             if (base.TryAcceptThing(thing, allowSpecialEffects))
             {
