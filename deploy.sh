@@ -1,23 +1,24 @@
 #!/bin/bash
 
-IS_WINDOWS=0
-RIMWORLD1_2=/rimworld/1.2
-RIMWORLD1_3=/rimworld/1.3
-
-# Assume Windows (and NOT WSL2)...
-if [ ! -z $WINDIR ]; then
-    IS_WINDOWS=1
-    RIMWORLD1_2=/c/RimWorld1-2-2900Win64
-    RIMWORLD1_3=/c/RimWorld1-3-3162Win64
+if [ ! $1 ]; then
+    echo "Error: The mod version is required."
+    exit
 fi
 
-for RIMHOME in $RIMWORLD1_2 $RIMWORLD1_3; do
-	rsync -rcv --delete-after README.md About Defs Textures $RIMHOME/Mods/CryoRegenesis/
-	unix2dos $RIMHOME/Mods/CryoRegenesis/README.md
+rm -rf /rimworld/1.2/Mods/CryoRegenesis
 
-    if [[ $IS_WINDOWS -eq 1 ]]; then
-	    rsync -rcv --delete-after $RIMHOME/Mods/CryoRegenesis "/c/Program Files (x86)/Steam/steamapps/common/RimWorld/Mods/"
-	fi
-done
+unix2dos README.md
+rsync -rcv --delete-after README.md CryoRegenesis/About CryoRegenesis/Defs CryoRegenesis/Textures  /rimworld/1.2/Mods/CryoRegenesis/
+rsync -rcv --delete-after README.md CryoRegenesis/About CryoRegenesis/Defs CryoRegenesis/Textures  /rimworld/1.3/Mods/CryoRegenesis/
+rsync -rcv --delete-after README.md CryoRegenesis/About CryoRegenesis/Defs CryoRegenesis/Textures  /rimworld/1.4/Mods/CryoRegenesis/
+rsync -rcv --delete-after README.md CryoRegenesis/About CryoRegenesis/Defs CryoRegenesis/Textures  /rimworld/1.5/Mods/CryoRegenesis/
+rsync -rcv --delete-after README.md CryoRegenesis/About CryoRegenesis/Defs CryoRegenesis/Textures  $HOME/.steam/steam/steamapps/common/RimWorld/Mods/CryoRegenesis/
+rsync -rcv /rimworld/1.2/Mods/CryoRegenesis/1.2 $HOME/.steam/steam/steamapps/common/RimWorld/Mods/CryoRegenesis/
+rsync -rcv /rimworld/1.3/Mods/CryoRegenesis/1.3 $HOME/.steam/steam/steamapps/common/RimWorld/Mods/CryoRegenesis/
+rsync -rcv /rimworld/1.4/Mods/CryoRegenesis/1.4 $HOME/.steam/steam/steamapps/common/RimWorld/Mods/CryoRegenesis/
+rsync -rcv /rimworld/1.4/Mods/CryoRegenesis/1.5 $HOME/.steam/steam/steamapps/common/RimWorld/Mods/CryoRegenesis/
 
+rsync -rcv --delete-after $HOME/.steam/steam/steamapps/common/RimWorld/Mods/CryoRegenesis /rimworld/1.2/Mods
+dos2unix README.md
+(cd /rimworld/1.2/Mods && zip -r CryoRegenesis-$1.zip CryoRegenesis && cp CryoRegenesis-$1.zip /tmp)
 
