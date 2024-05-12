@@ -75,7 +75,7 @@ on more Rimworlds than most humans!
 
 **Version 3.1.0: 2024-03-15**
 * **[2024-03-15 01:44:12 CDT]** [m] Majorly refactored the deploy script.
-* **[2024-03-15 01:44:32 CDT]** Upgraded to Rimworld v1.5. master
+* **[2024-03-15 01:44:32 CDT]** Upgraded to Rimworld v1.5.
 * **[2024-03-15 01:46:43 CDT]** Made the CryoRegenesis flickable (turns it into a normal cryocasket).
 * **[2024-03-15 01:47:43 CDT]** Added optional code (enabled by default) to not heal any hediffs that are not marked as "bad".
 * **[2024-03-15 02:16:24 CDT]** Cured the CyroRegenesis Quantum Anomaly that broke when guests were put in.

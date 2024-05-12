@@ -12,7 +12,7 @@ namespace BetterRimworlds.CryoRegenesis
 
         public bool debugMode = false;
 
-        override public void ExposeData()
+        public override void ExposeData()
         {
             Scribe_Values.Look(ref targetAge,             "brw.cryoregenesis.targetAge", 21);
             Scribe_Values.Look(ref regenUntilHealed,      "brw.cryoregenesis.regenUntilHealed", true);
