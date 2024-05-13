@@ -824,7 +824,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
                 // if (this.ResurrectionFuelReqs[2] > 0)
                 // {
                 status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
-                status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
                 // }
 
                 return status + base.GetInspectString();

@@ -12,7 +12,8 @@ cure all age-related infirmities as well as every physical injury!
  • Heals bad backs, permanent scars, even dimensia, Alzheimer's and bullets to the brain!  
  • Heals most diseases. There is no more need to die from the flu!  
  • Luciferium need cannot be cured, nor can psychological addictions, though physical
-   tolerances will disappear.  
+   tolerances will disappear.
+ • Resurrects dead Pawns that 1) have a brain and 2) haven't been left unrefrigerated for more than 1 day.
 
 Stock up on Uranium. You'll need a whole lot of it!
 
