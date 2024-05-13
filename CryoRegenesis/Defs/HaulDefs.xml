@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+    <JobDef>
+        <defName>HaulCorpseToCryoRegenesisCasket</defName>
+        <driverClass>FrontierDevelopments.DeadCryptosleep.Jobs.JobDriver_HaulCorpseToCryoRegenesisCasket</driverClass>        <reportString>Hauling TargetA to Cryosleep casket.</reportString>
+        <playerInterruptible>true</playerInterruptible>
+        <casualInterruptible>false</casualInterruptible>
+        <alwaysShowWeapon>false</alwaysShowWeapon>
+        <suspendable>true</suspendable>
+    </JobDef>
+    <DesignationDef>
+        <defName>Deadcryosleep_Haul</defName>
+        <texturePath>Designations/Haul</texturePath>
+        <targetType>Thing</targetType>
+    </DesignationDef>
+    <WorkGiverDef>
+        <defName>DeadCryptosleep_Haul</defName>
+        <label>haul corpse to cryoregenesis casket</label>
+        <giverClass>FrontierDevelopments.DeadCryptosleep.WorkGiver_HaulCryoRegenesis</giverClass>
+        <priorityInType>100</priorityInType>
+        <workType>Hauling</workType>
+        <emergency>false</emergency>
+        <verb>haul</verb>
+        <gerund>hauling</gerund>
+        <requiredCapacities>
+            <li>Manipulation</li>
+        </requiredCapacities>
+    </WorkGiverDef>
+</Defs>

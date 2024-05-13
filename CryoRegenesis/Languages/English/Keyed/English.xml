@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>Haul corpse to a cryoregenesis casket</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>Haul corpse to a cryoregenesis casket</BetterRimworlds.CryoRegenesis.Designator.Label>
+
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Must designate a corpse</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>No corpses to haul to cryoregenesis casket</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+</LanguageData>
