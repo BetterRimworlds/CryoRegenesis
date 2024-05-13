@@ -60,7 +60,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
     bool isSafeToRepair = true;
     long restoreCoolDown = -1000;
-    int enterTime;
     int targetAge; // 21 for humans. 25% of life expectancy for every other lifeform.
     //int rate = 30;
     //int rate = 150;
@@ -268,7 +267,14 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     public override void ExposeData()
     {
         base.ExposeData();
-        Scribe_Values.Look<int>(ref enterTime, "enterTime");
+        string fuelReqs = String.Join(",", this.ResurrectionFuelReqs);
+        Scribe_Values.Look<string>(ref fuelReqs, "ResurrectionFuelReqs");
+        Scribe_Values.Look<float>(ref ResurrectionProgress, "ResurrectionProgress");
+
+        if (String.IsNullOrEmpty(fuelReqs) == false)
+        {
+            this.ResurrectionFuelReqs = fuelReqs.Split(',').Select(int.Parse).ToArray();
+        }
     }
 
     private int CalculateHealingTime(Pawn pawn)
@@ -388,7 +394,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             // Faster for debugging...
             //float resurrectionFactor = Rand.Gaussian(0.05f, 0.12f) + 0.02f;
-            float resurrectionFactor = Rand.Gaussian(0.025f, 0.06f);
+            float resurrectionFactor = 0.25f;
+            // float resurrectionFactor = Rand.Gaussian(0.025f, 0.06f);
             // Limit the upside to slow it down further.
             if (resurrectionFactor > 0.04)
             {
@@ -411,6 +418,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             #else
             ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
             #endif
+
+            Log.Error("Turning off power...");
+            power.PowerOn = false;
+            power.PowerOutput = 0;
+            this.ResurrectionProgress = 0f;
         }
     }
 
@@ -769,7 +781,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         if (base.TryAcceptThing(thing, allowSpecialEffects))
         {
             restoreCoolDown = -1000;
-            enterTime = Find.TickManager.TicksGame;
 
             #if RIMWORLD14 || RIMWORLD15
             power.PowerOutput = -props.PowerConsumption;
