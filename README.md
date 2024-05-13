@@ -79,3 +79,6 @@ on more Rimworlds than most humans!
 * **[2024-03-15 01:46:43 CDT]** Made the CryoRegenesis flickable (turns it into a normal cryocasket).
 * **[2024-03-15 01:47:43 CDT]** Added optional code (enabled by default) to not heal any hediffs that are not marked as "bad".
 * **[2024-03-15 02:16:24 CDT]** Cured the CyroRegenesis Quantum Anomaly that broke when guests were put in.
+
+**Version 4.0.0: 2024-05-13**
+* **[2024-05-12 13:53:08 CDT]** Implemented the resurrection of corpses.

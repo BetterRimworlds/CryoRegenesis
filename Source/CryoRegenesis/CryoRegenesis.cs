@@ -1,6 +1,16 @@
+/*
+ * This file is part of CryoRegenesis, a Better Rimworlds Project.
+ *
+ * Copyright © 2020-2024 Theodore R. Smith
+ * Author: Theodore R. Smith <hopeseekr@gmail.com>
+ *   GPG Fingerprint: D8EA 6E4D 5952 159D 7759  2BB4 EEB6 CE72 F441 EC41
+ *   https://github.com/BetterRimworlds/CryoRegenesis
+ *
+ * This file is licensed under the MIT License.
+ */
+
 using RimWorld;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -376,9 +386,18 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         // 2 in-game days for resurrection to complete.
         if (this.ResurrectionFuelReqs.Sum() <= 0 && Find.TickManager.TicksGame % 1250 == 0)
         {
+            // Faster for debugging...
+            //float resurrectionFactor = Rand.Gaussian(0.05f, 0.12f) + 0.02f;
+            float resurrectionFactor = Rand.Gaussian(0.025f, 0.06f);
+            // Limit the upside to slow it down further.
+            if (resurrectionFactor > 0.04)
+            {
+                resurrectionFactor /= 2;
+            }
             // Log.Error("CryoRegenesis Fully Fueled for Resurrection.");
+            Log.Warning("Resurrection Factor: " + resurrectionFactor);
             refuelable.ConsumeFuel(fuelConsumption);
-            this.ResurrectionProgress += 0.52f;
+            this.ResurrectionProgress += resurrectionFactor;
         }
 
         if (this.ResurrectionProgress >= 1.0f)
@@ -387,7 +406,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             // this.TryAcceptThing(resurrectedPawn);
             Log.Warning($"Resurrecting {corpse.InnerPawn.Name}");
             base.EjectContents();
+            #if RIMWORLD15
+            ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
+            #else
             ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
+            #endif
         }
     }
 
@@ -798,10 +821,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
                     status += "Needed Gold: " + this.ResurrectionFuelReqs[1] + "\n";
                 }
 
-                if (this.ResurrectionFuelReqs[2] > 0)
-                {
-                    status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
-                }
+                // if (this.ResurrectionFuelReqs[2] > 0)
+                // {
+                status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
+                status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
+                // }
 
                 return status + base.GetInspectString();
             }

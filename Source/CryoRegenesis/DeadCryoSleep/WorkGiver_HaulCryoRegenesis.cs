@@ -1,3 +1,11 @@
+/*
+ * This file is part of CryoRegenesis, a Better Rimworlds Project.
+ *
+ * It has been mostly copied from https://github.com/emipa606/DeadCryptosleep/
+ *
+ * This file is licensed under the MIT License.
+ */
+
 using System.Collections.Generic;
 using System.Linq;
 using BetterRimworlds.CryoRegenesis;
@@ -16,9 +24,15 @@ public class WorkGiver_HaulCryoRegenesis : WorkGiver_Scanner
 
     public override IEnumerable<Thing> PotentialWorkThingsGlobal(Pawn pawn)
     {
+        #if RIMWORLD12 || RIMWORLD13
+        return pawn.Map.designationManager.allDesignations
+            .Where(designation => designation.def == DeadCryosleepDefOf.Deadcryosleep_Haul)
+            .Select(designation => designation.target.Thing);
+        #else
         return pawn.Map.designationManager.AllDesignations
             .Where(designation => designation.def == DeadCryosleepDefOf.Deadcryosleep_Haul)
             .Select(designation => designation.target.Thing);
+        #endif
     }
 
     public override Job JobOnThing(Pawn pawn, Thing thing, bool forced = false)
