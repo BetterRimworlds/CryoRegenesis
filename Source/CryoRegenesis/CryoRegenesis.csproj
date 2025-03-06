@@ -10,8 +10,8 @@
     <RootNamespace>CryoRegenesis</RootNamespace>
     <AssemblyName>CryoRegenesis</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <LangVersion>10.0</LangVersion>
-    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>10</LangVersion>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <FileAlignment>512</FileAlignment>
 <!--    <TargetFrameworkProfile />-->
