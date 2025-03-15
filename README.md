@@ -83,3 +83,8 @@ on more Rimworlds than most humans!
 
 **Version 4.0.0: 2024-05-13**
 * **[2024-05-12 13:53:08 CDT]** Implemented the resurrection of corpses.
+
+**Version 4.1.0: 2025-03-15**
+* **[2025-03-06 06:27:19 CDT]** Ported to .NET v9.0 and C# v10.0.
+* **[2025-03-14 15:52:36 CDT]** Rearchitected the files to the BetterRimworlds standard layout.
+* **[2025-03-15 03:11:00 CDT]** [m] Tiny code cleanups.
