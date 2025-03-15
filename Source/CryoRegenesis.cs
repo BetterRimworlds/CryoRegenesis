@@ -58,7 +58,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
     private bool enteredHealthy = false;
 
-    bool isSafeToRepair = true;
+    //bool isSafeToRepair = true;
     long restoreCoolDown = -1000;
     int targetAge; // 21 for humans. 25% of life expectancy for every other lifeform.
     //int rate = 30;
@@ -877,9 +877,9 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             this.targetAge = (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25);
         }
-        Log.Warning("Pawn name: " + pawn.def.defName);
-        Log.Warning("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
-        Log.Warning("Target age: " + this.targetAge);
+        Log.Message("Pawn name: " + pawn.def.defName);
+        Log.Message("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
+        Log.Message("Target age: " + this.targetAge);
 
         return this.targetAge;
     }

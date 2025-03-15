@@ -65,8 +65,6 @@ public class Designator_HaulCryoRegenesis : Designator
             // return "BetterRimworlds.CryoRegenesis.Designator.NoCorpses".Translate();
             return "No corpses to haul to cryoregenesis casket";
         }
-
-        return false;
     }
 
     public override void DesignateSingleCell(IntVec3 cell)
