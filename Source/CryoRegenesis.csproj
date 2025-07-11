@@ -1,156 +1,101 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{675CE9D5-460C-496A-A6A9-8D3873EDEE87}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CryoRegenesis</RootNamespace>
-    <AssemblyName>CryoRegenesis</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFramework>net480</TargetFramework>
     <LangVersion>10</LangVersion>
-    <TargetFramework>net9.0</TargetFramework>
+    <ProjectGuid>{675CE9D5-460C-496A-A6A9-8D3873EDCC88}</ProjectGuid>
+    <RootNamespace>BetterRimworlds.CryoRegenesis</RootNamespace>
+    <AssemblyName>CryoRegenesis</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
-    <FileAlignment>512</FileAlignment>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug v1.2|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.2/Assemblies</OutputPath>
-    <MainPath>/tmp/rimworld/1.2/Mods/CryoRegenesis/1.2/Assemblies</MainPath>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release v1.2|AnyCPU' ">
-    <Optimize>true</Optimize>
-    <DefineConstants>RIMWORLD12</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.2/Assemblies</OutputPath>
-    <MainPath>/tmp/rimworld/1.2/Mods/CryoRegenesis/1.2/Assemblies</MainPath>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release v1.3|AnyCPU' ">
-    <DefineConstants>RIMWORLD13</DefineConstants>
-    <OutputPath>/rimworld/1.3/Mods/CryoRegenesis/1.3/Assemblies</OutputPath>
-    <MainPath>/rimworld/1.2/Mods/CryoRegenesis/1.3/Assemblies</MainPath>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release v1.4|AnyCPU' ">
-    <DefineConstants>RIMWORLD14</DefineConstants>
-    <OutputPath>/rimworld/1.4/Mods/CryoRegenesis/1.4/Assemblies</OutputPath>
-    <MainPath>/rimworld/1.2/Mods/CryoRegenesis/1.4/Assemblies</MainPath>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release v1.5|AnyCPU' ">
-    <DefineConstants>RIMWORLD15</DefineConstants>
-    <OutputPath>/rimworld/1.5/Mods/CryoRegenesis/1.5/Assemblies</OutputPath>
-    <MainPath>/rimworld/1.2/Mods/CryoRegenesis/1.5/Assemblies</MainPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
-  <ItemGroup Condition=" '$(Configuration)|$(Platform)' == 'Release v1.2|AnyCPU' ">
-    <Reference Include="Assembly-CSharp, Version=1.2.7528.19748, Culture=neutral, PublicKeyToken=null">
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.2' ">
+    <DefineConstants>RIMWORLD12</DefineConstants>
+    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.2/Assemblies</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.3' ">
+    <DefineConstants>RIMWORLD13</DefineConstants>
+    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.3/Assemblies</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.4' ">
+    <DefineConstants>RIMWORLD14</DefineConstants>
+    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.4/Assemblies</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.5' ">
+    <DefineConstants>RIMWORLD15</DefineConstants>
+    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.5/Assemblies</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.2' ">
+    <Reference Include="Assembly-CSharp">
       <HintPath>/rimworld/1.2/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+    <Reference Include="UnityEngine">
       <HintPath>/rimworld/1.2/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+    <Reference Include="UnityEngine.CoreModule">
       <HintPath>/rimworld/1.2/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <Reference Include="0Harmony">
-      <HintPath>/rimworld/1.4/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
+      <HintPath>/rimworld/1.2/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(Configuration)|$(Platform)' == 'Release v1.3|AnyCPU' ">
-    <Reference Include="Assembly-CSharp, Version=1.3.7967.28253, Culture=neutral, PublicKeyToken=null">
+  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.3' ">
+    <Reference Include="Assembly-CSharp">
       <HintPath>/rimworld/1.3/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+    <Reference Include="UnityEngine">
       <HintPath>/rimworld/1.3/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+    <Reference Include="UnityEngine.CoreModule">
       <HintPath>/rimworld/1.3/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <Reference Include="0Harmony">
-      <HintPath>/rimworld/1.4/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
+      <HintPath>/rimworld/1.3/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(Configuration)|$(Platform)' == 'Release v1.4|AnyCPU' ">
+  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.4' ">
     <Reference Include="Assembly-CSharp">
       <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+    <Reference Include="UnityEngine">
       <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+    <Reference Include="UnityEngine.CoreModule">
       <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="0Harmony">
       <HintPath>/rimworld/1.4/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(Configuration)|$(Platform)' == 'Release v1.5|AnyCPU' ">
+  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.5' ">
     <Reference Include="Assembly-CSharp">
       <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
     <Reference Include="UnityEngine">
       <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
       <Private>False</Private>
@@ -159,44 +104,15 @@
       <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <Reference Include="0Harmony">
-      <HintPath>/rimworld/1.4/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="0Harmony">
       <HintPath>/rimworld/1.5/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Include="CryoRegenesis.cs" />
-    <Compile Include="DeadCryoSleep/DeadCryosleepDefOf.cs" />
-    <Compile Include="DeadCryoSleep/Designator_HaulCryoRegenesis.cs" />
-    <Compile Include="DeadCryoSleep/JobDriver_HaulCorpseToCryptosleepCasket.cs" />
-    <Compile Include="DeadCryoSleep/Patch_ReverseDesignatorDatabase.cs" />
-    <Compile Include="DeadCryoSleep/WorkGiver_HaulCryoRegenesis.cs" />
-    <Compile Include="Settings.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Properties/" />
-  </ItemGroup>
-
-  <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
-
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition=" '$(OS)' == 'Unix' ">
-    <PropertyGroup>
-      <FilesSource>$(ProjectDir)../CryoRegenesis</FilesSource>
-      <FilesDestination>$(OutputPath)..</FilesDestination>
-    </PropertyGroup>
-    <Exec Command="cp -rvf $(FilesSource)/* '$(FilesDestination)'" />
-    <Exec Command="cp -v '$(FilesSource)/../README.md' '$(FilesDestination)'" />
-    <Exec Command="mkdir -p '$(MainPath)'" />
-    <Exec Command="cp -vf $(OutputPath)* '$(MainPath)/'" />
-  </Target>
 </Project>

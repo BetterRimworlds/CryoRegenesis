@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30309.148
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CryoRegenesis", "CryoRegenesis.csproj", "{675CE9D5-460C-496A-A6A9-8D3873EDEE87}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CryoRegenesis", "CryoRegenesis.csproj", "{675CE9D5-460C-496A-A6A9-8D3873EDEE88}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,14 +13,14 @@ Global
 		Release v1.5|Any CPU = Release v1.5|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{675CE9D5-460C-496A-A6A9-8D3873EDEE87}.Release v1.2|Any CPU.ActiveCfg = Release v1.2|Any CPU
-		{675CE9D5-460C-496A-A6A9-8D3873EDEE87}.Release v1.2|Any CPU.Build.0   = Release v1.2|Any CPU
-		{675CE9D5-460C-496A-A6A9-8D3873EDEE87}.Release v1.3|Any CPU.ActiveCfg = Release v1.3|Any CPU
-		{675CE9D5-460C-496A-A6A9-8D3873EDEE87}.Release v1.3|Any CPU.Build.0   = Release v1.3|Any CPU
-		{675CE9D5-460C-496A-A6A9-8D3873EDEE87}.Release v1.4|Any CPU.Build.0   = Release v1.4|Any CPU
-		{675CE9D5-460C-496A-A6A9-8D3873EDEE87}.Release v1.4|Any CPU.ActiveCfg = Release v1.4|Any CPU
-		{675CE9D5-460C-496A-A6A9-8D3873EDEE87}.Release v1.5|Any CPU.Build.0   = Release v1.5|Any CPU
-		{675CE9D5-460C-496A-A6A9-8D3873EDEE87}.Release v1.5|Any CPU.ActiveCfg = Release v1.5|Any CPU
+		{675CE9D5-460C-496A-A6A9-8D3873EDEE88}.Release v1.2|Any CPU.ActiveCfg = Release v1.2|Any CPU
+		{675CE9D5-460C-496A-A6A9-8D3873EDEE88}.Release v1.2|Any CPU.Build.0   = Release v1.2|Any CPU
+		{675CE9D5-460C-496A-A6A9-8D3873EDEE88}.Release v1.3|Any CPU.ActiveCfg = Release v1.3|Any CPU
+		{675CE9D5-460C-496A-A6A9-8D3873EDEE88}.Release v1.3|Any CPU.Build.0   = Release v1.3|Any CPU
+		{675CE9D5-460C-496A-A6A9-8D3873EDEE88}.Release v1.4|Any CPU.Build.0   = Release v1.4|Any CPU
+		{675CE9D5-460C-496A-A6A9-8D3873EDEE88}.Release v1.4|Any CPU.ActiveCfg = Release v1.4|Any CPU
+		{675CE9D5-460C-496A-A6A9-8D3873EDEE88}.Release v1.5|Any CPU.Build.0   = Release v1.5|Any CPU
+		{675CE9D5-460C-496A-A6A9-8D3873EDEE88}.Release v1.5|Any CPU.ActiveCfg = Release v1.5|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
