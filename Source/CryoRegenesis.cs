@@ -153,7 +153,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         };
         this.hediffsToHeal = new List<Hediff>();
 
-        #if RIMWORLD14 || RIMWORLD15
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
         var hediffsOfPawn = new List<Hediff>();
         pawn.health.hediffSet.GetHediffs<Hediff>(ref hediffsOfPawn);
         foreach (Hediff hediff in hediffsOfPawn.ToList())
@@ -222,7 +222,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             }
 
             this.hediffsToHeal.Add(hediff);
-            if (CryoRegenesis.Settings.debugMode) Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
+            if (CryoRegenesis.Settings.debugMode)
+                Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.GetType().Name);
         }
 
         return this.hediffsToHeal.Count;
@@ -413,7 +414,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             // this.TryAcceptThing(resurrectedPawn);
             Log.Warning($"Resurrecting {corpse.InnerPawn.Name}");
             base.EjectContents();
-            #if RIMWORLD15
+            #if RIMWORLD15 || RIMWORLD16
             ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
             #else
             ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
@@ -426,8 +427,14 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         }
     }
 
+    #if RIMWORLD16
+    protected override void Tick()
+    #else
     public override void Tick()
+    #endif
     {
+        base.Tick();
+
         bool hasInjuries;
         bool isTargetAge;
 
@@ -549,7 +556,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
             if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
             {
-                #if RIMWORLD14 || RIMWORLD15
+                #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
                 power.PowerOutput = -props.PowerConsumption;
                 #else
                 power.PowerOutput = -props.basePowerConsumption;
@@ -629,7 +636,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
     protected void rerenderPawn(Pawn pawn)
     {
-        #if !RIMWORLD15
+        #if !RIMWORLD15 && !RIMWORLD16
         // Tell the pawn's Drawer that the Person has had a hair-change makeover.
         // This code is from https://github.com/KiameV/rimworld-changedresser/blob/f0b8fcf9073cd1c232fcd26b0b083cb3137924a3/Source/UI/DresserUI.cs
         // Copyright (c) 2017 Travis Offtermatt
@@ -643,7 +650,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
     protected void changeHairColor(Pawn pawn, Color hairColor)
     {
-        #if RIMWORLD14 || RIMWORLD15
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
         pawn.story.HairColor = hairColor;
         #else
         pawn.story.hairColor = hairColor;
@@ -669,7 +676,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     protected bool hasWhiteOrGrayHair(Pawn pawn)
     {
         string hsv;
-        #if RIMWORLD14 || RIMWORLD15
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
         Color hairColor = pawn.story.HairColor;
         #else
         Color hairColor = pawn.story.hairColor;
@@ -782,7 +789,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             restoreCoolDown = -1000;
 
-            #if RIMWORLD14 || RIMWORLD15
+            #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
             power.PowerOutput = -props.PowerConsumption;
             #else
             power.PowerOutput = -props.basePowerConsumption;
