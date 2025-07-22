@@ -10,9 +10,6 @@
  */
 
 using RimWorld;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Random=System.Random;
@@ -270,7 +267,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         base.ExposeData();
         string fuelReqs = String.Join(",", this.ResurrectionFuelReqs);
         Scribe_Values.Look<string>(ref fuelReqs, "ResurrectionFuelReqs");
-        Scribe_Values.Look<float>(ref ResurrectionProgress, "ResurrectionProgress");
+        Scribe_Values.Look<float>(ref ResurrectionProgress, "ResurrectionProgress", 0f);
 
         if (String.IsNullOrEmpty(fuelReqs) == false)
         {
@@ -336,6 +333,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, true);
         this.ResurrectionFuelReqs[0] -= (int)this.refuelable.Fuel;
         this.fuelprops.fuelCapacity = 150;
+        this.ResurrectionProgress = 0f;
     }
 
     private void Resurrect(Corpse corpse)
@@ -352,23 +350,43 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         // Make sure that the corpse isn't more than 10% degraded.
         var rottable = corpse.GetComp<CompRottable>();
-        // If they've been dead and unfrozen for more than 1 day, then the CryoRegenesis casket cannot resurrect them.
-        if (rottable.RotProgress > 60_000)
+        // If they've been dead and unfrozen for more than 1 day, the CryoRegenesis casket cannot resurrect them.
+        if (rottable != null && rottable.RotProgress > 60_000)
         {
-            Messages.Message("[CryoRegenesis] Pawn rejected: More than 1 day unfrozen. Their brain is too degraded..", MessageTypeDefOf.RejectInput);
+            Messages.Message("[CryoRegenesis] Pawn rejected: More than 1 day unfrozen. Their brain is too degraded.", MessageTypeDefOf.RejectInput);
             base.EjectContents();
-
             return;
         }
 
         // --- State Machine for Resource Gathering ---
 
-        // State 1: Need Uranium
-        if (this.ResurrectionFuelReqs[0] > 0)
+        // State 1: Need Luciferium (first priority as requested)
+        if (this.ResurrectionFuelReqs[2] > 0)
+        {
+            // Configure the refuelable component to accept Luciferium
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, false);
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, false);
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, true);
+
+            // Set the capacity to what is still needed
+            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[2];
+
+            // If fuel has been delivered, process it
+            if (this.refuelable.Fuel > 0)
+            {
+                int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
+                this.ResurrectionFuelReqs[2] -= delivered; // Fixed index to update Luciferium
+                this.refuelable.ConsumeFuel(this.refuelable.Fuel);
+                Log.Message($"[CryoRegenesis] Luciferium delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[2]}");
+            }
+
+            // Stop processing for this tick; we are waiting for more fuel.
+            return;
+        }
+        // State 2: Need Uranium (checked after Luciferium is complete)
+        else if (this.ResurrectionFuelReqs[0] > 0)
         {
             // Configure the refuelable component to accept Uranium
-            // Note: It's generally better to have a single fuel filter in XML that allows all three
-            // and manage which one is "needed" internally, but this works.
             this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, true);
             this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, false);
             this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, false);
@@ -388,7 +406,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             // Stop processing for this tick; we are waiting for more fuel.
             return;
         }
-        // State 2: Need Gold (only checked if Uranium is done)
+        // State 3: Need Gold (checked after Luciferium and Uranium are complete)
         else if (this.ResurrectionFuelReqs[1] > 0)
         {
             // Configure the refuelable component to accept Gold
@@ -396,8 +414,10 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, true);
             this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, false);
 
+            // Set the capacity to what is still needed
             this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[1];
 
+            // If fuel has been delivered, process it
             if (this.refuelable.Fuel > 0)
             {
                 int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
@@ -406,73 +426,55 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
                 Log.Message($"[CryoRegenesis] Gold delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[1]}");
             }
 
+            // Stop processing for this tick; we are waiting for more fuel.
             return;
         }
-        // State 3: Need Luciferium (only checked if Uranium and Gold are done)
-        else if (this.ResurrectionFuelReqs[2] > 0)
+
+        if (Find.TickManager.TicksGame % 1000 == 0)
         {
-            // Configure the refuelable component to accept Luciferium
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, false);
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, false);
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, true);
-
-            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[2];
-
-            if (this.refuelable.Fuel > 0)
-            {
-                // I also fixed a bug here: you were setting the requirement to 0 instead of subtracting.
-                int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
-                this.ResurrectionFuelReqs[2] -= delivered;
-                this.refuelable.ConsumeFuel(this.refuelable.Fuel);
-                Log.Message($"[CryoRegenesis] Luciferium delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[2]}");
-            }
-
             return;
         }
 
         // --- Resurrection Progress (only runs if all fuel requirements are met) ---
-        // The previous logic for this section was mostly correct, but let's ensure it runs properly.
-        // The check for `this.ResurrectionFuelReqs.Sum() <= 0` is now implicitly handled by falling through the if/else-if chain.
+        // The check for fuel requirements is implicitly handled by falling through the if/else-if chain.
 
         // Turn off refueling now that we're full
         this.fuelprops.fuelCapacity = 0;
 
-        // Increment the resurrection once every 30 minutes (1250 Ticks).
-        if (Find.TickManager.TicksGame % 1250 == 0)
-        {
-            // Faster for debugging...
-            //float resurrectionFactor = Rand.Gaussian(0.05f, 0.12f) + 0.02f;
-            float resurrectionFactor = 0.25f; // This is extremely fast, make sure to tune it
-            Log.Warning("Resurrection Factor: " + resurrectionFactor);
+        // Adjust this value to control resurrection speed
+        float resurrectionFactor = 0.001f;
 
-            // This fuel consumption is for the ongoing process, separate from the initial resource cost.
-            // Make sure `fuelConsumption` is defined elsewhere in your class.
-            // refuelable.ConsumeFuel(fuelConsumption);
-            this.ResurrectionProgress += resurrectionFactor;
-        }
+        // Increment progress
+        this.ResurrectionProgress += resurrectionFactor;
+        this.ResurrectionProgress = Mathf.Clamp01(this.ResurrectionProgress); // Ensure it stays between 0 and 1
 
+        if (CryoRegenesis.Settings.debugMode)
+            Log.Message($"[CryoRegenesis] Resurrection Progress: {this.ResurrectionProgress * 100:F1}%");
+
+        // Check if resurrection is complete
         if (this.ResurrectionProgress >= 1.0f)
         {
             var resurrectedPawn = corpse.InnerPawn;
-            Log.Warning($"Resurrecting {corpse.InnerPawn.Name}");
-            base.EjectContents();
+            Log.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!");
+            Messages.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!", resurrectedPawn, MessageTypeDefOf.PositiveEvent);
 
-            #if RIMWORLD15 || RIMWORLD16
+    #if RIMWORLD15 || RIMWORLD16
             ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
-            #else
+    #else
             ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
-            #endif
+    #endif
 
-            Log.Message("[CryoRegenesis] Resurrection complete. Powering down.");
             power.PowerOn = false;
             power.PowerOutput = 0;
             this.ResurrectionProgress = 0f;
 
-            // IMPORTANT: Reset your fuel requirements for the next pawn!
-            // You need to define `InitialResurrectionFuelReqs` somewhere, e.g., as a static array.
-            // this.ResurrectionFuelReqs = InitialResurrectionFuelReqs.ToArray();
+            this.EjectContents();
+
+            // Reset fuel requirements for the next pawn
+            this.ResetFuelRequirement();
         }
     }
+
     #if RIMWORLD16
     protected override void Tick()
     #else
@@ -490,9 +492,10 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             return;
         }
 
+        // Handle corpse resurrection - check every tick for smoother progress updates
         if (this.ContainedThing.def.defName.StartsWith("Corpse_"))
         {
-            if (this.ResurrectionFuelReqs.Sum() > 0 && Find.TickManager.TicksGame % 180 == 0)
+            if (Find.TickManager.TicksGame % 180 == 0)
             {
                 this.Resurrect(this.ContainedThing as Corpse);
             }
@@ -821,7 +824,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         if (thing.IsDessicated())
         {
-            Log.Error("asdfasdf");
             return false;
         }
 
@@ -878,24 +880,18 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             if (ContainedThing.def.defName.StartsWith("Corpse_"))
             {
-                string status = $"Dead (Resurrecting: {this.ResurrectionProgress * 100}%)\n";
-                if (this.ResurrectionFuelReqs[0] > 0)
-                {
-                    status += "Needed Uranium: " + this.ResurrectionFuelReqs[0] + "\n";
-                }
-
-                if (this.ResurrectionFuelReqs[1] > 0)
-                {
-                    status += "Needed Gold: " + this.ResurrectionFuelReqs[1] + "\n";
-                }
-
+                string status = $"Dead (Resurrecting: {this.ResurrectionProgress * 100:F1}%)\n";
                 if (this.ResurrectionFuelReqs[2] > 0)
                 {
                     status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
                 }
-                else
+                else if (this.ResurrectionFuelReqs[0] > 0)
                 {
-                    status += "Resurrection progress: " + this.ResurrectionProgress + "\n";
+                    status += "Needed Uranium: " + this.ResurrectionFuelReqs[0] + "\n";
+                }
+                else if (this.ResurrectionFuelReqs[1] > 0)
+                {
+                    status += "Needed Gold: " + this.ResurrectionFuelReqs[1] + "\n";
                 }
 
                 return status + base.GetInspectString();
@@ -907,8 +903,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             string bioTime = "AgeBiological".Translate((NamedArgument) years,
                 (NamedArgument) quadrums, (NamedArgument) days);
 
-            // if (isSafeToRepair)
-            // {
             if (this.hediffsToHeal.Any())
             {
                 return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime + "\nTime To Heal: " + this.TTLToHeal;
@@ -917,11 +911,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             {
                 return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime;
             }
-            // }
-            // else
-            // {
-            //     return base.GetInspectString() + " [Error] Has artificial body parts.\n" + bioTime;
-            // }
         }
         else return base.GetInspectString();
     }
