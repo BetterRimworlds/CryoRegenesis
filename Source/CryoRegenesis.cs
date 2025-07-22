@@ -473,6 +473,9 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
             this.EjectContents();
 
+            resurrectedPawn.health.AddHediff(HediffDefOf.Anesthetic, null, null);
+
+
             // Reset fuel requirements for the next pawn
             this.ResetFuelRequirement();
         }
