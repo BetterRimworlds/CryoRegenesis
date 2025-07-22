@@ -474,6 +474,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             this.EjectContents();
 
             resurrectedPawn.health.AddHediff(HediffDefOf.Anesthetic, null, null);
+            this.AddLuciferiumAsResurrectionSideEffect(resurrectedPawn);
 
 
             // Reset fuel requirements for the next pawn
@@ -941,5 +942,24 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         return this.targetAge;
     }
-}
 
+    public void AddLuciferiumAsResurrectionSideEffect(Pawn pawn)
+    {
+        if (pawn?.health?.hediffSet == null)
+            return;
+
+        // Add the addiction directly
+        HediffDef luciferiumAddiction = DefDatabase<HediffDef>.GetNamed("LuciferiumAddiction");
+        Hediff addictionHediff = HediffMaker.MakeHediff(luciferiumAddiction, pawn);
+        pawn.health.AddHediff(addictionHediff);
+
+        // Important: Set the last dose time to prevent immediate withdrawal
+        Need_Chemical drugNeed = pawn.needs?.AllNeeds.OfType<Need_Chemical>()
+            .FirstOrDefault(n => n.def.defName == "Chemical_Luciferium");
+
+        if (drugNeed != null)
+        {
+            drugNeed.CurLevel = drugNeed.MaxLevel; // Start them off satisfied
+        }
+    }
+}
