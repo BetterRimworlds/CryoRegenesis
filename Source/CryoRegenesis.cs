@@ -961,5 +961,9 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             drugNeed.CurLevel = drugNeed.MaxLevel; // Start them off satisfied
         }
+
+        // Optional: Add a custom thought about the resurrection side effect
+        pawn.needs.mood?.thoughts.memories.TryGainMemory(
+            ThoughtDef.Named("CryoRegenesis_LuciferiumSideEffect"), null);
     }
 }
