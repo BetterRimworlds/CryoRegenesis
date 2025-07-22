@@ -75,6 +75,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
     protected string TTLToHeal;
 
+    private int origAge;
+
     // @see https://github.com/goudaQuiche/BloodAndStains/blob/c8fdf1a312186eb17505c9b2f3e6e5cd3c408e7c/Source/BloodDripping/ToolsHediff.cs
     public static bool HasBionicParent(Pawn pawn, BodyPartRecord BPR)
     {
@@ -268,6 +270,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         string fuelReqs = String.Join(",", this.ResurrectionFuelReqs);
         Scribe_Values.Look<string>(ref fuelReqs, "ResurrectionFuelReqs");
         Scribe_Values.Look<float>(ref ResurrectionProgress, "ResurrectionProgress", 0f);
+        Scribe_Values.Look(ref origAge, "OrigAge", 50);
 
         if (String.IsNullOrEmpty(fuelReqs) == false)
         {
@@ -839,6 +842,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         if (base.TryAcceptThing(thing, allowSpecialEffects))
         {
+            this.origAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
+
             restoreCoolDown = -1000;
 
             #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
