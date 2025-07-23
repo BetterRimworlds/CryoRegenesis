@@ -658,6 +658,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             pawn.needs.comfort.SetInitialLevel();
 
             this.possiblyChangeHairColor(pawn);
+
+            // Give them a positive thought.
+            int currentAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
+
+            AddCryoregenesisThought(pawn, this.origAge, currentAge);
         }
 
         pawn.needs.rest.SetInitialLevel();
@@ -965,5 +970,26 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         // Optional: Add a custom thought about the resurrection side effect
         pawn.needs.mood?.thoughts.memories.TryGainMemory(
             ThoughtDef.Named("CryoRegenesis_LuciferiumSideEffect"), null);
+    }
+
+    public static void AddCryoregenesisThought(Pawn pawn, int origAge, int newAge)
+    {
+        int yearsRegressed = origAge - newAge;
+        if (yearsRegressed <= 0) return;
+
+        int stageIndex;
+        // Special case: Young adult regressed to minimum age (20)
+        if (origAge >= 75 && newAge <= 25)
+        {
+            stageIndex = 4; // Use stage 3 (index 3) for max boost
+        }
+
+        stageIndex = (int) Math.Round((double)((origAge - newAge) / 20)) + 1;
+        if (CryoRegenesis.Settings.debugMode)
+            Log.Warning($"Old age {origAge} | New age: {newAge} | Stage:  {stageIndex}");
+        ThoughtDef thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_LifeStageReversed");
+        Thought_Memory thought = (Thought_Memory)ThoughtMaker.MakeThought(thoughtDef);
+        thought.SetForcedStage(stageIndex);
+        pawn.needs.mood.thoughts.memories.TryGainMemory(thought);
     }
 }
