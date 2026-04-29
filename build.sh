@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# ==== build.sh ====
 # Check if inotifywait is installed
 if [ -z "$(which inotifywait)" ]; then
     echo "inotifywait not installed."
@@ -44,19 +44,28 @@ function build() {
     rm -rf /rimworld/1.2/Mods/${MOD}
 
     # Loop through each configuration and build it
+    local pids=()
     for config in "${configurations[@]}"; do
         echo "Building for configuration: $config"
         dotnet build --no-restore "$solutionPath" --configuration "Release $config" &
+        pids+=($!)
     done
 
-    wait  # Blocks until all background jobs finish
+    local failed=0
+    for pid in "${pids[@]}"; do
+        wait "$pid" || { echo "Build failed (PID $pid)"; failed=1; }
+    done
+
+    if [[ $failed -eq 1 ]]; then
+        echo "One or more builds failed. Aborting sync."
+        return 1
+    fi
 
     sync_mod
-
     echo "All builds completed!"
 }
 
-build
+build || exit 1
 
 if [ "$1" == "1" ]; then
     echo "Done"
@@ -70,7 +79,7 @@ inotifywait --recursive --monitor --format "%e %w%f" \
     while read event fullpath; do
         if [[ "$fullpath" == "$dir"* && "$fullpath" == *.cs ]]; then
             echo "Running build for $fullpath"
-            build
+            build || echo "Build failed, skipping sync."
         elif [[ "$fullpath" == "$MOD"* && "$fullpath" == *.xml ]]; then
             echo "Running sync_mod for $fullpath"
             sync_mod
