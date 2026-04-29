@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net480</TargetFramework>
     <LangVersion>10</LangVersion>
-    <ProjectGuid>{675CE9D5-460C-496A-A6A9-8D3873EDCC88}</ProjectGuid>
+    <ProjectGuid>{675CE9D5-460C-496A-A6A9-8D3873EDEE88}</ProjectGuid>
     <RootNamespace>BetterRimworlds.CryoRegenesis</RootNamespace>
     <AssemblyName>CryoRegenesis</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
