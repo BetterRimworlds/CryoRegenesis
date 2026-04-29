@@ -28,7 +28,9 @@ public class Designator_HaulCryoRegenesis : Designator
         iconDrawScale = GenUI.IconDrawScale(DeadCryosleepDefOf.CryoRegenesisCasket);
     }
 
+    #if !RIMWORLD16
     public override int DraggableDimensions => 2;
+    #endif
 
     protected override DesignationDef Designation => DeadCryosleepDefOf.Deadcryosleep_Haul;
 

@@ -10,9 +10,6 @@
  */
 
 using RimWorld;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Random=System.Random;
@@ -77,6 +74,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     protected Map currentMap;
 
     protected string TTLToHeal;
+
+    private int origAge;
 
     // @see https://github.com/goudaQuiche/BloodAndStains/blob/c8fdf1a312186eb17505c9b2f3e6e5cd3c408e7c/Source/BloodDripping/ToolsHediff.cs
     public static bool HasBionicParent(Pawn pawn, BodyPartRecord BPR)
@@ -153,7 +152,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         };
         this.hediffsToHeal = new List<Hediff>();
 
-        #if RIMWORLD14 || RIMWORLD15
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
         var hediffsOfPawn = new List<Hediff>();
         pawn.health.hediffSet.GetHediffs<Hediff>(ref hediffsOfPawn);
         foreach (Hediff hediff in hediffsOfPawn.ToList())
@@ -222,7 +221,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             }
 
             this.hediffsToHeal.Add(hediff);
-            if (CryoRegenesis.Settings.debugMode) Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.def.causesNeed + ", " + hediff.GetType().Name);
+            if (CryoRegenesis.Settings.debugMode)
+                Log.Message(hediff.def.description + " ( " + hediff.def.hediffClass + ") = " + hediff.GetType().Name);
         }
 
         return this.hediffsToHeal.Count;
@@ -269,7 +269,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         base.ExposeData();
         string fuelReqs = String.Join(",", this.ResurrectionFuelReqs);
         Scribe_Values.Look<string>(ref fuelReqs, "ResurrectionFuelReqs");
-        Scribe_Values.Look<float>(ref ResurrectionProgress, "ResurrectionProgress");
+        Scribe_Values.Look<float>(ref ResurrectionProgress, "ResurrectionProgress", 0f);
+        Scribe_Values.Look(ref origAge, "OrigAge", 50);
 
         if (String.IsNullOrEmpty(fuelReqs) == false)
         {
@@ -335,6 +336,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, true);
         this.ResurrectionFuelReqs[0] -= (int)this.refuelable.Fuel;
         this.fuelprops.fuelCapacity = 150;
+        this.ResurrectionProgress = 0f;
     }
 
     private void Resurrect(Corpse corpse)
@@ -346,88 +348,148 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             Messages.Message("[CryoRegenesis] Pawn rejected: No brain.", MessageTypeDefOf.RejectInput);
             base.EjectContents();
-
             return;
         }
 
         // Make sure that the corpse isn't more than 10% degraded.
         var rottable = corpse.GetComp<CompRottable>();
-        // If they've been dead and unfrozen for more than 1 day, then the CryoRegenesis casket cannot resurrect them.
-        if (rottable.RotProgress > 60_000)
+        // If they've been dead and unfrozen for more than 1 day, the CryoRegenesis casket cannot resurrect them.
+        if (rottable != null && rottable.RotProgress > 60_000)
         {
-            Messages.Message("[CryoRegenesis] Pawn rejected: More than 1 day unfrozen. Their brain is too degraded..", MessageTypeDefOf.RejectInput);
+            Messages.Message("[CryoRegenesis] Pawn rejected: More than 1 day unfrozen. Their brain is too degraded.", MessageTypeDefOf.RejectInput);
             base.EjectContents();
-
             return;
-
         }
 
-        string fuelType = this.refuelable.Props.fuelFilter.AnyAllowedDef.defName;
+        // --- State Machine for Resource Gathering ---
 
-        // Require 150 Uranium.
-        if (fuelType == "Uranium" && this.ResurrectionFuelReqs[0] > 0)
+        // State 1: Need Luciferium (first priority as requested)
+        if (this.ResurrectionFuelReqs[2] > 0)
         {
-            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[0];
-            this.ResurrectionFuelReqs[0] -= (int)this.refuelable.Fuel;
-            this.refuelable.ConsumeFuel(this.refuelable.Fuel);
+            // Configure the refuelable component to accept Luciferium
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, false);
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, false);
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, true);
+
+            // Set the capacity to what is still needed
+            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[2];
+
+            // If fuel has been delivered, process it
+            if (this.refuelable.Fuel > 0)
+            {
+                int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
+                this.ResurrectionFuelReqs[2] -= delivered; // Fixed index to update Luciferium
+                this.refuelable.ConsumeFuel(this.refuelable.Fuel);
+                Log.Message($"[CryoRegenesis] Luciferium delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[2]}");
+            }
+
+            // Stop processing for this tick; we are waiting for more fuel.
+            return;
         }
+        // State 2: Need Uranium (checked after Luciferium is complete)
+        else if (this.ResurrectionFuelReqs[0] > 0)
+        {
+            // Configure the refuelable component to accept Uranium
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, true);
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, false);
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, false);
+
+            // Set the capacity to what is still needed
+            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[0];
+
+            // If fuel has been delivered, process it
+            if (this.refuelable.Fuel > 0)
+            {
+                int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
+                this.ResurrectionFuelReqs[0] -= delivered;
+                this.refuelable.ConsumeFuel(this.refuelable.Fuel);
+                Log.Message($"[CryoRegenesis] Uranium delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[0]}");
+            }
+
+            // Stop processing for this tick; we are waiting for more fuel.
+            return;
+        }
+        // State 3: Need Gold (checked after Luciferium and Uranium are complete)
         else if (this.ResurrectionFuelReqs[1] > 0)
         {
-            this.fuelprops.fuelFilter = new ThingFilter();
+            // Configure the refuelable component to accept Gold
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, false);
             this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, true);
+            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, false);
 
+            // Set the capacity to what is still needed
             this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[1];
-            this.ResurrectionFuelReqs[1] -= (int)this.refuelable.Fuel;
-            this.refuelable.ConsumeFuel(this.refuelable.Fuel);
-        }
-        else if (this.ResurrectionFuelReqs[2] > 0)
-        {
-            this.fuelprops.fuelFilter = new ThingFilter();
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, true);
-            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[2];
-            this.ResurrectionFuelReqs[2] = 0;
-        }
 
-        // Increment the resurrection once every 30 minutes (2500 Ticks per Hour).
-        // 2 in-game days for resurrection to complete.
-        if (this.ResurrectionFuelReqs.Sum() <= 0 && Find.TickManager.TicksGame % 1250 == 0)
-        {
-            // Faster for debugging...
-            //float resurrectionFactor = Rand.Gaussian(0.05f, 0.12f) + 0.02f;
-            float resurrectionFactor = 0.25f;
-            // float resurrectionFactor = Rand.Gaussian(0.025f, 0.06f);
-            // Limit the upside to slow it down further.
-            if (resurrectionFactor > 0.04)
+            // If fuel has been delivered, process it
+            if (this.refuelable.Fuel > 0)
             {
-                resurrectionFactor /= 2;
+                int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
+                this.ResurrectionFuelReqs[1] -= delivered;
+                this.refuelable.ConsumeFuel(this.refuelable.Fuel);
+                Log.Message($"[CryoRegenesis] Gold delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[1]}");
             }
-            // Log.Error("CryoRegenesis Fully Fueled for Resurrection.");
-            Log.Warning("Resurrection Factor: " + resurrectionFactor);
-            refuelable.ConsumeFuel(fuelConsumption);
-            this.ResurrectionProgress += resurrectionFactor;
+
+            // Stop processing for this tick; we are waiting for more fuel.
+            return;
         }
 
+        if (Find.TickManager.TicksGame % 1000 == 0)
+        {
+            return;
+        }
+
+        // --- Resurrection Progress (only runs if all fuel requirements are met) ---
+        // The check for fuel requirements is implicitly handled by falling through the if/else-if chain.
+
+        // Turn off refueling now that we're full
+        this.fuelprops.fuelCapacity = 0;
+
+        // Adjust this value to control resurrection speed
+        float resurrectionFactor = 0.001f;
+
+        // Increment progress
+        this.ResurrectionProgress += resurrectionFactor;
+        this.ResurrectionProgress = Mathf.Clamp01(this.ResurrectionProgress); // Ensure it stays between 0 and 1
+
+        if (CryoRegenesis.Settings.debugMode)
+            Log.Message($"[CryoRegenesis] Resurrection Progress: {this.ResurrectionProgress * 100:F1}%");
+
+        // Check if resurrection is complete
         if (this.ResurrectionProgress >= 1.0f)
         {
             var resurrectedPawn = corpse.InnerPawn;
-            // this.TryAcceptThing(resurrectedPawn);
-            Log.Warning($"Resurrecting {corpse.InnerPawn.Name}");
-            base.EjectContents();
-            #if RIMWORLD15
-            ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
-            #else
-            ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
-            #endif
+            Log.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!");
+            Messages.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!", resurrectedPawn, MessageTypeDefOf.PositiveEvent);
 
-            Log.Error("Turning off power...");
+    #if RIMWORLD15 || RIMWORLD16
+            ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
+    #else
+            ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
+    #endif
+
             power.PowerOn = false;
             power.PowerOutput = 0;
             this.ResurrectionProgress = 0f;
+
+            this.EjectContents();
+
+            resurrectedPawn.health.AddHediff(HediffDefOf.Anesthetic, null, null);
+            this.AddLuciferiumAsResurrectionSideEffect(resurrectedPawn);
+
+
+            // Reset fuel requirements for the next pawn
+            this.ResetFuelRequirement();
         }
     }
 
+    #if RIMWORLD16
+    protected override void Tick()
+    #else
     public override void Tick()
+    #endif
     {
+        base.Tick();
+
         bool hasInjuries;
         bool isTargetAge;
 
@@ -437,9 +499,14 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             return;
         }
 
+        // Handle corpse resurrection - check every tick for smoother progress updates
         if (this.ContainedThing.def.defName.StartsWith("Corpse_"))
         {
-            this.Resurrect(this.ContainedThing as Corpse);
+            if (Find.TickManager.TicksGame % 180 == 0)
+            {
+                this.Resurrect(this.ContainedThing as Corpse);
+            }
+
             return;
         }
 
@@ -549,7 +616,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
             if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * targetAge)
             {
-                #if RIMWORLD14 || RIMWORLD15
+                #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
                 power.PowerOutput = -props.PowerConsumption;
                 #else
                 power.PowerOutput = -props.basePowerConsumption;
@@ -591,6 +658,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             pawn.needs.comfort.SetInitialLevel();
 
             this.possiblyChangeHairColor(pawn);
+
+            // Give them a positive thought.
+            int currentAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
+
+            AddCryoregenesisThought(pawn, this.origAge, currentAge);
         }
 
         pawn.needs.rest.SetInitialLevel();
@@ -629,7 +701,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
     protected void rerenderPawn(Pawn pawn)
     {
-        #if !RIMWORLD15
+        #if !RIMWORLD15 && !RIMWORLD16
         // Tell the pawn's Drawer that the Person has had a hair-change makeover.
         // This code is from https://github.com/KiameV/rimworld-changedresser/blob/f0b8fcf9073cd1c232fcd26b0b083cb3137924a3/Source/UI/DresserUI.cs
         // Copyright (c) 2017 Travis Offtermatt
@@ -643,7 +715,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
     protected void changeHairColor(Pawn pawn, Color hairColor)
     {
-        #if RIMWORLD14 || RIMWORLD15
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
         pawn.story.HairColor = hairColor;
         #else
         pawn.story.hairColor = hairColor;
@@ -669,7 +741,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     protected bool hasWhiteOrGrayHair(Pawn pawn)
     {
         string hsv;
-        #if RIMWORLD14 || RIMWORLD15
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
         Color hairColor = pawn.story.HairColor;
         #else
         Color hairColor = pawn.story.hairColor;
@@ -764,7 +836,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         if (thing.IsDessicated())
         {
-            Log.Error("asdfasdf");
             return false;
         }
 
@@ -780,9 +851,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         if (base.TryAcceptThing(thing, allowSpecialEffects))
         {
+            this.origAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
+
             restoreCoolDown = -1000;
 
-            #if RIMWORLD14 || RIMWORLD15
+            #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
             power.PowerOutput = -props.PowerConsumption;
             #else
             power.PowerOutput = -props.basePowerConsumption;
@@ -821,21 +894,19 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             if (ContainedThing.def.defName.StartsWith("Corpse_"))
             {
-                string status = $"Dead (Resurrecting: {this.ResurrectionProgress * 100}%)\n";
-                if (this.ResurrectionFuelReqs[0] > 0)
+                string status = $"Dead (Resurrecting: {this.ResurrectionProgress * 100:F1}%)\n";
+                if (this.ResurrectionFuelReqs[2] > 0)
+                {
+                    status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
+                }
+                else if (this.ResurrectionFuelReqs[0] > 0)
                 {
                     status += "Needed Uranium: " + this.ResurrectionFuelReqs[0] + "\n";
                 }
-
-                if (this.ResurrectionFuelReqs[1] > 0)
+                else if (this.ResurrectionFuelReqs[1] > 0)
                 {
                     status += "Needed Gold: " + this.ResurrectionFuelReqs[1] + "\n";
                 }
-
-                // if (this.ResurrectionFuelReqs[2] > 0)
-                // {
-                status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
-                // }
 
                 return status + base.GetInspectString();
             }
@@ -846,8 +917,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             string bioTime = "AgeBiological".Translate((NamedArgument) years,
                 (NamedArgument) quadrums, (NamedArgument) days);
 
-            // if (isSafeToRepair)
-            // {
             if (this.hediffsToHeal.Any())
             {
                 return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime + "\nTime To Heal: " + this.TTLToHeal;
@@ -856,11 +925,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             {
                 return base.GetInspectString() + ", " + AgeHediffs(pawn).ToString() + " Age Disabilities, " + InjuryHediffs(pawn).ToString() + " Injuries\n" + bioTime;
             }
-            // }
-            // else
-            // {
-            //     return base.GetInspectString() + " [Error] Has artificial body parts.\n" + bioTime;
-            // }
         }
         else return base.GetInspectString();
     }
@@ -883,5 +947,49 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         return this.targetAge;
     }
-}
 
+    public void AddLuciferiumAsResurrectionSideEffect(Pawn pawn)
+    {
+        if (pawn?.health?.hediffSet == null)
+            return;
+
+        // Add the addiction directly
+        HediffDef luciferiumAddiction = DefDatabase<HediffDef>.GetNamed("LuciferiumAddiction");
+        Hediff addictionHediff = HediffMaker.MakeHediff(luciferiumAddiction, pawn);
+        pawn.health.AddHediff(addictionHediff);
+
+        // Important: Set the last dose time to prevent immediate withdrawal
+        Need_Chemical drugNeed = pawn.needs?.AllNeeds.OfType<Need_Chemical>()
+            .FirstOrDefault(n => n.def.defName == "Chemical_Luciferium");
+
+        if (drugNeed != null)
+        {
+            drugNeed.CurLevel = drugNeed.MaxLevel; // Start them off satisfied
+        }
+
+        // Optional: Add a custom thought about the resurrection side effect
+        pawn.needs.mood?.thoughts.memories.TryGainMemory(
+            ThoughtDef.Named("CryoRegenesis_LuciferiumSideEffect"), null);
+    }
+
+    public static void AddCryoregenesisThought(Pawn pawn, int origAge, int newAge)
+    {
+        int yearsRegressed = origAge - newAge;
+        if (yearsRegressed <= 0) return;
+
+        int stageIndex;
+        // Special case: Young adult regressed to minimum age (20)
+        if (origAge >= 75 && newAge <= 25)
+        {
+            stageIndex = 4; // Use stage 3 (index 3) for max boost
+        }
+
+        stageIndex = (int) Math.Round((double)((origAge - newAge) / 20)) + 1;
+        if (CryoRegenesis.Settings.debugMode)
+            Log.Warning($"Old age {origAge} | New age: {newAge} | Stage:  {stageIndex}");
+        ThoughtDef thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_LifeStageReversed");
+        Thought_Memory thought = (Thought_Memory)ThoughtMaker.MakeThought(thoughtDef);
+        thought.SetForcedStage(stageIndex);
+        pawn.needs.mood.thoughts.memories.TryGainMemory(thought);
+    }
+}

@@ -22,6 +22,37 @@ Stock up on Uranium. You'll need a whole lot of it!
 Here's our illustrious pup, Cargo! He's been with the colonists 101 years and is 107 years old! He's lived
 on more Rimworlds than most humans!
 
+## Resurrection Costs and Consequences
+
+**Resource Requirements:**
+Bringing someone back from the dead requires significant resources:
+- **150 Uranium** - Powers the nanite reconstruction process
+- **500 Gold** - Essential for the advanced circuitry and nanite construction
+- **50 Luciferium** - The mechanites are required to jumpstart cellular regeneration
+
+**The Price of Resurrection:**
+- All resurrected pawns will gain a **permanent Luciferium addiction**. Death is not without consequence - the mechanites that bring them back require continued doses to maintain cellular cohesion.
+- This addiction cannot be cured by the sarcophagus (as noted in features above).
+
+## New Mood Effects
+
+**"Grateful to be alive!" (Resurrection only)**
+- Humanlike pawns who are resurrected gain a powerful +28 mood buff lasting 60 days
+- Represents the profound psychological impact of near-death experiences
+- Prevents post-resurrection mental breaks and helps colonists readjust to life
+
+**"I feel younger!" (Age Reversal)**
+- New staged mood buff based on years regenerated:
+  - 20 years reversed: +15 mood - "I feel 20 years younger!"
+  - 40 years reversed: +25 mood - "Substantially regenerated"
+  - 60 years reversed: +35 mood - "Majorly regenerated" 
+  - 80+ years reversed: +40 mood - "Fully regenerated"
+- Lasts 60 days as colonists enjoy their renewed youth
+- Stacks with resurrection mood bonus when applicable
+
+### Balance Notes
+The combination of resource costs and permanent Luciferium addiction ensures resurrection remains a serious decision rather than a casual convenience. Plan accordingly and maintain a steady Luciferium supply for your immortal colonists!
+
 ## Changelog
 
 **Version 1.0: 2020-08-11**
@@ -88,3 +119,15 @@ on more Rimworlds than most humans!
 * **[2025-03-06 06:27:19 CDT]** Ported to .NET v9.0 and C# v10.0.
 * **[2025-03-14 15:52:36 CDT]** Rearchitected the files to the BetterRimworlds standard layout.
 * **[2025-03-15 03:11:00 CDT]** [m] Tiny code cleanups.
+
+**Version 5.0.0: 2025-07-22**
+* **[2025-07-22 21:47:41 CDT]** Added happy thoughts about being regenerated.
+* **[2025-07-22 04:45:26 CDT]** Added a "Grateful to be a alive!" thought when pawns are resurrected.
+* **[2025-07-22 04:28:00 CDT]** Added Luciferium addiction to resurrected pawns.
+* **[2025-07-22 04:05:47 CDT]** Cause resurrected pawns to be under anesthetic on revival.
+* **[2025-07-22 03:58:41 CDT]** Store the pawn's original age for use later.
+* **[2025-07-22 03:45:45 CDT]** Fixed the resurrection system.
+* **[2025-07-14 07:00:11 CDT]** Fixed the requirements gathering for resurrection.
+* **[2025-07-11 18:25:25 CDT]** Added support for Rimworld v1.6.
+* **[2025-07-11 18:01:11 CDT]** Migrated to a modern dotnet SDK project.
+
