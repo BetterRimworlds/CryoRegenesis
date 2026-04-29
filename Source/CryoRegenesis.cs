@@ -132,10 +132,17 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         if (HasAnyContents)
         {
-            Pawn pawn = ContainedThing as Pawn;
-            this.configTargetAge(pawn);
-            this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
-        }
+            if (ContainedThing is Pawn pawn)
+            {
+                this.configTargetAge(pawn);
+                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
+            }
+            else if (ContainedThing is Corpse corpse)
+            {
+                var rotProgress = corpse.GetComp<CompRottable>().RotProgress;
+                this.InitialRot = rotProgress;
+            }
+    }
 
         this.contentsKnown = true;
     }
@@ -638,10 +645,16 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     }
     public override void EjectContents()
     {
+        if (ContainedThing is not Pawn)
+        {
+            power.PowerOutput = 0;
+            base.EjectContents();
+        }
+
         Pawn pawn = ContainedThing as Pawn;
         pawn.health.AddHediff(cryosickness);
 
-        if (pawn.IsColonist == true && pawn.NonHumanlikeOrWildMan() == false)
+        if ((pawn.IsPrisoner == true || pawn.IsColonist) && pawn.NonHumanlikeOrWildMan() == false)
         {
             // Remove negative and now-irrelevant thoughts:
             pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.MyOrganHarvested);
@@ -654,8 +667,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             pawn.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.ArtifactMoodBoost);
             pawn.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.Catharsis);
 
-            pawn.needs.joy.SetInitialLevel();
-            pawn.needs.comfort.SetInitialLevel();
+            if (pawn.IsPrisoner == false)
+            {
+                pawn.needs.joy.SetInitialLevel();
+                pawn.needs.comfort.SetInitialLevel();
+            }
 
             this.possiblyChangeHairColor(pawn);
 
