@@ -1020,15 +1020,35 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         // Special case: Young adult regressed to minimum age (20)
         if (origAge >= 75 && newAge <= 25)
         {
-            stageIndex = 4; // Use stage 3 (index 3) for max boost
+            stageIndex = 3; // Use stage 3 (index 3) for max boost
+        }
+        else
+        {
+            stageIndex = (int)Math.Round((double)((origAge - newAge) / 20)) + 1;
+            stageIndex = Math.Min(stageIndex, 3);
         }
 
-        stageIndex = (int) Math.Round((double)((origAge - newAge) / 20)) + 1;
         if (CryoRegenesis.Settings.debugMode)
             Log.Warning($"Old age {origAge} | New age: {newAge} | Stage:  {stageIndex}");
+
         ThoughtDef thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_LifeStageReversed");
         Thought_Memory thought = (Thought_Memory)ThoughtMaker.MakeThought(thoughtDef);
         thought.SetForcedStage(stageIndex);
-        pawn.needs.mood.thoughts.memories.TryGainMemory(thought);
+        pawn.needs.mood?.thoughts.memories.TryGainMemory(thought);
+
+        #if !RIMWORLD12 && !RIMWORLD13
+        if (stageIndex >= 2)
+        {
+            if (pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
+            {
+                pawn.guest.Recruitable = true;
+                Messages.Message("Grateful to be so much younger, " + pawn.Name + " is now recruitable.", pawn, MessageTypeDefOf.PositiveEvent);
+            }
+        }
+        #endif
+
+        // pawn.needs.mood?.thoughts.memories.TryGainMemory(
+        //     ThoughtDef.Named("Thought_RegenesisBodyPositivity"), null);
+
     }
 }
