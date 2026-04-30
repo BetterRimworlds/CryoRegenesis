@@ -1,6 +1,6 @@
 using System;
 
-namespace BetterRimworlds.ThermoVoltaicGenerator;
+namespace BetterRimworlds;
 
 public class BetterRandom
 {

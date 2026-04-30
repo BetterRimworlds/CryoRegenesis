@@ -13,30 +13,39 @@
         </stages>
     </ThoughtDef>
     <ThoughtDef>
-        <defName>CryoRegenesis_LifeStageReversed</defName>
-        <thoughtClass>Thought_Memory</thoughtClass>
-        <durationDays>60</durationDays>
-        <stackLimit>1</stackLimit>
+        <defName>CryoRegenesis_BodyPositivity</defName>
+        <thoughtClass>BetterRimworlds.CryoRegenesis.Thought_RegenesisBodyPositivity</thoughtClass>
+        <durationDays>30</durationDays>
         <stages>
             <li>
-                <label>[Regenesis] I feel younger.</label>
-                <description>I feel 20 years younger! The weight of time has been lifted from my body.</description>
+                <label>Regenerated</label>
+                <description>I feel a few years younger.</description>
                 <baseMoodEffect>15</baseMoodEffect>
+                <visibleInNeedsTab>true</visibleInNeedsTab>
             </li>
             <li>
-                <label>[Regenesis] Substantially regenerated</label>
-                <description>40 years erased! My joints move smoothly again and my energy is returning.</description>
+                <label>Mildly regenerated</label>
+                <description>I feel 10 years younger! The weight of time has been lifted from my body.</description>
+                <baseMoodEffect>20</baseMoodEffect>
+                <visibleInNeedsTab>true</visibleInNeedsTab>
+            </li>
+            <li>
+                <label>Substantially regenerated</label>
+                <description>20 years erased! My joints move smoothly again and my energy is returning.</description>
                 <baseMoodEffect>25</baseMoodEffect>
+                <visibleInNeedsTab>true</visibleInNeedsTab>
             </li>
             <li>
-                <label>[Regenesis] Majorly regenerated</label>
-                <description>60 years gone! I recognize my younger self in the mirror - the vigor of my prime is returning!</description>
+                <label>Majorly regenerated</label>
+                <description>40 years gone! I recognize my younger self in the mirror.</description>
                 <baseMoodEffect>35</baseMoodEffect>
+                <visibleInNeedsTab>true</visibleInNeedsTab>
             </li>
             <li>
-                <label>[Regenesis] Fully regenerated</label>
+                <label>Fully regenerated</label>
                 <description>My body feels like it did in my earliest adulthood - fresh, strong, and full of potential!</description>
                 <baseMoodEffect>40</baseMoodEffect>
+                <visibleInNeedsTab>true</visibleInNeedsTab>
             </li>
         </stages>
     </ThoughtDef>

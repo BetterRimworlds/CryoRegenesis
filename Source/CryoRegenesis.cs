@@ -1016,28 +1016,25 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         int yearsRegressed = origAge - newAge;
         if (yearsRegressed <= 0) return;
 
-        int stageIndex;
-        // Special case: Young adult regressed to minimum age (20)
-        if (origAge >= 75 && newAge <= 25)
-        {
-            stageIndex = 3; // Use stage 3 (index 3) for max boost
-        }
-        else
-        {
-            stageIndex = (int)Math.Round((double)((origAge - newAge) / 20)) + 1;
-            stageIndex = Math.Min(stageIndex, 3);
-        }
+        // Get the def
+        var thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_BodyPositivity");
 
-        if (CryoRegenesis.Settings.debugMode)
-            Log.Warning($"Old age {origAge} | New age: {newAge} | Stage:  {stageIndex}");
+        // Create the thought instance manually so we can initialize it
+        var thought = ThoughtMaker.MakeThought(thoughtDef) as Thought_RegenesisBodyPositivity;
+        if (thought == null) return;
 
-        ThoughtDef thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_LifeStageReversed");
-        Thought_Memory thought = (Thought_Memory)ThoughtMaker.MakeThought(thoughtDef);
-        thought.SetForcedStage(stageIndex);
+        // Set the years BEFORE adding it to the pawn
+        thought.SetYearsReversed(yearsRegressed);
+
+        // Add the initialized thought instance (not the def)
         pawn.needs.mood?.thoughts.memories.TryGainMemory(thought);
 
+        if (CryoRegenesis.Settings.debugMode)
+            Log.Warning($"Old age {origAge} | New age: {newAge} | Years reversed: {yearsRegressed} | Stage: {thought.CurStageIndex}");
+
+        // Use the thought's actual stage for the prisoner check
         #if !RIMWORLD12 && !RIMWORLD13
-        if (stageIndex >= 2)
+        if (thought.CurStageIndex >= 2)
         {
             if (pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
             {
@@ -1046,9 +1043,5 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             }
         }
         #endif
-
-        // pawn.needs.mood?.thoughts.memories.TryGainMemory(
-        //     ThoughtDef.Named("Thought_RegenesisBodyPositivity"), null);
-
     }
 }
