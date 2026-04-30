@@ -121,13 +121,21 @@ The combination of resource costs and permanent Luciferium addiction ensures res
 * **[2025-03-15 03:11:00 CDT]** [m] Tiny code cleanups.
 
 **Version 5.0.0: 2025-07-22**
-* **[2025-07-22 21:47:41 CDT]** Added happy thoughts about being regenerated.
-* **[2025-07-22 04:45:26 CDT]** Added a "Grateful to be a alive!" thought when pawns are resurrected.
-* **[2025-07-22 04:28:00 CDT]** Added Luciferium addiction to resurrected pawns.
-* **[2025-07-22 04:05:47 CDT]** Cause resurrected pawns to be under anesthetic on revival.
-* **[2025-07-22 03:58:41 CDT]** Store the pawn's original age for use later.
-* **[2025-07-22 03:45:45 CDT]** Fixed the resurrection system.
-* **[2025-07-14 07:00:11 CDT]** Fixed the requirements gathering for resurrection.
-* **[2025-07-11 18:25:25 CDT]** Added support for Rimworld v1.6.
 * **[2025-07-11 18:01:11 CDT]** Migrated to a modern dotnet SDK project.
+* **[2025-07-11 18:25:25 CDT]** Added support for Rimworld v1.6.
+* **[2025-07-14 07:00:11 CDT]** Fixed the requirements gathering for resurrection.
+* **[2025-07-22 03:45:45 CDT]** Fixed the resurrection system.
+* **[2025-07-22 03:58:41 CDT]** Store the pawn's original age for use later.
+* **[2025-07-22 04:05:47 CDT]** Cause resurrected pawns to be under anesthetic on revival.
+* **[2025-07-22 04:28:00 CDT]** Added Luciferium addiction to resurrected pawns.
+* **[2025-07-22 04:45:26 CDT]** Added a "Grateful to be a alive!" thought when pawns are resurrected.
+* **[2025-07-22 21:47:41 CDT]** Added happy thoughts about being regenerated.
+
+**Version 5.1.0: 2026-04-29**
+* **[2026-04-29 06:52:14 CDT]** Added BetterRandom utility class for deterministic random number generation
+* **[2026-04-29 06:55:59 CDT]** Fixed Ejection to properly handle prisoners
+* **[2026-04-29 07:00:49 CDT]** Now freezes the corpse's rotting state preservation during resurrection.
+* **[2026-04-29 07:04:03 CDT]** Fixed the thought stage calculation for the age regression mood boost.
+* **[2026-04-29 07:57:17 CDT]** Added a Grateful To Be Alive extended Thought upon resurrection.
+* **[2026-04-29 21:03:02 CDT]** Greatly enhanced the Regenesis High.
 
