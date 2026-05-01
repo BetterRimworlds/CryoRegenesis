@@ -80,7 +80,7 @@ public class Thought_RegenesisBodyPositivity : Thought_DurationBased
         else if (isBodyPurist)
         {
             DurationDays = BetterRandom.pick(30, 300) * BetterRandom.pick(1, 3);
-            this._moodBonus = BetterRandom.pick(1, 2);
+            this._moodBonus *= BetterRandom.pick(1, 2);
         }
         else
         {
@@ -92,5 +92,6 @@ public class Thought_RegenesisBodyPositivity : Thought_DurationBased
     {
         base.ExposeData();
         Scribe_Values.Look(ref _yearsReversed, "yearsReversed", 0);
+        Scribe_Values.Look(ref _moodBonus, "moodBonus", 0);
     }
 }

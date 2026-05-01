@@ -653,6 +653,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             power.PowerOutput = 0;
             base.EjectContents();
+
+            return;
         }
 
         Pawn pawn = ContainedThing as Pawn;
