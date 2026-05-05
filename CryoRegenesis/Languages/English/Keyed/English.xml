@@ -5,4 +5,16 @@
 
     <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Must designate a corpse</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
     <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>No corpses to haul to cryoregenesis casket</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>Fully regenerated</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>Majorly regenerated</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>Substantially regenerated</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>Mildly regenerated</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>Regenerated</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>My body feels like it did in my earliest adulthood - fresh, strong, and full of potential!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>{0} years gone! I recognize my younger self in the mirror - the vigor of my prime is returning!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} years erased! My joints move smoothly again and my energy is returning.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>I feel {0} years younger! The weight of time has been lifted from my body.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>I feel a few years younger.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
 </LanguageData>

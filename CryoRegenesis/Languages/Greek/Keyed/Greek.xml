@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/Greek/Keyed/Greek.xml ==== -->
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>Μεταφορά πτώματος σε σαρκοφάγο κρυογενικής αναγέννησης</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>Μεταφορά πτώματος σε σαρκοφάγο κρυογενικής αναγέννησης</BetterRimworlds.CryoRegenesis.Designator.Label>
+ 
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Πρέπει να ορίσετε ένα πτώμα</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>Δεν υπάρχουν πτώματα για μεταφορά στο σαρκοφάγο κρυογενικής αναγέννησης</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>Πλήρως αναγεννημένο</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>Σε μεγάλο βαθμό αναγεννημένο</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>Ουσιαστικά αναγεννημένο</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>Ελαφρώς αναγεννημένο</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>Αναγεννημένο</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>Το σώμα μου νιώθει σαν στα πρώιμα νιάτα μου: φρέσκο, δυνατό και γεμάτο δυνατότητες!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>{0} χρόνια σβησμένα! Αναγνωρίζω τον νεότερο εαυτό μου στον καθρέφτη: η ζωντάνια της νιότης μου επιστρέφει!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} χρόνια σβησμένα! Οι αρθρώσεις μου κινούνται ξανά ομαλά και η ενέργειά μου επιστρέφει.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>Νιώθω {0} χρόνια νεότερος! Το βάρος του χρόνου έχει αφαιρεθεί από το σώμα μου.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Νιώθω μερικά χρόνια νεότερος.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+</LanguageData>

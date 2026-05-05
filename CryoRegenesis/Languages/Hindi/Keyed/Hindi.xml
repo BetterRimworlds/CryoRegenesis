@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/Hindi/Keyed/Hindi.xml ==== -->
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>शव को क्रायो-रिजेनेरेशन सरकोफैगस में ले जाएं</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>शव को क्रायो-रिजेनेरेशन सरकोफैगस में ले जाएं</BetterRimworlds.CryoRegenesis.Designator.Label>
+
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>एक शव निर्दिष्ट करना आवश्यक है</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>क्रायो-रिजेनेरेशन सरकोफैगस में ले जाने के लिए कोई शव नहीं है</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>पूरी तरह से पुनर्जीवित</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>अधिकतर पुनर्जीवित</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>काफी हद तक पुनर्जीवित</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>थोड़ा पुनर्जीवित</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>पुनर्जीवित</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>मेरा शरीर अपनी प्रारंभिक युवावस्था की तरह महसूस कर रहा है: तरोताजा, मजबूत और संभावनाओं से भरपूर!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>{0} साल मिटा दिए गए! मैं आईने में अपने युवा स्व को पहचानता हूं: मेरी युवावस्था का उत्साह वापस आ रहा है!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} साल मिटा दिए गए! मेरे जोड़ फिर से सहजता से चल रहे हैं और मेरी ऊर्जा वापस आ रही है।</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>मैं अपने आपको {0} साल युवा महसूस कर रहा हूं! समय का बोझ मेरे शरीर से हटा दिया गया है।</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>मैं अपने आपको कुछ साल युवा महसूस कर रहा हूं।</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+</LanguageData>

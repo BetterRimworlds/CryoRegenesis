@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/Turkish/Keyed/Turkish.xml ==== -->
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>Cesedi kriyojenik rejenerasyon lahdiine taşı</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>Cesedi kriyojenik rejenerasyon lahdiine taşı</BetterRimworlds.CryoRegenesis.Designator.Label>
+
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Bir ceset işaretlenmelidir</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>Kriyojenik rejenerasyon lahdiine taşınacak ceset yok</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>Tamamen rejenerasyon geçirmiş</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>Büyük ölçüde rejenerasyon geçirmiş</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>Önemli ölçüde rejenerasyon geçirmiş</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>Hafifçe rejenerasyon geçirmiş</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>Rejenerasyon geçirmiş</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>Vücudum erken gençliğimdeki gibi hissediyor: taze, güçlü ve potansiyel dolu!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>{0} yıl silindi! Aynada genç halimi tanıyorum: gençliğimin enerjisi geri dönüyor!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} yıl silindi! Eklemlerim tekrar pürüzsüz hareket ediyor ve enerjim geri dönüyor.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>Kendimi {0} yıl daha genç hissediyorum! Zamanın yükü bedenimden kaldırıldı.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Kendimi birkaç yıl daha genç hissediyorum.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+</LanguageData>

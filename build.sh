@@ -20,6 +20,9 @@ configurations=("v1.2" "v1.3" "v1.4" "v1.5" "v1.6")
 dotnet restore "$solutionPath"
 
 function sync_mod() {
+    rm -rf "${MOD}/Languages/SpanishLatin"
+    cp -avf ${MOD}/Languages/Spanish ${MOD}/Languages/SpanishLatin
+
     # Copy over the mod directory.
     rsync -a ${MOD} /rimworld/1.2/Mods/
 

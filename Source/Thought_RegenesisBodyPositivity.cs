@@ -36,20 +36,20 @@ public class Thought_RegenesisBodyPositivity : Thought_DurationBased
 
     public override string LabelCap => CurStageIndex switch
     {
-        4 => "Fully regenerated",
-        3 => "Majorly regenerated",
-        2 => "Substantially regenerated",
-        1 => "Mildly regenerated",
-        _ => "Regenerated"
+        4 => "BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full".Translate(),
+        3 => "BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major".Translate(),
+        2 => "BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial".Translate(),
+        1 => "BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild".Translate(),
+        _ => "BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some".Translate()
     };
 
     public override string BaseDescription => CurStageIndex switch
     {
-        4 => "My body feels like it did in my earliest adulthood - fresh, strong, and full of potential!",
-        3 => "60 years gone! I recognize my younger self in the mirror - the vigor of my prime is returning!",
-        2 => "40 years erased! My joints move smoothly again and my energy is returning.",
-        1 => "I feel 20 years younger! The weight of time has been lifted from my body.",
-        _ => "I feel a few years younger."
+        4 => "BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full".Translate(),
+        3 => "BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major".Translate(_yearsReversed),
+        2 => "BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial".Translate(_yearsReversed),
+        1 => "BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild".Translate(_yearsReversed),
+        _ => "BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some".Translate(),
     };
 
     public override float MoodOffset() => CurStageIndex switch
