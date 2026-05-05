@@ -132,10 +132,17 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         if (HasAnyContents)
         {
-            Pawn pawn = ContainedThing as Pawn;
-            this.configTargetAge(pawn);
-            this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
-        }
+            if (ContainedThing is Pawn pawn)
+            {
+                this.configTargetAge(pawn);
+                this.enteredHealthy = this.determineCurableInjuries(pawn) == 0;
+            }
+            else if (ContainedThing is Corpse corpse)
+            {
+                var rotProgress = corpse.GetComp<CompRottable>().RotProgress;
+                this.InitialRot = rotProgress;
+            }
+    }
 
         this.contentsKnown = true;
     }
@@ -329,6 +336,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     private const int REQ_URANIUM = 150;
     private const int REQ_LUCIFERIUM = 50;
     private int[] ResurrectionFuelReqs = new int[3]{REQ_URANIUM, REQ_GOLD, REQ_LUCIFERIUM};
+    private float InitialRot = -1;
 
     private void ResetFuelRequirement()
     {
@@ -356,7 +364,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         // If they've been dead and unfrozen for more than 1 day, the CryoRegenesis casket cannot resurrect them.
         if (rottable != null && rottable.RotProgress > 60_000)
         {
-            Messages.Message("[CryoRegenesis] Pawn rejected: More than 1 day unfrozen. Their brain is too degraded.", MessageTypeDefOf.RejectInput);
+            Messages.Message("[CryoRegenesis] Pawn rejected: More than 1 day unfrozen ("  + rottable.RotProgress +"). Their brain is too degraded.", MessageTypeDefOf.RejectInput);
             base.EjectContents();
             return;
         }
@@ -476,7 +484,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             resurrectedPawn.health.AddHediff(HediffDefOf.Anesthetic, null, null);
             this.AddLuciferiumAsResurrectionSideEffect(resurrectedPawn);
 
-
             // Reset fuel requirements for the next pawn
             this.ResetFuelRequirement();
         }
@@ -504,7 +511,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             if (Find.TickManager.TicksGame % 180 == 0)
             {
-                this.Resurrect(this.ContainedThing as Corpse);
+                // Turn off / pause rotting once inside.
+                var corpse = ContainedThing as Corpse;
+                var rottable = corpse.GetComp<CompRottable>();
+                rottable.RotProgress = this.InitialRot;
+                this.Resurrect(corpse);
             }
 
             return;
@@ -638,10 +649,18 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     }
     public override void EjectContents()
     {
+        if (ContainedThing is not Pawn)
+        {
+            power.PowerOutput = 0;
+            base.EjectContents();
+
+            return;
+        }
+
         Pawn pawn = ContainedThing as Pawn;
         pawn.health.AddHediff(cryosickness);
 
-        if (pawn.IsColonist == true && pawn.NonHumanlikeOrWildMan() == false)
+        if ((pawn.IsPrisoner == true || pawn.IsColonist) && pawn.NonHumanlikeOrWildMan() == false)
         {
             // Remove negative and now-irrelevant thoughts:
             pawn.needs.mood.thoughts.memories.RemoveMemoriesOfDef(ThoughtDefOf.MyOrganHarvested);
@@ -654,8 +673,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             pawn.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.ArtifactMoodBoost);
             pawn.needs.mood.thoughts.memories.TryGainMemory(ThoughtDefOf.Catharsis);
 
-            pawn.needs.joy.SetInitialLevel();
-            pawn.needs.comfort.SetInitialLevel();
+            if (pawn.IsPrisoner == false)
+            {
+                pawn.needs.joy.SetInitialLevel();
+                pawn.needs.comfort.SetInitialLevel();
+            }
 
             this.possiblyChangeHairColor(pawn);
 
@@ -839,12 +861,23 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             return false;
         }
 
+        this.InitialRot = -1;
+
         if (thing.def.defName.StartsWith("Corpse_"))
         {
             this.ResurrectionProgress = 0f;
             this.ResurrectionFuelReqs = new int[3]{REQ_URANIUM, REQ_GOLD, REQ_LUCIFERIUM};
 
-            return base.TryAcceptThing(thing, allowSpecialEffects);
+            bool status = base.TryAcceptThing(thing, allowSpecialEffects);
+            if (status)
+            {
+                // Record the initial rot level.
+                var corpse = ContainedThing as Corpse;
+                var rottable = corpse.GetComp<CompRottable>();
+                this.InitialRot = rottable.RotProgress;
+            }
+
+            return status;
         }
 
         var pawn = thing as Pawn;
@@ -894,7 +927,15 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         {
             if (ContainedThing.def.defName.StartsWith("Corpse_"))
             {
-                string status = $"Dead (Resurrecting: {this.ResurrectionProgress * 100:F1}%)\n";
+                string debugString = "";
+                if (CryoRegenesis.Settings.debugMode)
+                {
+                    var corpse = ContainedThing as Corpse;
+                    var rotProgress = corpse.GetComp<CompRottable>().RotProgress;
+                    debugString = $"; Rotting: {rotProgress}";
+                }
+
+                string status = $"Dead (Resurrecting: {this.ResurrectionProgress * 100:F1}%{debugString})\n";
                 if (this.ResurrectionFuelReqs[2] > 0)
                 {
                     status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
@@ -967,9 +1008,9 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             drugNeed.CurLevel = drugNeed.MaxLevel; // Start them off satisfied
         }
 
-        // Optional: Add a custom thought about the resurrection side effect
-        pawn.needs.mood?.thoughts.memories.TryGainMemory(
-            ThoughtDef.Named("CryoRegenesis_LuciferiumSideEffect"), null);
+        pawn.needs?.mood?.thoughts?.memories?.TryGainMemory(
+            DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_LuciferiumSideEffect")
+        );
     }
 
     public static void AddCryoregenesisThought(Pawn pawn, int origAge, int newAge)
@@ -977,19 +1018,32 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         int yearsRegressed = origAge - newAge;
         if (yearsRegressed <= 0) return;
 
-        int stageIndex;
-        // Special case: Young adult regressed to minimum age (20)
-        if (origAge >= 75 && newAge <= 25)
-        {
-            stageIndex = 4; // Use stage 3 (index 3) for max boost
-        }
+        // Get the def
+        var thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_BodyPositivity");
 
-        stageIndex = (int) Math.Round((double)((origAge - newAge) / 20)) + 1;
+        // Create the thought instance manually so we can initialize it
+        var thought = ThoughtMaker.MakeThought(thoughtDef) as Thought_RegenesisBodyPositivity;
+        if (thought == null) return;
+
+        // Set the years BEFORE adding it to the pawn
+        thought.SetYearsReversed(yearsRegressed);
+
+        // Add the initialized thought instance (not the def)
+        pawn.needs.mood?.thoughts.memories.TryGainMemory(thought);
+
         if (CryoRegenesis.Settings.debugMode)
-            Log.Warning($"Old age {origAge} | New age: {newAge} | Stage:  {stageIndex}");
-        ThoughtDef thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_LifeStageReversed");
-        Thought_Memory thought = (Thought_Memory)ThoughtMaker.MakeThought(thoughtDef);
-        thought.SetForcedStage(stageIndex);
-        pawn.needs.mood.thoughts.memories.TryGainMemory(thought);
+            Log.Warning($"Old age {origAge} | New age: {newAge} | Years reversed: {yearsRegressed} | Stage: {thought.CurStageIndex}");
+
+        // Use the thought's actual stage for the prisoner check
+        #if !RIMWORLD12 && !RIMWORLD13
+        if (thought.CurStageIndex >= 2)
+        {
+            if (pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
+            {
+                pawn.guest.Recruitable = true;
+                Messages.Message("Grateful to be so much younger, " + pawn.Name + " is now recruitable.", pawn, MessageTypeDefOf.PositiveEvent);
+            }
+        }
+        #endif
     }
 }

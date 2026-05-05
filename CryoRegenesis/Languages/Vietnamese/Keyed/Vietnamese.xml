@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/Vietnamese/Keyed/Vietnamese.xml ==== -->
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>Vận chuyển thi thể đến quan tài tái sinh lạnh</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>Vận chuyển thi thể đến quan tài tái sinh lạnh</BetterRimworlds.CryoRegenesis.Designator.Label>
+ 
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Phải chỉ định một thi thể</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>Không có thi thể nào để vận chuyển đến quan tài tái sinh lạnh</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>Đã tái sinh hoàn toàn</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>Đã tái sinh phần lớn</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>Đã tái sinh đáng kể</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>Đã tái sinh nhẹ</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>Đã tái sinh</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>Cơ thể tôi cảm thấy như thời trẻ mới lớn: tươi mới, khỏe mạnh và đầy tiềm năng!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>{0} năm đã bị xóa sổ! Tôi nhận ra bản thân trẻ tuổi hơn trong gương: sức sống của tuổi trẻ đang trở lại!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} năm đã bị xóa sổ! Các khớp của tôi lại cử động trơn tru và năng lượng đang trở lại.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>Tôi cảm thấy trẻ hơn {0} tuổi! Gánh nặng của thời gian đã được gỡ bỏ khỏi cơ thể tôi.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Tôi cảm thấy trẻ hơn vài năm.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+</LanguageData>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/Catalan/Keyed/Catalan.xml ==== -->
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>Transportar cadàver a un sarcòfag de crioregeneració</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>Transportar cadàver a un sarcòfag de crioregeneració</BetterRimworlds.CryoRegenesis.Designator.Label>
+ 
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Cal designar un cadàver</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>No hi ha cadàvers per transportar al sarcòfag de crioregeneració</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>Completament regenerat</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>Majoritàriament regenerat</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>Substancialment regenerat</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>Lleugerament regenerat</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>Regenerat</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>El meu cos se sent com a la meva joventut primerenca: fresc, fort i ple de potencial!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>{0} anys esborrats! Reconec el meu jo més jove al mirall: el vigor de la meva joventut està tornant!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} anys esborrats! Les meves articulacions tornen a moure's amb suavitat i la meva energia està tornant.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>Em sento {0} anys més jove! El pes del temps ha estat alliberat del meu cos.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Em sento uns anys més jove.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+</LanguageData>

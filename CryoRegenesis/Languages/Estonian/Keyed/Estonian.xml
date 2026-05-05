@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/Estonian/Keyed/Estonian.xml ==== -->
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>Transportida laip krüoregeneratsiooni sarkofaagi</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>Transportida laip krüoregeneratsiooni sarkofaagi</BetterRimworlds.CryoRegenesis.Designator.Label>
+ 
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Tuleb määrata laip</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>Pole laipu, mida krüoregeneratsiooni sarkofaagi transportida</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>Täielikult regenereritud</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>Suures osas regenereritud</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>Märkimisväärselt regenereritud</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>Veidi regenereritud</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>Regenereritud</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>Mu keha tunneb end nagu varases nooruses: värske, tugev ja potentsiaali täis!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>{0} aastat kustutatud! Tunnen peeglist oma nooremat mina: mu nooruslik elujõud naaseb!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} aastat kustutatud! Mu liigesed liiguvad jälle sujuvalt ja mu energia naaseb.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>Tunnen end {0} aastat nooremalt! Aja koorem on mu kehast eemaldatud.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Tunnen end mõne aasta nooremalt.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+</LanguageData>

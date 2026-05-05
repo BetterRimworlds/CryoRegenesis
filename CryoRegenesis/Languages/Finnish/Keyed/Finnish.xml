@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/Finnish/Keyed/Finnish.xml ==== -->
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>Kuljeta ruumis krioregeneraatio-sarkofagiin</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>Kuljeta ruumis krioregeneraatio-sarkofagiin</BetterRimworlds.CryoRegenesis.Designator.Label>
+ 
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Täytyy osoittaa ruumis</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>Ei ruumiita kuljetettavaksi krioregeneraatio-sarkofagiin</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>Täysin regeneroitunut</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>Pääosin regeneroitunut</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>Olennaisesti regeneroitunut</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>Hieman regeneroitunut</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>Regeneroitunut</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>Kehoni tuntuu kuin varhaisessa nuoruudessani: raikas, vahva ja täynnä potentiaalia!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>{0} vuotta pyyhitty pois! Tunnistan nuoremman minäni peilistä: nuoruuteni vilkas voima palaa!</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} vuotta pyyhitty pois! Niveleni liikkuvat taas sujuvasti ja energiani palaa.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>Tunnen oloni {0} vuotta nuoremmaksi! Ajan taakka on poistettu kehostani.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Tunnen oloni muutaman vuoden nuoremmaksi.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+</LanguageData>

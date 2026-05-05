@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/ChineseSimplified/Keyed/ChineseSimplified.xml ==== -->
+<LanguageData>
+    <BetterRimworlds.CryoRegenesis.Designator.Desc>将尸体运送至低温再生棺</BetterRimworlds.CryoRegenesis.Designator.Desc>
+    <BetterRimworlds.CryoRegenesis.Designator.Label>将尸体运送至低温再生棺</BetterRimworlds.CryoRegenesis.Designator.Label>
+ 
+    <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>必须指定一具尸体</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
+    <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>没有可运送至低温再生棺的尸体</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>完全再生</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>大幅再生</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>显著再生</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>轻微再生</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>已再生</BetterRimworlds.CryoRegenesis.BodyPositivity.Label.Some>
+
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>我的身体感觉像是回到了青春初期：清新、强壮、充满潜力！</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Full>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>抹去了{0}年！我在镜中认出了年轻的自己：青春的活力正在回归！</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Major>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>抹去了{0}年！我的关节重新灵活转动，精力正在恢复。</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>我感觉年轻了{0}岁！时间的重负已从我的身上卸下。</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
+    <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>我感觉年轻了几岁。</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+</LanguageData>

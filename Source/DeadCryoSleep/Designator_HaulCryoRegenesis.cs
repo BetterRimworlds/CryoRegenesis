@@ -64,8 +64,7 @@ public class Designator_HaulCryoRegenesis : Designator
         }
         catch (InvalidOperationException)
         {
-            // return "BetterRimworlds.CryoRegenesis.Designator.NoCorpses".Translate();
-            return "No corpses to haul to cryoregenesis casket";
+            return "BetterRimworlds.CryoRegenesis.Designator.NoCorpses".Translate();
         }
     }
 
