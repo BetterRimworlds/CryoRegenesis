@@ -68,6 +68,8 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
     CompProperties_Refuelable fuelprops;
 
     protected Map currentMap;
+    private bool IsDisconnectedFromPowerGrid => power?.PowerNet == null;
+    private bool IsPowerUnavailable => power == null || !power.PowerOn || IsDisconnectedFromPowerGrid;
 
     public override void SpawnSetup(Map map, bool respawningAfterLoad)
     {
@@ -135,6 +137,16 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
     #endif
     {
         base.Tick();
+
+        if (IsPowerUnavailable)
+        {
+            if (power != null)
+            {
+                power.PowerOutput = 0;
+            }
+
+            return;
+        }
 
         bool hasInjuries;
         bool isTargetAge;
@@ -245,7 +257,11 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
     {
         if (ContainedThing is not Pawn)
         {
-            power.PowerOutput = 0;
+            if (power != null)
+            {
+                power.PowerOutput = 0;
+            }
+
             base.EjectContents();
 
             return;
@@ -284,7 +300,11 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
         pawn.needs.rest.SetInitialLevel();
         pawn.needs.food.SetInitialLevel();
 
-        power.PowerOutput = 0;
+        if (power != null)
+        {
+            power.PowerOutput = 0;
+        }
+
         this.ApplyTrueAgeOnEject(pawn);
         base.EjectContents();
 
@@ -306,6 +326,11 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
         }
 
         if (thing.IsDessicated())
+        {
+            return false;
+        }
+
+        if (IsPowerUnavailable)
         {
             return false;
         }
