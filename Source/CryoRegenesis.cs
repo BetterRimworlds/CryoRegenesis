@@ -1,7 +1,8 @@
+// ==== ./Source/CryoRegenesis.cs ====
 /*
  * This file is part of CryoRegenesis, a Better Rimworlds Project.
  *
- * Copyright © 2020-2024 Theodore R. Smith
+ * Copyright © 2020-2026 Theodore R. Smith
  * Author: Theodore R. Smith <hopeseekr@gmail.com>
  *   GPG Fingerprint: D8EA 6E4D 5952 159D 7759  2BB4 EEB6 CE72 F441 EC41
  *   https://github.com/BetterRimworlds/CryoRegenesis
@@ -18,6 +19,7 @@ using Verse;
 // ReSharper disable All
 
 namespace BetterRimworlds.CryoRegenesis;
+
 public class CryoRegenesis: Mod
 {
     public static Settings Settings;
@@ -52,6 +54,8 @@ public class CryoRegenesis: Mod
 public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 {
     private Random rnd = new Random();
+    private readonly Cosmetics cosmetics = new Cosmetics();
+    private readonly Resurrector resurrector = new Resurrector();
 
     private bool enteredHealthy = false;
 
@@ -126,9 +130,12 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         // Require more fuel for faster rates.
         float fuelPerReversedYear = 1.0f * ((float)rate / 250);
-
-        fuelConsumption =  fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
+        fuelConsumption = fuelPerReversedYear / ((float)GenDate.TicksPerYear / rate);
         // Log.Message("Fuel consumption per Tick: " + fuelConsumption);
+
+        resurrector.Initialize(refuelable, fuelprops, power,
+            onRejected:    () => base.EjectContents(),
+            onResurrected: HandleResurrectionComplete);
 
         if (HasAnyContents)
         {
@@ -139,12 +146,19 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             }
             else if (ContainedThing is Corpse corpse)
             {
-                var rotProgress = corpse.GetComp<CompRottable>().RotProgress;
-                this.InitialRot = rotProgress;
+                resurrector.InitialRot = corpse.GetComp<CompRottable>().RotProgress;
             }
-    }
+        }
 
         this.contentsKnown = true;
+    }
+
+    private void HandleResurrectionComplete(Pawn pawn)
+    {
+        power.PowerOn = false;
+        power.PowerOutput = 0;
+        this.EjectContents();
+        pawn.health.AddHediff(HediffDefOf.Anesthetic, null, null);
     }
 
     private int determineCurableInjuries(Pawn pawn)
@@ -274,14 +288,16 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
     public override void ExposeData()
     {
         base.ExposeData();
-        string fuelReqs = String.Join(",", this.ResurrectionFuelReqs);
+        string fuelReqs = String.Join(",", resurrector.ResurrectionFuelReqs);
         Scribe_Values.Look<string>(ref fuelReqs, "ResurrectionFuelReqs");
-        Scribe_Values.Look<float>(ref ResurrectionProgress, "ResurrectionProgress", 0f);
+        float resProgress = resurrector.ResurrectionProgress;
+        Scribe_Values.Look<float>(ref resProgress, "ResurrectionProgress", 0f);
+        resurrector.ResurrectionProgress = resProgress;
         Scribe_Values.Look(ref origAge, "OrigAge", 50);
 
         if (String.IsNullOrEmpty(fuelReqs) == false)
         {
-            this.ResurrectionFuelReqs = fuelReqs.Split(',').Select(int.Parse).ToArray();
+            resurrector.ResurrectionFuelReqs = fuelReqs.Split(',').Select(int.Parse).ToArray();
         }
     }
 
@@ -331,164 +347,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         }
     }
 
-    private float ResurrectionProgress = 0f;
-    private const int REQ_GOLD = 500;
-    private const int REQ_URANIUM = 150;
-    private const int REQ_LUCIFERIUM = 50;
-    private int[] ResurrectionFuelReqs = new int[3]{REQ_URANIUM, REQ_GOLD, REQ_LUCIFERIUM};
-    private float InitialRot = -1;
-
-    private void ResetFuelRequirement()
-    {
-        this.fuelprops.fuelFilter = new ThingFilter();
-        this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, true);
-        this.ResurrectionFuelReqs[0] -= (int)this.refuelable.Fuel;
-        this.fuelprops.fuelCapacity = 150;
-        this.ResurrectionProgress = 0f;
-    }
-
-    private void Resurrect(Corpse corpse)
-    {
-        // Make sure that they have a brain. Everything else is optional.
-        var deadPawn = corpse.InnerPawn;
-        var pawnBrain = deadPawn.health.hediffSet.GetBrain();
-        if (pawnBrain == null)
-        {
-            Messages.Message("[CryoRegenesis] Pawn rejected: No brain.", MessageTypeDefOf.RejectInput);
-            base.EjectContents();
-            return;
-        }
-
-        // Make sure that the corpse isn't more than 10% degraded.
-        var rottable = corpse.GetComp<CompRottable>();
-        // If they've been dead and unfrozen for more than 1 day, the CryoRegenesis casket cannot resurrect them.
-        if (rottable != null && rottable.RotProgress > 60_000)
-        {
-            Messages.Message("[CryoRegenesis] Pawn rejected: More than 1 day unfrozen ("  + rottable.RotProgress +"). Their brain is too degraded.", MessageTypeDefOf.RejectInput);
-            base.EjectContents();
-            return;
-        }
-
-        // --- State Machine for Resource Gathering ---
-
-        // State 1: Need Luciferium (first priority as requested)
-        if (this.ResurrectionFuelReqs[2] > 0)
-        {
-            // Configure the refuelable component to accept Luciferium
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, false);
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, false);
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, true);
-
-            // Set the capacity to what is still needed
-            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[2];
-
-            // If fuel has been delivered, process it
-            if (this.refuelable.Fuel > 0)
-            {
-                int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
-                this.ResurrectionFuelReqs[2] -= delivered; // Fixed index to update Luciferium
-                this.refuelable.ConsumeFuel(this.refuelable.Fuel);
-                Log.Message($"[CryoRegenesis] Luciferium delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[2]}");
-            }
-
-            // Stop processing for this tick; we are waiting for more fuel.
-            return;
-        }
-        // State 2: Need Uranium (checked after Luciferium is complete)
-        else if (this.ResurrectionFuelReqs[0] > 0)
-        {
-            // Configure the refuelable component to accept Uranium
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, true);
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, false);
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, false);
-
-            // Set the capacity to what is still needed
-            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[0];
-
-            // If fuel has been delivered, process it
-            if (this.refuelable.Fuel > 0)
-            {
-                int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
-                this.ResurrectionFuelReqs[0] -= delivered;
-                this.refuelable.ConsumeFuel(this.refuelable.Fuel);
-                Log.Message($"[CryoRegenesis] Uranium delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[0]}");
-            }
-
-            // Stop processing for this tick; we are waiting for more fuel.
-            return;
-        }
-        // State 3: Need Gold (checked after Luciferium and Uranium are complete)
-        else if (this.ResurrectionFuelReqs[1] > 0)
-        {
-            // Configure the refuelable component to accept Gold
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Uranium, false);
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Gold, true);
-            this.fuelprops.fuelFilter.SetAllow(ThingDefOf.Luciferium, false);
-
-            // Set the capacity to what is still needed
-            this.fuelprops.fuelCapacity = this.ResurrectionFuelReqs[1];
-
-            // If fuel has been delivered, process it
-            if (this.refuelable.Fuel > 0)
-            {
-                int delivered = (int)Math.Ceiling(this.refuelable.Fuel);
-                this.ResurrectionFuelReqs[1] -= delivered;
-                this.refuelable.ConsumeFuel(this.refuelable.Fuel);
-                Log.Message($"[CryoRegenesis] Gold delivered: {delivered}. Needed: {this.ResurrectionFuelReqs[1]}");
-            }
-
-            // Stop processing for this tick; we are waiting for more fuel.
-            return;
-        }
-
-        if (Find.TickManager.TicksGame % 1000 == 0)
-        {
-            return;
-        }
-
-        // --- Resurrection Progress (only runs if all fuel requirements are met) ---
-        // The check for fuel requirements is implicitly handled by falling through the if/else-if chain.
-
-        // Turn off refueling now that we're full
-        this.fuelprops.fuelCapacity = 0;
-
-        // Adjust this value to control resurrection speed
-        float resurrectionFactor = 0.001f;
-
-        // Increment progress
-        this.ResurrectionProgress += resurrectionFactor;
-        this.ResurrectionProgress = Mathf.Clamp01(this.ResurrectionProgress); // Ensure it stays between 0 and 1
-
-        if (CryoRegenesis.Settings.debugMode)
-            Log.Message($"[CryoRegenesis] Resurrection Progress: {this.ResurrectionProgress * 100:F1}%");
-
-        // Check if resurrection is complete
-        if (this.ResurrectionProgress >= 1.0f)
-        {
-            var resurrectedPawn = corpse.InnerPawn;
-            Log.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!");
-            Messages.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!", resurrectedPawn, MessageTypeDefOf.PositiveEvent);
-
-    #if RIMWORLD15 || RIMWORLD16
-            ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
-    #else
-            ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
-    #endif
-
-            power.PowerOn = false;
-            power.PowerOutput = 0;
-            this.ResurrectionProgress = 0f;
-
-            this.EjectContents();
-
-            resurrectedPawn.health.AddHediff(HediffDefOf.Anesthetic, null, null);
-            this.AddLuciferiumAsResurrectionSideEffect(resurrectedPawn);
-
-            // Reset fuel requirements for the next pawn
-            this.ResetFuelRequirement();
-        }
-    }
-
     #if RIMWORLD16
     protected override void Tick()
     #else
@@ -502,7 +360,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 
         if (!HasAnyContents)
         {
-            this.ResetFuelRequirement();
+            resurrector.ResetFuelRequirement();
             return;
         }
 
@@ -514,8 +372,8 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
                 // Turn off / pause rotting once inside.
                 var corpse = ContainedThing as Corpse;
                 var rottable = corpse.GetComp<CompRottable>();
-                rottable.RotProgress = this.InitialRot;
-                this.Resurrect(corpse);
+                rottable.RotProgress = resurrector.InitialRot;
+                resurrector.Process(corpse);
             }
 
             return;
@@ -647,6 +505,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         else
             power.PowerOutput = 0;
     }
+
     public override void EjectContents()
     {
         if (ContainedThing is not Pawn)
@@ -679,12 +538,12 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
                 pawn.needs.comfort.SetInitialLevel();
             }
 
-            this.possiblyChangeHairColor(pawn);
+            cosmetics.PossiblyChangeHairColor(pawn);
 
             // Give them a positive thought.
             int currentAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
 
-            AddCryoregenesisThought(pawn, this.origAge, currentAge);
+            RegenesisThoughts.AddBodyPositivityThought(pawn, this.origAge, currentAge);
         }
 
         pawn.needs.rest.SetInitialLevel();
@@ -701,154 +560,6 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         // }
     }
 
-    protected List<Color> getHairColors()
-    {
-        var BRIGHTRED   = new Color(237.00f / 256.0f, 41.00f / 256.0f, 57.00f / 256.0f);
-        var DARKRED     = new Color(146.00f / 256.0f, 39.00f / 256.0f, 36.00f / 256.0f);
-        var HAZEL       = new Color(132.61f / 256.0f, 83.20f / 256.0f, 47.10f / 256.0f);
-        var BROWN       = new Color(64.00f / 256.0f, 51.20f / 256.0f, 38.40f / 256.0f);
-        var DARKBROWN   = new Color(51.20f / 256.0f, 51.20f / 256.0f, 51.20f / 256.0f);
-        var BLACK       = new Color(51.20f / 256.0f, 51.20f / 256.0f, 51.20f / 256.0f);
-        var DARKBLACK   = new Color(20.20f / 256.0f, 20.20f / 256.0f, 20.20f / 256.0f);
-        var BLONDE      = new Color(222.00f / 256.0f, 188.00f / 256.0f, 153.00f / 256.0f);
-        var LIGHTBLONDE = new Color(250.00f / 256.0f, 240.00f / 256.0f, 190.00f / 256.0f);
-
-        var colorList = new List<Color>()
-        {
-            BRIGHTRED, DARKRED, HAZEL, BLONDE, LIGHTBLONDE
-        };
-
-        return colorList;
-    }
-
-    protected void rerenderPawn(Pawn pawn)
-    {
-        #if !RIMWORLD15 && !RIMWORLD16
-        // Tell the pawn's Drawer that the Person has had a hair-change makeover.
-        // This code is from https://github.com/KiameV/rimworld-changedresser/blob/f0b8fcf9073cd1c232fcd26b0b083cb3137924a3/Source/UI/DresserUI.cs
-        // Copyright (c) 2017 Travis Offtermatt
-        // MIT License
-        pawn.Drawer.renderer.graphics.ResolveAllGraphics();
-        #else
-        pawn.Drawer.renderer.renderTree.SetDirty();
-        #endif
-        PortraitsCache.SetDirty(pawn);
-    }
-
-    protected void changeHairColor(Pawn pawn, Color hairColor)
-    {
-        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
-        pawn.story.HairColor = hairColor;
-        #else
-        pawn.story.hairColor = hairColor;
-        #endif
-        this.rerenderPawn(pawn);
-    }
-
-    protected bool changeHairColorRandomly(Pawn pawn)
-    {
-        if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawn.ageTracker.AgeChronologicalYears} chronological years old ({pawn.ageTracker.AgeChronologicalTicks} Ticks)");
-        int seed = Convert.ToInt32(pawn.ageTracker.AgeChronologicalTicks > Int32.MaxValue - 1
-            ? pawn.ageTracker.AgeChronologicalTicks % Int32.MaxValue
-            : pawn.ageTracker.AgeChronologicalTicks);
-
-        var rnd = new Random(seed);
-        var colorList = this.getHairColors();
-
-        this.changeHairColor(pawn, colorList[rnd.Next(colorList.Count)]);
-
-        return true;
-    }
-
-    protected bool hasWhiteOrGrayHair(Pawn pawn)
-    {
-        string hsv;
-        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
-        Color hairColor = pawn.story.HairColor;
-        #else
-        Color hairColor = pawn.story.hairColor;
-        #endif
-        Color.RGBToHSV(hairColor, out float H, out float S, out float V);
-        S *= 100;
-        V *= 100;
-        hsv = string.Format("{0:0.00}°, {1:0.00}%, {2:0.00}%", H, S, V);
-
-        if (CryoRegenesis.Settings.debugMode) Log.Message("Pawn's hair color: " + hairColor + " (" + hsv + " HSV)" + "; body type: " + pawn.story.bodyType);
-
-        // if (H <= 5 && S <= 5 && V >= 40)
-        // {
-        //     Log.Message("Grey / White hair detected!");
-        // }
-
-        return (H < 5 && S <= 5 && V >= 40);
-    }
-
-    protected bool possiblyChangeHairColor(Pawn pawn)
-    {
-        // This only affects human-like pawns.
-        if (pawn.RaceProps.Humanlike == false)
-        {
-            return false;
-        }
-
-        // If they have white or gray hair already, definitely change it!
-        if (this.hasWhiteOrGrayHair(pawn))
-        {
-            int pawnAge = pawn.ageTracker.AgeBiologicalYears;
-            if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawn.gender} and {pawnAge} years old.");
-            // Substantially reduce the odds if the pawn is over the age of 50 (-10% per year).
-            if (pawnAge >= 50)
-            {
-                if (pawnAge >= 60)
-                {
-                    if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn age ({pawnAge}) is over 60, not changing hair color.");
-                    return false;
-                }
-
-                int rangeMax = pawnAge - 50 + 1;
-                int randomNum = rnd.Next(0, pawnAge - 50 + 1);
-                if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn age ({pawnAge}) is >= 50 < 60, max range: {rangeMax}. Random number = {randomNum}.");
-
-                // 0-1 @ 50 = 50%; 0-2 @ 51 = 33% chance, 0-3 @ 52 = 25% ... 0-10 @ 59 = 9%
-                if (randomNum == 0)
-                {
-                    if (CryoRegenesis.Settings.debugMode) Log.Message("Changing the hair color!!");
-                    return this.changeHairColorRandomly(pawn);
-                }
-
-                return false;
-            }
-            // If the pawn is male and older than 55, definitely change it.
-            // -or-
-            // If the pawn is female and older than 30, definitely change it.
-            else if (
-                (pawn.gender == Gender.Male && pawnAge <= 55) ||
-                (pawn.gender == Gender.Female && pawnAge <= 30)
-                )
-            {
-                if (CryoRegenesis.Settings.debugMode) Log.Message($"Pawn is {pawnAge} years old and prematurely balding. Changing the hair color!!");
-                return this.changeHairColorRandomly(pawn);
-            }
-        }
-
-        var dice1 = rnd.Next(1, 7);
-        var dice2 = rnd.Next(1, 7);
-        var diceSum = dice1 + dice2;
-
-        if (CryoRegenesis.Settings.debugMode) Log.Message($"Dice rolls: ({dice1}, {dice2}) = {diceSum}");
-
-        // One in Three chance that their hair color will be changed otherwise.
-        // Stats taken from https://statweb.stanford.edu/~susan/courses/s60/split/node65.html (http://archive.is/wip/v39lj)
-        // 2 = 2.78%, 3 = 5.56%, 4 = 8.33%, 5 = 11.11%, 11 = 5.56% = 33.34%
-        if (diceSum <= 5 || diceSum == 11)
-        {
-            Log.Message("Fate smiles in their favor! Changing the hair color!!");
-            return this.changeHairColorRandomly(pawn);
-        }
-
-        return false;
-    }
-
     public override bool TryAcceptThing(Thing thing, bool allowSpecialEffects = true)
     {
         if (thing == null)
@@ -861,12 +572,11 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
             return false;
         }
 
-        this.InitialRot = -1;
+        resurrector.InitialRot = -1f;
 
         if (thing.def.defName.StartsWith("Corpse_"))
         {
-            this.ResurrectionProgress = 0f;
-            this.ResurrectionFuelReqs = new int[3]{REQ_URANIUM, REQ_GOLD, REQ_LUCIFERIUM};
+            resurrector.ResetForNewCorpse();
 
             bool status = base.TryAcceptThing(thing, allowSpecialEffects);
             if (status)
@@ -874,7 +584,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
                 // Record the initial rot level.
                 var corpse = ContainedThing as Corpse;
                 var rottable = corpse.GetComp<CompRottable>();
-                this.InitialRot = rottable.RotProgress;
+                resurrector.InitialRot = rottable.RotProgress;
             }
 
             return status;
@@ -935,18 +645,18 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
                     debugString = $"; Rotting: {rotProgress}";
                 }
 
-                string status = $"Dead (Resurrecting: {this.ResurrectionProgress * 100:F1}%{debugString})\n";
-                if (this.ResurrectionFuelReqs[2] > 0)
+                string status = $"Dead (Resurrecting: {resurrector.ResurrectionProgress * 100:F1}%{debugString})\n";
+                if (resurrector.ResurrectionFuelReqs[2] > 0)
                 {
-                    status += "Needed Luciferium: " + this.ResurrectionFuelReqs[2] + "\n";
+                    status += "Needed Luciferium: " + resurrector.ResurrectionFuelReqs[2] + "\n";
                 }
-                else if (this.ResurrectionFuelReqs[0] > 0)
+                else if (resurrector.ResurrectionFuelReqs[0] > 0)
                 {
-                    status += "Needed Uranium: " + this.ResurrectionFuelReqs[0] + "\n";
+                    status += "Needed Uranium: " + resurrector.ResurrectionFuelReqs[0] + "\n";
                 }
-                else if (this.ResurrectionFuelReqs[1] > 0)
+                else if (resurrector.ResurrectionFuelReqs[1] > 0)
                 {
-                    status += "Needed Gold: " + this.ResurrectionFuelReqs[1] + "\n";
+                    status += "Needed Gold: " + resurrector.ResurrectionFuelReqs[1] + "\n";
                 }
 
                 return status + base.GetInspectString();
@@ -987,63 +697,5 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         Log.Message("Target age: " + this.targetAge);
 
         return this.targetAge;
-    }
-
-    public void AddLuciferiumAsResurrectionSideEffect(Pawn pawn)
-    {
-        if (pawn?.health?.hediffSet == null)
-            return;
-
-        // Add the addiction directly
-        HediffDef luciferiumAddiction = DefDatabase<HediffDef>.GetNamed("LuciferiumAddiction");
-        Hediff addictionHediff = HediffMaker.MakeHediff(luciferiumAddiction, pawn);
-        pawn.health.AddHediff(addictionHediff);
-
-        // Important: Set the last dose time to prevent immediate withdrawal
-        Need_Chemical drugNeed = pawn.needs?.AllNeeds.OfType<Need_Chemical>()
-            .FirstOrDefault(n => n.def.defName == "Chemical_Luciferium");
-
-        if (drugNeed != null)
-        {
-            drugNeed.CurLevel = drugNeed.MaxLevel; // Start them off satisfied
-        }
-
-        pawn.needs?.mood?.thoughts?.memories?.TryGainMemory(
-            DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_LuciferiumSideEffect")
-        );
-    }
-
-    public static void AddCryoregenesisThought(Pawn pawn, int origAge, int newAge)
-    {
-        int yearsRegressed = origAge - newAge;
-        if (yearsRegressed <= 0) return;
-
-        // Get the def
-        var thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_BodyPositivity");
-
-        // Create the thought instance manually so we can initialize it
-        var thought = ThoughtMaker.MakeThought(thoughtDef) as Thought_RegenesisBodyPositivity;
-        if (thought == null) return;
-
-        // Set the years BEFORE adding it to the pawn
-        thought.SetYearsReversed(yearsRegressed);
-
-        // Add the initialized thought instance (not the def)
-        pawn.needs.mood?.thoughts.memories.TryGainMemory(thought);
-
-        if (CryoRegenesis.Settings.debugMode)
-            Log.Warning($"Old age {origAge} | New age: {newAge} | Years reversed: {yearsRegressed} | Stage: {thought.CurStageIndex}");
-
-        // Use the thought's actual stage for the prisoner check
-        #if !RIMWORLD12 && !RIMWORLD13
-        if (thought.CurStageIndex >= 2)
-        {
-            if (pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
-            {
-                pawn.guest.Recruitable = true;
-                Messages.Message("Grateful to be so much younger, " + pawn.Name + " is now recruitable.", pawn, MessageTypeDefOf.PositiveEvent);
-            }
-        }
-        #endif
     }
 }

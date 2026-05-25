@@ -1,4 +1,15 @@
 // ==== ./Source/Thought_RegenesisBodyPositivity.cs ====
+/*
+ * This file is part of CryoRegenesis, a Better Rimworlds Project.
+ *
+ * Copyright © 2020-2026 Theodore R. Smith
+ * Author: Theodore R. Smith <hopeseekr@gmail.com>
+ *   GPG Fingerprint: D8EA 6E4D 5952 159D 7759  2BB4 EEB6 CE72 F441 EC41
+ *   https://github.com/BetterRimworlds/CryoRegenesis
+ *
+ * This file is licensed under the MIT License.
+ */
+
 using RimWorld;
 using Verse;
 
@@ -13,7 +24,7 @@ public class Thought_RegenesisBodyPositivity : Thought_DurationBased
     {
         this._yearsReversed = years;
     }
-    
+
     public override void Init()
     {
         base.Init();
