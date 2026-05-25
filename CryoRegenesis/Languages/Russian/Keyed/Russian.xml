@@ -18,4 +18,6 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} лет стёрто! Мои суставы снова двигаются плавно, и моя энергия возвращается.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>Я чувствую себя на {0} лет моложе! Бремя времени было снято с моего тела.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Я чувствую себя на несколько лет моложе.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+
+    <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>Настоящий возраст</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
 </LanguageData>

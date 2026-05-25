@@ -18,4 +18,6 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>{0} aastat kustutatud! Mu liigesed liiguvad jälle sujuvalt ja mu energia naaseb.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Substantial>
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>Tunnen end {0} aastat nooremalt! Aja koorem on mu kehast eemaldatud.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Mild>
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Tunnen end mõne aasta nooremalt.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
+
+    <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>Tegelik vanus</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
 </LanguageData>

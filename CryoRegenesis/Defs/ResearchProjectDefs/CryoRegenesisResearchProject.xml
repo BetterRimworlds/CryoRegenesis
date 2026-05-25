@@ -4,7 +4,7 @@
 		<defName>CryoRegenesis</defName>
 		<label>cryoregenesis casket</label>
 		<description>Allows colonists to construct CryoRegenesis™ caskets, which can reduce colonists age using large amounts of uranium.</description>
-		<baseCost>1200</baseCost>
+		<baseCost>2000</baseCost>
 		<techLevel>Spacer</techLevel>
 		<prerequisites>
 			<li>Cryptosleep</li>
