@@ -51,7 +51,7 @@ public class CryoRegenesis: Mod
     }
 }
 
-public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
+public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 {
     private Random rnd = new Random();
     private readonly Cosmetics cosmetics = new Cosmetics();
@@ -294,6 +294,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         Scribe_Values.Look<float>(ref resProgress, "ResurrectionProgress", 0f);
         resurrector.ResurrectionProgress = resProgress;
         Scribe_Values.Look(ref origAge, "OrigAge", 50);
+        this.ExposeTrueAgeData();
 
         if (String.IsNullOrEmpty(fuelReqs) == false)
         {
@@ -550,7 +551,10 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         pawn.needs.food.SetInitialLevel();
 
         power.PowerOutput = 0;
+        this.ApplyTrueAgeOnEject(pawn);
         base.EjectContents();
+
+        this.ResetTrueAgeTracking();
 
         // if (pawn.IsColonist == false)
         // {
@@ -595,6 +599,7 @@ public class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
         if (base.TryAcceptThing(thing, allowSpecialEffects))
         {
             this.origAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
+            this.RecordTrueAgeSnapshot(pawn);
 
             restoreCoolDown = -1000;
 
