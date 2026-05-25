@@ -52,6 +52,7 @@ public class CryoRegenesis: Mod
 
 public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThingHolder
 {
+    private const float ActivePowerConsumption = 3000f;
     private readonly Cosmetics cosmetics = new Cosmetics();
     private readonly RegenesisCycle regenesisCycle = new RegenesisCycle();
     private readonly Resurrector resurrector = new Resurrector();
@@ -222,7 +223,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
                 #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
                 power.PowerOutput = -props.PowerConsumption;
                 #else
-                power.PowerOutput = -props.basePowerConsumption;
+                power.PowerOutput = -ActivePowerConsumption;
                 #endif
 
                 if (power.PowerOn)
@@ -337,7 +338,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
             power.PowerOutput = -props.PowerConsumption;
             #else
-            power.PowerOutput = -props.basePowerConsumption;
+            power.PowerOutput = -ActivePowerConsumption;
             #endif
 
             // foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
