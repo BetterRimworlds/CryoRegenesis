@@ -14,6 +14,20 @@ cure all age-related infirmities as well as every physical injury!
  • Luciferium need cannot be cured, nor can psychological addictions, though physical
    tolerances will disappear.
  • Resurrects dead Pawns that 1) have a brain and 2) haven't been left unrefrigerated for more than 1 day.
+ • Humanlike pawns now track a separate True Age, preserving total lived time even after de-aging.
+
+## Supported RimWorld Versions
+
+- RimWorld 1.2
+- RimWorld 1.3
+- RimWorld 1.4
+- RimWorld 1.5
+- RimWorld 1.6
+
+## Power Behavior
+
+- Idle CryoRegenesis caskets no longer require power.
+- If power fails, the casket falls back to normal cryptosleep behavior until power is restored.
 
 Stock up on Uranium. You'll need a whole lot of it!
 
@@ -37,18 +51,25 @@ Bringing someone back from the dead requires significant resources:
 ## New Mood Effects
 
 **"Grateful to be alive!" (Resurrection only)**
-- Humanlike pawns who are resurrected gain a powerful +28 mood buff lasting 60 days
+- Humanlike pawns who are resurrected gain a powerful +45 mood buff
+- This thought can last anywhere from 1 to 10 years
 - Represents the profound psychological impact of near-death experiences
 - Prevents post-resurrection mental breaks and helps colonists readjust to life
 
 **"I feel younger!" (Age Reversal)**
 - New staged mood buff based on years regenerated:
-  - 20 years reversed: +15 mood - "I feel 20 years younger!"
-  - 40 years reversed: +25 mood - "Substantially regenerated"
-  - 60 years reversed: +35 mood - "Majorly regenerated" 
-  - 80+ years reversed: +40 mood - "Fully regenerated"
-- Lasts 60 days as colonists enjoy their renewed youth
+  - 1-9 years reversed: around +15 mood - "Regenerated"
+  - 10-19 years reversed: around +20 mood - "Mildly regenerated"
+  - 20-39 years reversed: around +25 mood - "Substantially regenerated"
+  - 40-59 years reversed: around +35 mood - "Majorly regenerated"
+  - 60+ years reversed: around +40 mood - "Fully regenerated"
+- Exact mood impact varies because the thought includes a randomized bonus or penalty
+- Duration is variable rather than fixed:
+  - Usually 30 to 300 days
+  - 60 to 600 days if the pawn was recently resurrected
+  - Body Purists can experience even stronger and longer-lasting effects
 - Stacks with resurrection mood bonus when applicable
+- Strong rejuvenation can make some prisoners recruitable again
 
 ### Balance Notes
 The combination of resource costs and permanent Luciferium addiction ensures resurrection remains a serious decision rather than a casual convenience. Plan accordingly and maintain a steady Luciferium supply for your immortal colonists!
@@ -139,3 +160,11 @@ The combination of resource costs and permanent Luciferium addiction ensures res
 * **[2026-04-29 07:57:17 CDT]** Added a Grateful To Be Alive extended Thought upon resurrection.
 * **[2026-04-29 21:03:02 CDT]** Greatly enhanced the Regenesis High.
 
+**Version 6.0.0: 2026-05-25**
+* **[2026-05-25 09:08:39 COT]** Refactored out Cosmetics, Resurrection, and Happy Thoughts from the CryoRegenesis god class.
+* **[2026-05-25 09:27:53 COT]** Added a True Age mechanism for tracking total Living Time.
+* **[2026-05-25 10:12:55 COT]** Split the actual regenesis code out of the CroRegenesis god class.
+* **[2026-05-25 10:16:42 COT]** An idle cryoregenesis casket no longer needs power.
+* **[2026-05-25 10:28:48 COT]** Falls back to normal cryptosleep casket when power fails.
+* **[2026-05-25 12:39:21 COT]** Increased the research cost.
+* **[2026-05-25 12:43:28 COT]** Completely reimplemented the True Age display to not use global UI widgets.
