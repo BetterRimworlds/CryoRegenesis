@@ -330,11 +330,6 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             return false;
         }
 
-        if (IsPowerUnavailable)
-        {
-            return false;
-        }
-
         resurrector.InitialRot = -1f;
 
         if (thing.def.defName.StartsWith("Corpse_"))
@@ -360,11 +355,18 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             this.regenesisCycle.BeginNewPawn(pawn);
             this.RecordTrueAgeSnapshot(pawn);
 
-            #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
-            power.PowerOutput = -props.PowerConsumption;
-            #else
-            power.PowerOutput = -ActivePowerConsumption;
-            #endif
+            if (!IsPowerUnavailable)
+            {
+                #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+                power.PowerOutput = -props.PowerConsumption;
+                #else
+                power.PowerOutput = -ActivePowerConsumption;
+                #endif
+            }
+            else if (power != null)
+            {
+                power.PowerOutput = 0;
+            }
 
             // foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
             // {

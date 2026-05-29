@@ -10,6 +10,7 @@
  * This file is licensed under the MIT License.
  */
 
+using System;
 using System.Reflection;
 using HarmonyLib;
 using RimWorld;
@@ -85,6 +86,8 @@ internal static class CharacterCardAgePatch
         }
 
         float trueAgeYears = tracker.GetTrueAgeYears();
+        float chronologicalAgeYears = pawn.ageTracker.AgeChronologicalYearsFloat;
+        float cryptosleepYears = Math.Max(0f, chronologicalAgeYears - trueAgeYears);
 
         string translatedLabel = "BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge".Translate();
         string label = $"<b>{translatedLabel}:</b> ";
@@ -135,7 +138,8 @@ internal static class CharacterCardAgePatch
             lineRect,
             $"{translatedLabel}: {trueAgeYears:N2} years\n" +
             $"Biological age: {pawn.ageTracker.AgeBiologicalYearsFloat:N2} years\n" +
-            $"Chronological age: {pawn.ageTracker.AgeChronologicalYearsFloat:N2} years"
+            $"Cryptosleep: {cryptosleepYears:N2} years\n" +
+            $"Chronological age: {chronologicalAgeYears:N2} years"
         );
     }
 }
