@@ -168,3 +168,8 @@ The combination of resource costs and permanent Luciferium addiction ensures res
 * **[2026-05-25 10:28:48 COT]** Falls back to normal cryptosleep casket when power fails.
 * **[2026-05-25 12:39:21 COT]** Increased the research cost.
 * **[2026-05-25 12:43:28 COT]** Completely reimplemented the True Age display to not use global UI widgets.
+
+**Version 6.1.0: 2026-05-28**
+* **[2026-05-28 18:09:22 COT]** Fixed Colonist despawning / lost forever when entering an unpowered CryoRegen pod.
+* **[2026-05-28 22:26:31 COT]** Added cryosleep counter as well to the new True Age popup.
+
