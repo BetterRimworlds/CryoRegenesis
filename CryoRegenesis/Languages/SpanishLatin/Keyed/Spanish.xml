@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- ==== ./CryoRegenesis/Languages/Spanish/Keyed/Spanish.xml ==== -->
 <LanguageData>
     <BetterRimworlds.CryoRegenesis.Designator.Desc>Transportar cadáver a un ataúd de crioregénesis</BetterRimworlds.CryoRegenesis.Designator.Desc>
     <BetterRimworlds.CryoRegenesis.Designator.Label>Transportar cadáver a un ataúd de crioregénesis</BetterRimworlds.CryoRegenesis.Designator.Label>
-
+ 
     <BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>Debe designar un cadáver</BetterRimworlds.CryoRegenesis.Designator.MustBeCorpse>
     <BetterRimworlds.CryoRegenesis.Designator.NoCorpses>No hay cadáveres para transportar al ataúd de crioregénesis</BetterRimworlds.CryoRegenesis.Designator.NoCorpses>
 

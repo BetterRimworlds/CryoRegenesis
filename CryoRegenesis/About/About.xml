@@ -10,7 +10,18 @@
 		<li>1.5</li>
 		<li>1.6</li>
 	</supportedVersions>
-	<description>Adds a new Cryo Casket which reverses aging and related illnesses.\n\nCredit to cat2002 for the original project and Allet for the art</description>
+	<description>Adds a new Cryo Casket which reverses aging and related illnesses. With this Glittertech, all of your colonists (and pets, and even enemies, if you're so inclined!) can live forever young!
+
+CryoRegenesis sarcophagi not only restore your pawns to their youthful vigor, they also cure all age-related infirmities as well as every physical injury!
+
+• No more aging. Everyone can be in their 20s!
+• Heals bad backs, permanent scars, even dementia, Alzheimer's and bullets to the brain!
+• Heals all diseases. There is no more need to die from the flu!
+• Luciferium need cannot be cured, nor can psychological addictions, though physical tolerances will disappear.
+• Resurrects dead Pawns that 1) have a brain and 2) haven't been left unrefrigerated for more than 1 day.
+• Humanlike pawns now track a separate True Age, preserving total lived time even after de-aging.
+
+Credit to cat2002 for the original project and Allet for the art</description>
 	<modDependencies>
 		<li>
 			<packageId>brrainz.harmony</packageId>

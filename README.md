@@ -8,13 +8,12 @@ inclined!) can live forever young!
 CryoRegenesis sarcophagi not only restore your pawns to their youthful vigor, they also 
 cure all age-related infirmities as well as every physical injury!
 
- • No more aging. Everyone can be in their 20s!  
- • Heals bad backs, permanent scars, even dimensia, Alzheimer's and bullets to the brain!  
- • Heals most diseases. There is no more need to die from the flu!  
- • Luciferium need cannot be cured, nor can psychological addictions, though physical
-   tolerances will disappear.
- • Resurrects dead Pawns that 1) have a brain and 2) haven't been left unrefrigerated for more than 1 day.
- • Humanlike pawns now track a separate True Age, preserving total lived time even after de-aging.
+ * No more aging. Everyone can be in their 20s!
+ * Heals bad backs, permanent scars, even dementia, Alzheimer's and bullets to the brain!
+ * Heals all diseases. There is no more need to die from the flu!
+ * Luciferium need cannot be cured, nor can psychological addictions, though physical
+ * Resurrects dead Pawns that 1) have a brain and 2) haven't been left unrefrigerated for more than 1 day.
+ * Humanlike pawns now track a separate True Age, preserving total lived time even after de-aging.
 
 ## Supported RimWorld Versions
 
