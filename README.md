@@ -2,19 +2,18 @@
 
 ![CryoRegenesis: Live forever!](https://raw.githubusercontent.com/BetterRimworlds/CryoRegenesis/master/CryoRegenesis/About/Preview.png)
 
-With this Glittertech, all of your colonists (and pets, and even enemies, if you're so 
+With this Glittertech, all of your colonists (and pets, and even enemies, if you're so
 inclined!) can live forever young!
 
-CryoRegenesis sarcophagi not only restore your pawns to their youthful vigor, they also 
+CryoRegenesis sarcophagi not only restore your pawns to their youthful vigor, they also
 cure all age-related infirmities as well as every physical injury!
 
- • No more aging. Everyone can be in their 20s!  
- • Heals bad backs, permanent scars, even dimensia, Alzheimer's and bullets to the brain!  
- • Heals most diseases. There is no more need to die from the flu!  
- • Luciferium need cannot be cured, nor can psychological addictions, though physical
-   tolerances will disappear.
- • Resurrects dead Pawns that 1) have a brain and 2) haven't been left unrefrigerated for more than 1 day.
- • Humanlike pawns now track a separate True Age, preserving total lived time even after de-aging.
+ * No more aging. Everyone can be in their 20s!
+ * Heals bad backs, permanent scars, even dementia, Alzheimer's and bullets to the brain!
+ * Heals all diseases. There is no more need to die from the flu!
+ * Luciferium need cannot be cured, nor can psychological addictions, though physical
+ * Resurrects dead Pawns that 1) have a brain and 2) haven't been left unrefrigerated for more than 1 day.
+ * Humanlike pawns now track a separate True Age, preserving total lived time even after de-aging.
 
 ## Supported RimWorld Versions
 
@@ -173,3 +172,6 @@ The combination of resource costs and permanent Luciferium addiction ensures res
 * **[2026-05-28 18:09:22 COT]** Fixed Colonist despawning / lost forever when entering an unpowered CryoRegen pod.
 * **[2026-05-28 22:26:31 COT]** Added cryosleep counter as well to the new True Age popup.
 
+**Version 6.2.0: 2026-06-28**
+* **[2026-06-28 17:13:38 COT]** Greatly simplified the csproj.
+* **[2026-06-28 19:40:41 COT]** Moved the True Age below the Royalty indicator.

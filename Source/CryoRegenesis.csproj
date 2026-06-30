@@ -1,173 +1,93 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <TargetFramework>net480</TargetFramework>
+    <TargetFramework>net472</TargetFramework>
     <LangVersion>10</LangVersion>
+
     <ProjectGuid>{675CE9D5-460C-496A-A6A9-8D3873EDEE88}</ProjectGuid>
     <RootNamespace>BetterRimworlds.CryoRegenesis</RootNamespace>
     <AssemblyName>CryoRegenesis</AssemblyName>
+
     <ImplicitUsings>enable</ImplicitUsings>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+
+    <!-- Preserve your existing output root. -->
+    <ModOutputRoot>/rimworld/1.2/Mods/CryoRegenesis</ModOutputRoot>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.2' ">
+    <RimWorldVersion>1.2</RimWorldVersion>
+    <RimWorldInstall>/rimworld/1.2</RimWorldInstall>
     <DefineConstants>RIMWORLD12</DefineConstants>
-    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.2/Assemblies</OutputPath>
   </PropertyGroup>
+
   <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.3' ">
+    <RimWorldVersion>1.3</RimWorldVersion>
+    <RimWorldInstall>/rimworld/1.3</RimWorldInstall>
     <DefineConstants>RIMWORLD13</DefineConstants>
-    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.3/Assemblies</OutputPath>
   </PropertyGroup>
+
   <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.4' ">
+    <RimWorldVersion>1.4</RimWorldVersion>
+    <RimWorldInstall>/rimworld/1.4</RimWorldInstall>
     <DefineConstants>RIMWORLD14</DefineConstants>
-    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.4/Assemblies</OutputPath>
   </PropertyGroup>
+
   <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.5' ">
+    <RimWorldVersion>1.5</RimWorldVersion>
+    <RimWorldInstall>/rimworld/1.5</RimWorldInstall>
     <DefineConstants>RIMWORLD15</DefineConstants>
-    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.5/Assemblies</OutputPath>
   </PropertyGroup>
+
   <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.6' ">
+    <RimWorldVersion>1.6</RimWorldVersion>
+    <RimWorldInstall>/rimworld/1.6-steam</RimWorldInstall>
     <DefineConstants>RIMWORLD16</DefineConstants>
-    <OutputPath>/rimworld/1.2/Mods/CryoRegenesis/1.6/Assemblies</OutputPath>
   </PropertyGroup>
 
-  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.2' ">
-    <Reference Include="Assembly-CSharp">
-      <HintPath>/rimworld/1.2/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>/rimworld/1.2/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>/rimworld/1.2/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>/rimworld/1.2/RimWorldLinux_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>/rimworld/1.2/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>/rimworld/1.2/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
+  <PropertyGroup Condition=" '$(RimWorldVersion)' != '' ">
+    <OutputPath>$(ModOutputRoot)/$(RimWorldVersion)/Assemblies</OutputPath>
+  </PropertyGroup>
+
+  <Target Name="FailOnUnsupportedConfiguration" BeforeTargets="BeforeBuild" Condition=" '$(RimWorldVersion)' == '' ">
+    <Error Text="Unsupported configuration '$(Configuration)'. Use one of: $(Configurations)" />
+  </Target>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.3' ">
+  <ItemGroup Condition=" '$(RimWorldVersion)' != '' ">
     <Reference Include="Assembly-CSharp">
-      <HintPath>/rimworld/1.3/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
+
     <Reference Include="UnityEngine">
-      <HintPath>/rimworld/1.3/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
+
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>/rimworld/1.3/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>/rimworld/1.3/RimWorldLinux_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+
     <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>/rimworld/1.3/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
+      <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+
     <Reference Include="0Harmony">
-      <HintPath>/rimworld/1.3/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
+      <HintPath>$(RimWorldInstall)/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.4' ">
-    <Reference Include="Assembly-CSharp">
-      <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>/rimworld/1.4/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>/rimworld/1.4/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
-  </ItemGroup>
-
-  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.5' ">
-    <Reference Include="Assembly-CSharp">
-      <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>/rimworld/1.5/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>/rimworld/1.5/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
-  </ItemGroup>
-
-  <ItemGroup Condition=" '$(Configuration)' == 'Release v1.6' ">
-    <Reference Include="Assembly-CSharp">
-      <HintPath>/rimworld/1.6-steam/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>/rimworld/1.6-steam/RimWorldLinux_Data/Managed/UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>/rimworld/1.6-steam/RimWorldLinux_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>/rimworld/1.6-steam/RimWorldLinux_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>/rimworld/1.6-steam/RimWorldLinux_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>/rimworld/1.6-steam/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
-  </ItemGroup>
 </Project>

@@ -102,7 +102,7 @@ internal static class CharacterCardAgePatch
             lineHeight = 24f;
         }
 
-        Rect lineRect = new Rect(rect.x, rect.y + 66f, rect.width, lineHeight);
+        Rect lineRect = new Rect(rect.x, rect.y + 155f, 160, lineHeight);
 
         Widgets.DrawBoxSolid(lineRect, CoverColor);
 
