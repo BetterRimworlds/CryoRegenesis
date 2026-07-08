@@ -122,19 +122,15 @@ namespace CryoRegenesis.HarmonyPatches
             return cell
                 .GetThingList(map)
                 .OfType<Pawn>()
-                .FirstOrDefault(p => p.Downed && !p.Dead && p.RaceProps.Humanlike);
-        }
-
-
-        private static bool IsGuest(Pawn pawn)
-        {
-            #if RIMWORLD12
-            return pawn.guest != null
-                   && pawn.HostFaction != null
-                ;
-            #else
-            return (pawn.guest.GuestStatus == GuestStatus.Guest || pawn.guest.GuestStatus == GuestStatus.Prisoner);
-            #endif
+                .FirstOrDefault(
+                    candidate =>
+                        candidate.Downed &&
+                        !candidate.Dead &&
+                        (
+                            candidate.RaceProps.Humanlike ||
+                            candidate.RaceProps.Animal
+                        )
+                );
         }
 
         private static bool ShouldAllowCryoRegenesisCarry(
@@ -147,10 +143,25 @@ namespace CryoRegenesis.HarmonyPatches
             if (targetPawn.Dead || !targetPawn.Downed)
                 return false;
 
-            // Royalty quest lodgers.
-            // This exists in newer RimWorld versions. If compiling against an older
-            // version, wrap this in #if or reflection.
-            if (targetPawn.IsQuestLodger())
+            /*
+             * Animals.
+             *
+             * Restricted to the player's faction so the option isn't
+             * offered on wild or enemy fauna. Species-level petness is
+             * deliberately irrelevant — a tamed warg, thrumbo, or other
+             * non-pet species is still eligible when it belongs to the
+             * player's faction.
+             */
+            if (targetPawn.RaceProps.Animal)
+                return targetPawn.Faction == Faction.OfPlayer;
+
+            /*
+             * Any downed humanlike is eligible — colonists, slaves,
+             * prisoners, guests, quest lodgers, and downed hostiles alike.
+             * The click already required Downed && !Dead, so this covers
+             * every rescue/capture-style scenario, including sedated pawns.
+             */
+            if (targetPawn.RaceProps.Humanlike)
                 return true;
 
             return false;
