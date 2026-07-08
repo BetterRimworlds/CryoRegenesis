@@ -1,3 +1,4 @@
+// ==== Source/AllowHostedGuestsPatch.cs ====
 using System.Collections.Generic;
 using System.Linq;
 using BetterRimworlds.CryoRegenesis;
@@ -17,10 +18,14 @@ namespace CryoRegenesis.HarmonyPatches
             if (pawn?.Map == null)
                 return;
 
+            // The acting pawn must be capable of receiving an ordered job.
             if (pawn.Downed || pawn.Dead || pawn.IsBurning())
                 return;
 
-            Pawn targetPawn = GetClickedDownedPawn(clickPos, pawn.Map);
+            Pawn targetPawn = GetClickedDownedPawn(
+                clickPos,
+                pawn.Map
+            );
 
             if (targetPawn == null)
                 return;
@@ -28,69 +33,94 @@ namespace CryoRegenesis.HarmonyPatches
             if (!ShouldAllowCryoRegenesisCarry(targetPawn))
                 return;
 
-            Building_CryptosleepCasket casket = FindCryoRegenesisCasketFor(pawn, targetPawn);
+            const string label = "Carry to CryoRegenesis casket";
 
-            string label = "Carry to CryoRegenesis casket";
+            Building_CryoRegenesis casket =
+                FindCryoRegenesisCasketFor(pawn, targetPawn);
 
             if (casket == null)
             {
-                opts.Add(new FloatMenuOption(
-                    label + ": " + "No reachable CryoRegenesis casket",
-                    null
-                ));
+                opts.Add(
+                    new FloatMenuOption(
+                        label + ": No reachable CryoRegenesis casket",
+                        null
+                    )
+                );
 
                 return;
             }
 
-            if (!pawn.CanReserveAndReach(targetPawn, PathEndMode.Touch, Danger.Deadly))
+            if (!pawn.CanReserveAndReach(
+                    targetPawn,
+                    PathEndMode.Touch,
+                    Danger.Deadly
+                ))
             {
-                opts.Add(new FloatMenuOption(
-                    label + ": " + "CannotReach".Translate(targetPawn.LabelShort),
-                    null
-                ));
+                opts.Add(
+                    new FloatMenuOption(
+                        label + ": " +
+                        "CannotReach".Translate(targetPawn.LabelShort),
+                        null
+                    )
+                );
 
                 return;
             }
 
             if (!pawn.CanReserve(casket))
             {
-                opts.Add(new FloatMenuOption(
-                    label + ": " + "Reserved".Translate(casket.Label),
-                    null
-                ));
+                opts.Add(
+                    new FloatMenuOption(
+                        label + ": " +
+                        "Reserved".Translate(casket.Label),
+                        null
+                    )
+                );
 
                 return;
             }
 
-            opts.Add(FloatMenuUtility.DecoratePrioritizedTask(
-                new FloatMenuOption(
-                    label,
-                    delegate
-                    {
-                        Job job = JobMaker.MakeJob(
-                            JobDefOf.CarryToCryptosleepCasket,
-                            targetPawn,
-                            casket
-                        );
+            FloatMenuOption option = new FloatMenuOption(
+                label,
+                delegate
+                {
+                    Job job = JobMaker.MakeJob(
+                        CryoRegenesisDefOf.CR_CarryToCryoRegenesis,
+                        targetPawn,
+                        casket
+                    );
 
-                        job.count = 1;
-                        pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
-                    },
-                    MenuOptionPriority.RescueOrCapture
-                ),
-                pawn,
-                targetPawn
-            ));
+                    job.count = 1;
+
+                    pawn.jobs.TryTakeOrderedJob(
+                        job,
+                        JobTag.Misc
+                    );
+                },
+                MenuOptionPriority.RescueOrCapture
+            );
+
+            opts.Add(
+                FloatMenuUtility.DecoratePrioritizedTask(
+                    option,
+                    pawn,
+                    targetPawn
+                )
+            );
         }
 
-        private static Pawn GetClickedDownedPawn(Vector3 clickPos, Map map)
+        private static Pawn GetClickedDownedPawn(
+            Vector3 clickPos,
+            Map map
+        )
         {
             IntVec3 cell = IntVec3.FromVector3(clickPos);
 
             if (!cell.InBounds(map))
                 return null;
 
-            return cell.GetThingList(map)
+            return cell
+                .GetThingList(map)
                 .OfType<Pawn>()
                 .FirstOrDefault(p => p.Downed && !p.Dead && p.RaceProps.Humanlike);
         }
@@ -107,18 +137,15 @@ namespace CryoRegenesis.HarmonyPatches
             #endif
         }
 
-        private static bool ShouldAllowCryoRegenesisCarry(Pawn targetPawn)
+        private static bool ShouldAllowCryoRegenesisCarry(
+            Pawn targetPawn
+        )
         {
-            if (targetPawn == null || targetPawn.Dead || !targetPawn.Downed)
+            if (targetPawn == null)
                 return false;
 
-            // Prisoners.
-            if (targetPawn.IsPrisoner)
-                return true;
-
-            // Royalty / hospitality / guest-style pawns.
-            if (IsGuest(targetPawn))
-                return true;
+            if (targetPawn.Dead || !targetPawn.Downed)
+                return false;
 
             // Royalty quest lodgers.
             // This exists in newer RimWorld versions. If compiling against an older
@@ -129,22 +156,32 @@ namespace CryoRegenesis.HarmonyPatches
             return false;
         }
 
-        private static Building_CryptosleepCasket FindCryoRegenesisCasketFor(Pawn carrier, Pawn targetPawn)
+        private static Building_CryoRegenesis
+            FindCryoRegenesisCasketFor(
+                Pawn carrier,
+                Pawn targetPawn
+            )
         {
-            Map map = carrier.Map;
+            Map map = carrier?.Map;
+
+            if (map == null || targetPawn == null)
+                return null;
 
             return GenClosest.ClosestThingReachable(
                 targetPawn.Position,
                 map,
-                ThingRequest.ForGroup(ThingRequestGroup.BuildingArtificial),
+                ThingRequest.ForGroup(
+                    ThingRequestGroup.BuildingArtificial
+                ),
                 PathEndMode.InteractionCell,
-                TraverseParms.For(carrier, Danger.Deadly, TraverseMode.ByPawn),
+                TraverseParms.For(
+                    carrier,
+                    Danger.Deadly,
+                    TraverseMode.ByPawn
+                ),
                 validator: thing =>
                 {
-                    if (thing is not Building_CryptosleepCasket casket)
-                        return false;
-
-                    if (!IsCryoRegenesisCasket(casket))
+                    if (thing is not Building_CryoRegenesis casket)
                         return false;
 
                     if (casket.HasAnyContents)
@@ -155,13 +192,7 @@ namespace CryoRegenesis.HarmonyPatches
 
                     return true;
                 }
-            ) as Building_CryptosleepCasket;
-        }
-
-        private static bool IsCryoRegenesisCasket(Building_CryptosleepCasket casket)
-        {
-            // Best if your casket has a custom building class.
-            return (casket is Building_CryoRegenesis);
+            ) as Building_CryoRegenesis;
         }
     }
 }
