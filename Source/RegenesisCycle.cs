@@ -1,3 +1,4 @@
+// ==== Source/RegenesisCycle.cs ====
 /*
  * This file is part of CryoRegenesis, a Better Rimworlds Project.
  *
@@ -294,7 +295,6 @@ public class RegenesisCycle
     private int CalculateHealingTime(Pawn pawn)
     {
         int pawnAge = (int)(pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear);
-
         if (pawnAge <= (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25))
         {
             return GenDate.TicksPerYear / this.rnd.Next(1, 4);
@@ -321,7 +321,30 @@ public class RegenesisCycle
 
     private void ConfigureTargetAge(Pawn pawn)
     {
-        if (pawn.def.defName == "Human")
+        if (CryoRegenesis.Settings.debugMode)
+        {
+            Log.Message("Pawn name: " + pawn.def.defName);
+            Log.Message("Race label: " + pawn.def.label); // human-readable race name
+            Log.Message("Humanlike: " + pawn.RaceProps.Humanlike);
+            Log.Message("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
+            #if !RIMWORLD12 && !RIMWORLD13
+            Log.Message("Xenotype: " + (pawn.genes?.Xenotype?.defName ?? "none"));
+            #endif
+            Log.Message("Kind: " + pawn.kindDef?.defName); // e.g. Empire_Fighter, Refugee
+            Log.Message("Faction: " + (pawn.Faction?.Name ?? "none"));
+        }
+
+        // All humanlikes — baseline humans, xenotypes, and modded humanlike
+        // races alike — honor the user's configured target age. Only true
+        // animals fall back to a fraction of their species lifespan.
+        //
+        // Previously this gated on `pawn.def.defName == "Human"`, which
+        // silently routed every non-"Human" humanlike (Empire pawns, modded
+        // races, some xenotype defs) into lifespan-based targeting. For a
+        // long-lived race, 0.25 * lifeExpectancy could exceed the pawn's
+        // current age, making IsTargetAge() true on the first tick and
+        // ejecting them instantly with no regression.
+        if (pawn.RaceProps.Humanlike)
         {
             this.targetAge = CryoRegenesis.Settings.targetAge;
         }
@@ -330,8 +353,11 @@ public class RegenesisCycle
             this.targetAge = (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25);
         }
 
-        Log.Message("Pawn name: " + pawn.def.defName);
-        Log.Message("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
-        Log.Message("Target age: " + this.targetAge);
+        if (CryoRegenesis.Settings.debugMode)
+        {
+            Log.Message("Pawn name: " + pawn.def.defName);
+            Log.Message("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
+            Log.Message("Target age: " + this.targetAge);
+        }
     }
 }
