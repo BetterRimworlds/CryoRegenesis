@@ -441,3 +441,16 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
         else return base.GetInspectString();
     }
 }
+
+
+[DefOf]
+public static class CryoRegenesisDefOf
+{
+    public static HediffDef CryoRegenesisSedation;
+    public static JobDef CR_CarryToCryoRegenesis;
+
+    static CryoRegenesisDefOf()
+    {
+        DefOfHelper.EnsureInitializedInCtor(typeof(CryoRegenesisDefOf));
+    }
+}

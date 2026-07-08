@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- ==== CryoRegenesis/Defs/JobDefs/CarryToCryoRegenesis.xml ==== -->
+<Defs>
+
+  <JobDef>
+    <defName>CR_CarryToCryoRegenesis</defName>
+    <driverClass>BetterRimworlds.CryoRegenesis.JobDriver_CarryToCryoRegenesis</driverClass>
+    <reportString>Carrying TargetA to a CryoRegenesis casket.</reportString>
+    <checkOverrideOnExpire>false</checkOverrideOnExpire>
+    <alwaysShowWeapon>false</alwaysShowWeapon>
+    <casualInterruptible>false</casualInterruptible>
+  </JobDef>
+
+</Defs>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <RecipeDef>
+    <defName>CR_AdministerCryoRegenesisSedation</defName>
+    <label>administer CryoRegenesis sedation</label>
+    <description>
+      Administer a short-acting CryoRegenesis-compatible sedative protocol. This does not consume medicine, but requires doctor work.
+    </description>
+
+    <workerClass>BetterRimworlds.CryoRegenesis.Recipe_AdministerCryoRegenesisSedation</workerClass>
+
+    <jobString>Administering CryoRegenesis sedation.</jobString>
+    <jobStringTendedTo>Administering CryoRegenesis sedation to patient.</jobStringTendedTo>
+
+    <workAmount>600</workAmount>
+    <workSkill>Medicine</workSkill>
+
+    <targetsBodyPart>false</targetsBodyPart>
+    <anesthetize>false</anesthetize>
+    <hideBodyPartNames>true</hideBodyPartNames>
+
+    <surgerySuccessChanceFactor>99999</surgerySuccessChanceFactor>
+
+    <ingredients />
+
+<!--    <recipeUsers>-->
+<!--      <li>Human</li>-->
+<!--    </recipeUsers>-->
+  </RecipeDef>
+
+</Defs>
