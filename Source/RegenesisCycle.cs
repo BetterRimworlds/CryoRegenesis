@@ -278,7 +278,8 @@ public class RegenesisCycle
                 continue;
             }
 
-            if (!CryoRegenesis.Settings.healNotBad && !hediff.def.isBad)
+            // Skip non-bad hediffs like the GateTraveler implant.
+            if (!hediff.def.isBad)
             {
                 continue;
             }
