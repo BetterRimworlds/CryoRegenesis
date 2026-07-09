@@ -230,7 +230,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
                 this.EjectContents();
             }
 
-            if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * this.regenesisCycle.TargetAge)
+            if (pawn.ageTracker.AgeBiologicalTicks > this.regenesisCycle.TargetAgeTicks)
             {
                 #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
                 power.PowerOutput = -props.PowerConsumption;
@@ -240,11 +240,11 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
                 if (power.PowerOn)
                 {
-                    if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * this.regenesisCycle.TargetAge)
+                    if (pawn.ageTracker.AgeBiologicalTicks > this.regenesisCycle.TargetAgeTicks)
                     {
                         refuelable.ConsumeFuel(fuelConsumption * ((pawnAge - 10) * 0.1f));
 
-                        pawn.ageTracker.AgeBiologicalTicks = Math.Max(pawn.ageTracker.AgeBiologicalTicks - rate, GenDate.TicksPerYear * this.regenesisCycle.TargetAge);
+                        pawn.ageTracker.AgeBiologicalTicks = Math.Max(pawn.ageTracker.AgeBiologicalTicks - rate, this.regenesisCycle.TargetAgeTicks);
                     }
                 }
             }
