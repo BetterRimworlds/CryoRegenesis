@@ -33,32 +33,19 @@ public class Recipe_AdministerCryoRegenesisSedation : Recipe_Surgery
     }
 #endif
 
-    public override void ApplyOnPawn(
-        Pawn pawn,
-        BodyPartRecord part,
-        Pawn billDoer,
-        List<Thing> ingredients,
-        Bill bill
-    )
+    public override void ApplyOnPawn(Pawn pawn, BodyPartRecord part, Pawn billDoer, List<Thing> ingredients, Bill bill)
     {
         Hediff existing = pawn.health.hediffSet.GetFirstHediffOfDef(
             CryoRegenesisDefOf.CryoRegenesisSedation
         );
 
-        if (existing != null)
-        {
-            existing.Severity = existing.def.initialSeverity;
-        }
-        else
-        {
-            Hediff hediff = HediffMaker.MakeHediff(
-                CryoRegenesisDefOf.CryoRegenesisSedation,
-                pawn
-            );
+        Hediff hediff = HediffMaker.MakeHediff(
+            CryoRegenesisDefOf.CryoRegenesisSedation,
+            pawn
+        );
 
-            hediff.Severity = hediff.def.initialSeverity;
-            pawn.health.AddHediff(hediff);
-        }
+        hediff.Severity = hediff.def.initialSeverity;
+        pawn.health.AddHediff(hediff);
 
         // Immediately haul the sedated pawn to an empty casket.
         if (billDoer == null)
@@ -68,11 +55,7 @@ public class Recipe_AdministerCryoRegenesisSedation : Recipe_Surgery
         if (casket == null)
             return;
 
-        Job job = JobMaker.MakeJob(
-            CryoRegenesisDefOf.CR_CarryToCryoRegenesis,
-            pawn,
-            casket
-        );
+        Job job = JobMaker.MakeJob(CryoRegenesisDefOf.CR_CarryToCryoRegenesis, pawn, casket);
         job.count = 1;
 
         /*
@@ -84,7 +67,7 @@ public class Recipe_AdministerCryoRegenesisSedation : Recipe_Surgery
          * Enqueueing instead makes the carry job start the instant the bill
          * job finishes and releases its reservations.
          */
-        billDoer.jobs.jobQueue.EnqueueFirst(job, JobTag.Misc);
+        billDoer.jobs?.jobQueue?.EnqueueFirst(job, JobTag.Misc);
     }
 
     private static Building_CryoRegenesis FindEmptyCasket(Pawn pawn, Pawn carrier)

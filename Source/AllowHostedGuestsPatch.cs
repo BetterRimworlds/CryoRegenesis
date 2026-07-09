@@ -22,10 +22,7 @@ namespace CryoRegenesis.HarmonyPatches
             if (pawn.Downed || pawn.Dead || pawn.IsBurning())
                 return;
 
-            Pawn targetPawn = GetClickedDownedPawn(
-                clickPos,
-                pawn.Map
-            );
+            Pawn targetPawn = GetClickedDownedPawn(clickPos, pawn.Map);
 
             if (targetPawn == null)
                 return;
@@ -33,50 +30,25 @@ namespace CryoRegenesis.HarmonyPatches
             if (!ShouldAllowCryoRegenesisCarry(targetPawn))
                 return;
 
-            const string label = "Carry to CryoRegenesis casket";
+            string label = "CarryToCryoRegenesisCasket".Translate();
 
-            Building_CryoRegenesis casket =
-                FindCryoRegenesisCasketFor(pawn, targetPawn);
+            Building_CryoRegenesis casket = FindCryoRegenesisCasketFor(pawn, targetPawn);
 
             if (casket == null)
             {
-                opts.Add(
-                    new FloatMenuOption(
-                        label + ": No reachable CryoRegenesis casket",
-                        null
-                    )
-                );
-
+                opts.Add(new FloatMenuOption(label + ": " + "NoReachableCryoRegenesis".Translate(), null));
                 return;
             }
 
-            if (!pawn.CanReserveAndReach(
-                    targetPawn,
-                    PathEndMode.Touch,
-                    Danger.Deadly
-                ))
+            if (!pawn.CanReserveAndReach(targetPawn, PathEndMode.Touch, Danger.Deadly))
             {
-                opts.Add(
-                    new FloatMenuOption(
-                        label + ": " +
-                        "CannotReach".Translate(targetPawn.LabelShort),
-                        null
-                    )
-                );
-
+                opts.Add(new FloatMenuOption(label + ": " + "CannotReach".Translate(targetPawn.LabelShort), null));
                 return;
             }
 
             if (!pawn.CanReserve(casket))
             {
-                opts.Add(
-                    new FloatMenuOption(
-                        label + ": " +
-                        "Reserved".Translate(casket.Label),
-                        null
-                    )
-                );
-
+                opts.Add(new FloatMenuOption(label + ": " + "Reserved".Translate(casket.Label), null));
                 return;
             }
 
@@ -84,35 +56,19 @@ namespace CryoRegenesis.HarmonyPatches
                 label,
                 delegate
                 {
-                    Job job = JobMaker.MakeJob(
-                        CryoRegenesisDefOf.CR_CarryToCryoRegenesis,
-                        targetPawn,
-                        casket
-                    );
+                    Job job = JobMaker.MakeJob(CryoRegenesisDefOf.CR_CarryToCryoRegenesis, targetPawn, casket);
 
                     job.count = 1;
 
-                    pawn.jobs.TryTakeOrderedJob(
-                        job,
-                        JobTag.Misc
-                    );
+                    pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
                 },
                 MenuOptionPriority.RescueOrCapture
             );
 
-            opts.Add(
-                FloatMenuUtility.DecoratePrioritizedTask(
-                    option,
-                    pawn,
-                    targetPawn
-                )
-            );
+            opts.Add(FloatMenuUtility.DecoratePrioritizedTask(option, pawn, targetPawn));
         }
 
-        private static Pawn GetClickedDownedPawn(
-            Vector3 clickPos,
-            Map map
-        )
+        private static Pawn GetClickedDownedPawn(Vector3 clickPos, Map map)
         {
             IntVec3 cell = IntVec3.FromVector3(clickPos);
 
@@ -133,9 +89,7 @@ namespace CryoRegenesis.HarmonyPatches
                 );
         }
 
-        private static bool ShouldAllowCryoRegenesisCarry(
-            Pawn targetPawn
-        )
+        private static bool ShouldAllowCryoRegenesisCarry(Pawn targetPawn)
         {
             if (targetPawn == null)
                 return false;
@@ -167,11 +121,7 @@ namespace CryoRegenesis.HarmonyPatches
             return false;
         }
 
-        private static Building_CryoRegenesis
-            FindCryoRegenesisCasketFor(
-                Pawn carrier,
-                Pawn targetPawn
-            )
+        private static Building_CryoRegenesis FindCryoRegenesisCasketFor(Pawn carrier, Pawn targetPawn)
         {
             Map map = carrier?.Map;
 
@@ -181,15 +131,9 @@ namespace CryoRegenesis.HarmonyPatches
             return GenClosest.ClosestThingReachable(
                 targetPawn.Position,
                 map,
-                ThingRequest.ForGroup(
-                    ThingRequestGroup.BuildingArtificial
-                ),
+                ThingRequest.ForGroup(ThingRequestGroup.BuildingArtificial),
                 PathEndMode.InteractionCell,
-                TraverseParms.For(
-                    carrier,
-                    Danger.Deadly,
-                    TraverseMode.ByPawn
-                ),
+                TraverseParms.For(carrier, Danger.Deadly, TraverseMode.ByPawn),
                 validator: thing =>
                 {
                     if (thing is not Building_CryoRegenesis casket)

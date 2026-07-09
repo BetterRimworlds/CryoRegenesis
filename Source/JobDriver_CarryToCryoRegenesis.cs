@@ -1,6 +1,4 @@
 // ==== Source/JobDriver_CarryToCryoRegenesis.cs ====
-using System.Collections.Generic;
-using RimWorld;
 using Verse;
 using Verse.AI;
 
@@ -24,23 +22,8 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
 
     public override bool TryMakePreToilReservations(bool errorOnFailed)
     {
-        return pawn.Reserve(
-                   Patient,
-                   job,
-                   1,
-                   -1,
-                   null,
-                   errorOnFailed
-               )
-               &&
-               pawn.Reserve(
-                   Casket,
-                   job,
-                   1,
-                   -1,
-                   null,
-                   errorOnFailed
-               );
+        return pawn.Reserve(Patient, job, 1, -1, null, errorOnFailed) &&
+               pawn.Reserve(Casket, job, 1, -1, null, errorOnFailed);
     }
 
     protected override IEnumerable<Toil> MakeNewToils()
@@ -54,16 +37,10 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
          * handles that window.
          */
         this.FailOn(() =>
-            Patient == null ||
-            Patient.Dead ||
-            Casket == null ||
-            Casket.HasAnyContents
+            Patient == null || Patient.Dead || Casket == null || Casket.HasAnyContents
         );
 
-        yield return Toils_Goto.GotoThing(
-            PatientIndex,
-            PathEndMode.Touch
-        );
+        yield return Toils_Goto.GotoThing(PatientIndex, PathEndMode.Touch);
 
         /*
          * Sedation may take a few ticks to down a large pawn (humans have a
@@ -82,13 +59,17 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
         {
             // Already downed? Skip the wait entirely.
             if (Patient != null && Patient.Downed)
-                waitForDowned.actor.jobs.curDriver.ReadyForNextToil();
+            {
+                ReadyForNextToil();
+            }
         };
 
         waitForDowned.tickAction = () =>
         {
             if (Patient != null && Patient.Downed)
-                waitForDowned.actor.jobs.curDriver.ReadyForNextToil();
+            {
+                ReadyForNextToil();
+            }
         };
 
         waitForDowned.AddFailCondition(() =>
@@ -140,11 +121,12 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
             // pawn out of the carrier's ThingOwner itself.
             if (!casket.TryAcceptThing(patient))
             {
-                Log.Warning(
-                    "[CryoRegenesis] Casket refused patient "
-                    + patient.LabelShort
-                    + "; dropping carried pawn instead."
-                );
+                if (CryoRegenesis.Settings.debugMode)
+                {
+                    Log.Warning(
+                        "[CryoRegenesis] Casket refused patient " + patient.LabelShort + "; dropping carried pawn instead."
+                    );
+                }
 
                 // Fallback: don't strand the pawn inside the carrier.
                 if (actor.carryTracker?.CarriedThing == patient)
