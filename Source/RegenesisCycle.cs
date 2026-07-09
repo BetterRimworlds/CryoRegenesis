@@ -226,6 +226,7 @@ public class RegenesisCycle
             "luciferium",
             "penoxycyline",
             "cryptosleep sickness",
+            "CryoRegenesis sedation",
         };
         this.hediffsToHeal = new List<Hediff>();
 
