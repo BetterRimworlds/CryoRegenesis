@@ -18,7 +18,8 @@
         <capMods>
           <li>
             <capacity>Moving</capacity>
-            <offset>-1.0</offset>
+            <!-- Force zero movement even when bionic/archotech parts add capacity. -->
+            <offset>-10.0</offset>
           </li>
         </capMods>
       </li>
