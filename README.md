@@ -15,6 +15,23 @@ cure all age-related infirmities as well as every physical injury!
  * Resurrects dead Pawns that 1) have a brain and 2) haven't been left unrefrigerated for more than 1 day.
  * Humanlike pawns now track a separate True Age, preserving total lived time even after de-aging.
 
+## Inspiration: The Goa'uld Sarcophagus
+
+CryoRegenesis is a RimWorld port of the **Goa'uld sarcophagus** from *Stargate* (the motion picture) and *Stargate SG-1*. In the show, those devices rapidly heal injuries, reverse aging, extend life, and can even resurrect the recently dead — at a steep psychological and addictive cost. The Tok'ra refuse to use them for that reason.
+
+This mod maps that artifact onto RimWorld's systems: cryptosleep chassis, glittertech nanites, and **Luciferium** as the Faustian price of coming back from the dead (the body only keeps working if the mechanites keep flowing).
+
+| Goa'uld sarcophagus | CryoRegenesis |
+|---|---|
+| Heals injury and disease | Heals hediffs, old-age failures, and wounds |
+| Extends life / reverses aging | De-ages pawns (and animals) to youthful prime |
+| Resurrects the recently dead | Resurrects if the brain is intact and the corpse has been unrefrigerated for less than 1 day |
+| Narcotic / addictive side effects | Permanent Luciferium addiction on resurrection |
+| Tok'ra refuse it because it "takes the soul" | Expensive glittertech with a lasting cost, not free immortality |
+| Body restored, mind altered | Mood highs and "Grateful to be alive!" after revival |
+
+Part of the [Better Rimworlds](https://github.com/BetterRimworlds) collection — Stargate-inspired tech for multi-century hub-world colonies.
+
 ## Supported RimWorld Versions
 
 - RimWorld 1.2
