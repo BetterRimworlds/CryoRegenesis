@@ -46,6 +46,7 @@ public class TrueAgeTracker : HediffWithComps
     public bool aliveYearsInitialized = false;
     public long consciousAliveTicks = 0;
     public long cryoRegenesisRemovedAgeTicks = 0;
+    public long desiredAgeTicks = 0;
 
     public override void ExposeData()
     {
@@ -54,6 +55,7 @@ public class TrueAgeTracker : HediffWithComps
         Scribe_Values.Look(ref this.aliveYearsInitialized, "aliveYearsInitialized", false);
         Scribe_Values.Look(ref this.consciousAliveTicks, "consciousAliveTicks", 0L);
         Scribe_Values.Look(ref this.cryoRegenesisRemovedAgeTicks, "cryoRegenesisRemovedAgeTicks", 0L);
+        Scribe_Values.Look(ref this.desiredAgeTicks, "desiredAgeTicks", 0L);
     }
 
     public override void Tick()
