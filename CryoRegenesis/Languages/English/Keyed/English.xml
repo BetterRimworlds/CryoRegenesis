@@ -20,6 +20,8 @@
 
     <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>True Age</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
 
+    <BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>No available CryoRegenesis casket.</BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>
+
     <CarryToCryoRegenesisCasket>Carry to CryoRegenesis casket</CarryToCryoRegenesisCasket>
     <NoReachableCryoRegenesis>No reachable CryoRegenesis casket</NoReachableCryoRegenesis>
 </LanguageData>

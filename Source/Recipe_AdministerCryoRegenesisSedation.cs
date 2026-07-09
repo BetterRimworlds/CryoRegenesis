@@ -9,6 +9,8 @@ namespace BetterRimworlds.CryoRegenesis;
 
 public class Recipe_AdministerCryoRegenesisSedation : Recipe_Surgery
 {
+    private const string NoAvailableCasketKey = "BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket";
+
     public override IEnumerable<BodyPartRecord> GetPartsToApplyOn(Pawn pawn, RecipeDef recipe)
     {
         if (!CanSedatePawn(pawn))
@@ -20,7 +22,18 @@ public class Recipe_AdministerCryoRegenesisSedation : Recipe_Surgery
         yield return null;
     }
 
-#if !RIMWORLD12
+#if RIMWORLD12
+    public override bool AvailableOnNow(Thing thing)
+    {
+        if (!base.AvailableOnNow(thing))
+            return false;
+
+        if (thing is not Pawn pawn)
+            return false;
+
+        return CanSedatePawn(pawn) && FindEmptyCasket(pawn, null) != null;
+    }
+#else
     public override bool AvailableOnNow(Thing thing, BodyPartRecord part = null)
     {
         if (!base.AvailableOnNow(thing, part))
@@ -35,9 +48,12 @@ public class Recipe_AdministerCryoRegenesisSedation : Recipe_Surgery
 
     public override void ApplyOnPawn(Pawn pawn, BodyPartRecord part, Pawn billDoer, List<Thing> ingredients, Bill bill)
     {
-        Hediff existing = pawn.health.hediffSet.GetFirstHediffOfDef(
-            CryoRegenesisDefOf.CryoRegenesisSedation
-        );
+        Building_CryoRegenesis casket = FindEmptyCasket(pawn, billDoer);
+        if (casket == null)
+        {
+            Messages.Message(NoAvailableCasketKey.Translate(), pawn, MessageTypeDefOf.RejectInput);
+            return;
+        }
 
         Hediff hediff = HediffMaker.MakeHediff(
             CryoRegenesisDefOf.CryoRegenesisSedation,
@@ -47,12 +63,8 @@ public class Recipe_AdministerCryoRegenesisSedation : Recipe_Surgery
         hediff.Severity = hediff.def.initialSeverity;
         pawn.health.AddHediff(hediff);
 
-        // Immediately haul the sedated pawn to an empty casket.
+        // Immediately haul the sedated pawn to the casket we validated before sedation.
         if (billDoer == null)
-            return;
-
-        Building_CryoRegenesis casket = FindEmptyCasket(pawn, billDoer);
-        if (casket == null)
             return;
 
         Job job = JobMaker.MakeJob(CryoRegenesisDefOf.CR_CarryToCryoRegenesis, pawn, casket);
