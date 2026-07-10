@@ -48,6 +48,10 @@ public class TrueAgeTracker : HediffWithComps
     public long cryoRegenesisRemovedAgeTicks = 0;
     public long desiredAgeTicks = 0;
 
+    /// True while this pawn is under an active Royalty Regenesis return contract.
+    /// Contract clients must not become voluntarily recruitable.
+    public bool underRegenContract = false;
+
     public override void ExposeData()
     {
         base.ExposeData();
@@ -56,6 +60,7 @@ public class TrueAgeTracker : HediffWithComps
         Scribe_Values.Look(ref this.consciousAliveTicks, "consciousAliveTicks", 0L);
         Scribe_Values.Look(ref this.cryoRegenesisRemovedAgeTicks, "cryoRegenesisRemovedAgeTicks", 0L);
         Scribe_Values.Look(ref this.desiredAgeTicks, "desiredAgeTicks", 0L);
+        Scribe_Values.Look(ref this.underRegenContract, "underRegenContract", false);
     }
 
     public override void Tick()
