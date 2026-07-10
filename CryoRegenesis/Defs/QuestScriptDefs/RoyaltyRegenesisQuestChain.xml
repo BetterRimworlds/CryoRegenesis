@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Defs>
+  <!-- Persistent parent chain quest. Created in code and kept Ongoing until success or abandoned. -->
   <QuestScriptDef>
     <defName>CR_RoyaltyRegenesisQuestChain</defName>
     <autoAccept>true</autoAccept>
@@ -8,9 +9,24 @@
     <questDescriptionAndNameRules>
       <rulesStrings>
         <li>questName->CryoRegenesis: Imperial Rejuvenation</li>
-        <li>questDescription->Imperial and planetary rulers begin sending clients to your colony for CryoRegenesis. Successive treatments may draw the attention of lower nobility, the Stellarch, and eventually the Emperor.</li>
+        <li>questDescription->Planetary factions and eventually the Empire send CryoRegenesis clients by shuttle with fixed return dates. Death or recruitment destroys trust and resets the chain.</li>
       </rulesStrings>
     </questDescriptionAndNameRules>
     <root Class="BetterRimworlds.CryoRegenesis.QuestNode_StartRoyaltyRegenesisChain" />
+  </QuestScriptDef>
+
+  <!-- Per-visit contract quest. Spawned in code for each shuttle delivery; parented to the chain. -->
+  <QuestScriptDef>
+    <defName>CR_RoyaltyRegenesisContract</defName>
+    <autoAccept>true</autoAccept>
+    <defaultChallengeRating>3</defaultChallengeRating>
+    <isRootSpecial>true</isRootSpecial>
+    <questDescriptionAndNameRules>
+      <rulesStrings>
+        <li>questName->CryoRegenesis contract</li>
+        <li>questDescription->Treat contracted clients in a CryoRegenesis casket and return them alive by shuttle before the deadline.</li>
+      </rulesStrings>
+    </questDescriptionAndNameRules>
+    <root Class="BetterRimworlds.CryoRegenesis.QuestNode_RoyaltyRegenesisContractPlaceholder" />
   </QuestScriptDef>
 </Defs>
