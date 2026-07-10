@@ -1619,11 +1619,56 @@ public class QuestNode_StartRoyaltyRegenesisChain : QuestNode
 /// punish relations with their sending faction.
 /// </summary>
 [HarmonyPatch]
+/*
+ * CRITICAL — TargetMethod() MUST resolve on EVERY supported RimWorld version
+ * or this patch (and historically the whole assembly) fails to apply.
+ *
+ * Incident (2026-07, RW 1.2):
+ *   This patch originally looked up only the 1.3+ DoRecruit overloads
+ *   (no float recruitChance). On 1.2, AccessTools.Method returned null,
+ *   harmony.PatchAll() threw, and *all* mod Harmony patches failed to apply —
+ *   including Carry-to-CryoRegenesis float menu orders.
+ *
+ * Signature shapes:
+ *   1.2:     DoRecruit(Pawn, Pawn, float recruitChance, out string, out string, bool, bool)
+ *            DoRecruit(Pawn, Pawn, float recruitChance, bool)
+ *   1.3–1.6: DoRecruit(Pawn, Pawn, out string, out string, bool, bool)
+ *            DoRecruit(Pawn, Pawn, bool)
+ *
+ * Rules:
+ *   - Always try the 1.2 (float) overloads first, then 1.3+ shapes.
+ *   - Never return null from TargetMethod without a compile-time version gate;
+ *     a null target aborts batch PatchAll (mitigated in CryoRegenesis ctor by
+ *     per-type CreateClassProcessor, but a null target still means THIS patch
+ *     never runs).
+ *   - After any DoRecruit / recruit API change, boot RW 1.2 and confirm no
+ *     "[CryoRegenesis] Harmony patch failed on ...Patch_DoRecruit_RegenContract".
+ */
 public static class Patch_DoRecruit_RegenContract
 {
     private static MethodBase TargetMethod()
     {
-        // Prefer the full overload used by all recruit paths.
+        // RimWorld 1.2: DoRecruit(..., float recruitChance, out string, out string, bool, bool)
+        MethodInfo rw12 = AccessTools.Method(
+            typeof(InteractionWorker_RecruitAttempt),
+            nameof(InteractionWorker_RecruitAttempt.DoRecruit),
+            new[]
+            {
+                typeof(Pawn),
+                typeof(Pawn),
+                typeof(float),
+                typeof(string).MakeByRefType(),
+                typeof(string).MakeByRefType(),
+                typeof(bool),
+                typeof(bool),
+            });
+
+        if (rw12 != null)
+        {
+            return rw12;
+        }
+
+        // RimWorld 1.3+: recruitChance argument was removed.
         MethodInfo full = AccessTools.Method(
             typeof(InteractionWorker_RecruitAttempt),
             nameof(InteractionWorker_RecruitAttempt.DoRecruit),
@@ -1640,6 +1685,17 @@ public static class Patch_DoRecruit_RegenContract
         if (full != null)
         {
             return full;
+        }
+
+        // Last-resort short overloads.
+        MethodInfo short12 = AccessTools.Method(
+            typeof(InteractionWorker_RecruitAttempt),
+            nameof(InteractionWorker_RecruitAttempt.DoRecruit),
+            new[] { typeof(Pawn), typeof(Pawn), typeof(float), typeof(bool) });
+
+        if (short12 != null)
+        {
+            return short12;
         }
 
         return AccessTools.Method(
