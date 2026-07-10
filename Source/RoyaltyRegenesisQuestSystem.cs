@@ -11,6 +11,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using HarmonyLib;
 using RimWorld;
 using RimWorld.QuestGen;
 using Verse;
@@ -25,6 +27,12 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 {
     private const int CheckIntervalTicks = 2500;
     private const int HalfYearTicks = GenDate.TicksPerYear / 2;
+    private const int RecruitGoodwillPenalty = -35;
+    private const int DeathTrustGoodwillPenalty = -75;
+    private const int MinContractDays = 3;
+    private const int MaxContractDays = 30;
+    private const int MajorResetMinDays = 60;
+    private const int MajorResetMaxDays = 90;
 
     private RoyaltyRegenesisStage stage = RoyaltyRegenesisStage.NotStarted;
     private RoyaltyRegenesisStage activeContractStage = RoyaltyRegenesisStage.NotStarted;
@@ -33,10 +41,40 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     private int leaderContractsCompleted;
     private int nobleContractsCompleted;
     private bool royalAscentTriggered;
+    private int trustBreaks;
+    private string lastTrustBreakReason = string.Empty;
     private List<RoyaltyRegenesisClient> activeClients = new List<RoyaltyRegenesisClient>();
+    private Quest chainQuest;
+    private Quest activeContractQuest;
 
     public RoyaltyRegenesisQuestSystem(Game game)
     {
+    }
+
+    public IReadOnlyList<RoyaltyRegenesisClient> ActiveClients => this.activeClients;
+
+    public static RoyaltyRegenesisQuestSystem CurrentSystem =>
+        Current.Game?.GetComponent<RoyaltyRegenesisQuestSystem>();
+
+    public static bool IsActiveRegenContractPawn(Pawn pawn)
+    {
+        if (pawn == null)
+        {
+            return false;
+        }
+
+        RoyaltyRegenesisQuestSystem system = CurrentSystem;
+        return system != null && system.activeClients.Any(client => client?.pawn == pawn);
+    }
+
+    public static RoyaltyRegenesisClient GetActiveClient(Pawn pawn)
+    {
+        if (pawn == null)
+        {
+            return null;
+        }
+
+        return CurrentSystem?.activeClients.FirstOrDefault(client => client?.pawn == pawn);
     }
 
     public override void ExposeData()
@@ -50,11 +88,23 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Values.Look(ref this.leaderContractsCompleted, "crRoyalLeaderContractsCompleted", 0);
         Scribe_Values.Look(ref this.nobleContractsCompleted, "crRoyalNobleContractsCompleted", 0);
         Scribe_Values.Look(ref this.royalAscentTriggered, "crRoyalAscentTriggered", false);
+        Scribe_Values.Look(ref this.trustBreaks, "crRoyalTrustBreaks", 0);
+        Scribe_Values.Look(ref this.lastTrustBreakReason, "crRoyalLastTrustBreakReason");
         Scribe_Collections.Look(ref this.activeClients, "crRoyalActiveClients", LookMode.Deep);
+        Scribe_References.Look(ref this.chainQuest, "crRoyalChainQuest");
+        Scribe_References.Look(ref this.activeContractQuest, "crRoyalActiveContractQuest");
 
-        if (Scribe.mode == LoadSaveMode.PostLoadInit && this.activeClients == null)
+        if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
-            this.activeClients = new List<RoyaltyRegenesisClient>();
+            if (this.activeClients == null)
+            {
+                this.activeClients = new List<RoyaltyRegenesisClient>();
+            }
+
+            if (this.lastTrustBreakReason == null)
+            {
+                this.lastTrustBreakReason = string.Empty;
+            }
         }
     }
 
@@ -87,8 +137,15 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         int ticksGame = Find.TickManager.TicksGame;
         if (this.stage == RoyaltyRegenesisStage.NotStarted)
         {
+            // Other planetary factions send clients first. The Empire only
+            // notices after those contracts succeed.
             this.stage = RoyaltyRegenesisStage.RulerPrisoners;
             this.nextEventTick = ticksGame + Rand.RangeInclusive(3, 8) * GenDate.TicksPerDay;
+            this.EnsureChainQuest();
+        }
+        else if (this.stage != RoyaltyRegenesisStage.Completed)
+        {
+            this.EnsureChainQuest();
         }
 
         if (this.stage != RoyaltyRegenesisStage.Completed && ticksGame >= this.nextEventTick)
@@ -169,10 +226,12 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
+        this.EndActiveContractQuest(QuestEndOutcome.Fail, sendLetter: false);
         this.activeClients.Clear();
         this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
         this.stage = debugStage;
         this.nextEventTick = Find.TickManager.TicksGame;
+        this.EnsureChainQuest();
         this.AdvanceCampaign();
     }
 
@@ -196,81 +255,194 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 
     private void StartRulerPrisonerContract(Map map)
     {
-        Faction sender = this.RandomNonPlayerFaction() ?? this.EmpireFaction();
+        Faction sender = this.RandomPlanetarySenderFaction();
+        if (sender == null)
+        {
+            this.ScheduleRetry(
+                "No eligible factions",
+                "No non-Empire, non-Ancient planetary factions are available to send CryoRegenesis prisoners. Retrying later.");
+            return;
+        }
+
         int pawnCount = Rand.RangeInclusive(1, 2);
         List<Pawn> pawns = new List<Pawn>();
+        int contractDays = 0;
 
         for (int i = 0; i < pawnCount; i++)
         {
-            Pawn pawn = this.GeneratePawn(this.CommonPawnKind(), sender, Rand.RangeInclusive(24, 70));
+            Pawn pawn = this.GeneratePawn(this.CommonPawnKind(sender), sender, Rand.RangeInclusive(24, 70));
             int duration = Rand.Element(HalfYearTicks, GenDate.TicksPerYear, GenDate.TicksPerYear * 2);
             long targetTicks = Math.Max(18L * GenDate.TicksPerYear, pawn.ageTracker.AgeBiologicalTicks - duration);
-            this.PrepareClient(pawn, targetTicks, "foreign prisoner");
+            int days = this.CalculateContractDays(pawn.ageTracker.AgeBiologicalTicks - targetTicks);
+            contractDays = Math.Max(contractDays, days);
+            this.PrepareClient(pawn, targetTicks, "foreign prisoner", sender, isPrisoner: true, contractDays: days);
             pawns.Add(pawn);
         }
 
         this.activeContractStage = RoyaltyRegenesisStage.RulerPrisoners;
-        this.DropClients(map, pawns, "CryoRegenesis contract: prisoners",
-            $"{(sender?.Name ?? "A planetary ruler")} has sent prisoners and dependents for a trial CryoRegenesis contract. Their requested regression is six months, one year, or two years.");
+        string returnText = this.FormatReturnDeadline(contractDays);
+        string letterBody =
+            $"{sender.Name} has sent prisoners for a trial CryoRegenesis contract. " +
+            $"Their requested regression is six months, one year, or two years. " +
+            $"They arrive and depart by shuttle and must be returned by {returnText}. " +
+            "Do not recruit them — death or recruitment will destroy trust and reset the chain.";
+        this.DeliverClientsByShuttle(
+            map,
+            pawns,
+            sender,
+            "CryoRegenesis contract: prisoners",
+            letterBody);
+        this.BeginContractQuest(
+            "CryoRegenesis: Prisoner trial",
+            letterBody,
+            sender,
+            isPrisoner: true);
     }
 
     private void StartLeaderContract(Map map)
     {
-        Faction sender = this.RandomNonPlayerFaction() ?? this.EmpireFaction();
-        Pawn leader = this.GeneratePawn(this.NoblePawnKind(), sender, Rand.RangeInclusive(35, 82));
+        Faction sender = this.RandomPlanetarySenderFaction();
+        if (sender == null)
+        {
+            this.ScheduleRetry(
+                "No eligible factions",
+                "No non-Empire, non-Ancient planetary leaders are available for a CryoRegenesis stay. Retrying later.");
+            return;
+        }
+
+        Pawn leader = this.GeneratePawn(this.NoblePawnKind(sender), sender, Rand.RangeInclusive(35, 82));
         int yearsToRemove = Rand.RangeInclusive(2, 18);
         long targetTicks = Math.Max(30L * GenDate.TicksPerYear, leader.ageTracker.AgeBiologicalTicks - yearsToRemove * GenDate.TicksPerYear);
+        int contractDays = this.CalculateContractDays(leader.ageTracker.AgeBiologicalTicks - targetTicks);
 
-        this.PrepareClient(leader, targetTicks, "planetary ruler");
+        // Leaders come as guests (not prisoners) with a hard return time.
+        this.PrepareClient(leader, targetTicks, "planetary ruler", sender, isPrisoner: false, contractDays: contractDays);
         this.activeContractStage = RoyaltyRegenesisStage.Leaders;
-        this.DropClients(map, new List<Pawn> { leader }, "CryoRegenesis contract: ruler",
-            $"{leader.Name.ToStringShort}, a ruler over the age of 30, has arrived for a privately negotiated CryoRegenesis stay.");
+        string returnText = this.FormatReturnDeadline(contractDays);
+        string letterBody =
+            $"{leader.Name.ToStringShort} of {sender.Name}, a ruler over the age of 30, has arrived by shuttle " +
+            $"for a privately negotiated CryoRegenesis stay. The shuttle returns on {returnText}. " +
+            "Do not recruit them — death or recruitment will destroy trust and reset the chain.";
+        this.DeliverClientsByShuttle(
+            map,
+            new List<Pawn> { leader },
+            sender,
+            "CryoRegenesis contract: ruler",
+            letterBody);
+        this.BeginContractQuest(
+            "CryoRegenesis: Planetary ruler",
+            letterBody,
+            sender,
+            isPrisoner: false);
     }
 
     private void StartLowerNobilityContract(Map map)
     {
         Faction empire = this.EmpireFaction();
+        if (empire == null)
+        {
+            this.ScheduleRetry("Empire unavailable", "The Empire could not be found for the lower nobility contract.");
+            return;
+        }
+
         Pawn pawn = this.GeneratePawn(this.LowerNoblePawnKind(), empire, Rand.RangeInclusive(31, 72));
         int targetAge = Rand.RangeInclusive(21, 40);
+        long targetTicks = targetAge * (long)GenDate.TicksPerYear;
+        int contractDays = this.CalculateContractDays(pawn.ageTracker.AgeBiologicalTicks - targetTicks);
 
-        this.PrepareClient(pawn, targetAge * (long)GenDate.TicksPerYear, "lower imperial noble");
+        this.PrepareClient(pawn, targetTicks, "lower imperial noble", empire, isPrisoner: false, contractDays: contractDays);
         this.activeContractStage = RoyaltyRegenesisStage.LowerNobility;
-        this.DropClients(map, new List<Pawn> { pawn }, "Imperial CryoRegenesis contract",
-            $"The Empire has sent {pawn.Name.ToStringShort}, a lower noble, to verify your CryoRegenesis process.");
+        string returnText = this.FormatReturnDeadline(contractDays);
+        string letterBody =
+            $"The Empire has sent {pawn.Name.ToStringShort}, a lower noble, by shuttle to verify your CryoRegenesis process. " +
+            $"They must return by {returnText}. Do not recruit them — death or recruitment will destroy trust and reset the chain.";
+        this.DeliverClientsByShuttle(
+            map,
+            new List<Pawn> { pawn },
+            empire,
+            "Imperial CryoRegenesis contract",
+            letterBody);
+        this.BeginContractQuest(
+            "CryoRegenesis: Imperial noble",
+            letterBody,
+            empire,
+            isPrisoner: false);
     }
 
     private void StartStellarchContract(Map map)
     {
         Faction empire = this.EmpireFaction();
-        Pawn stellarch = this.GeneratePawn(this.NamedPawnKind("Empire_Royal_Stellarch", this.NoblePawnKind()), empire, Rand.RangeInclusive(45, 85));
+        if (empire == null)
+        {
+            this.ScheduleRetry("Empire unavailable", "The Empire could not be found for the Stellarch contract.");
+            return;
+        }
+
+        Pawn stellarch = this.GeneratePawn(this.NamedPawnKind("Empire_Royal_Stellarch", this.NoblePawnKind(empire)), empire, Rand.RangeInclusive(45, 85));
         this.TrySetRoyalTitle(stellarch, empire, "Stellarch");
 
         int targetAge = Rand.RangeInclusive(21, 35);
+        long targetTicks = targetAge * (long)GenDate.TicksPerYear;
         List<Pawn> party = new List<Pawn> { stellarch };
-        this.PrepareClient(stellarch, targetAge * (long)GenDate.TicksPerYear, "stellarch");
-        party.AddRange(this.GetOrGeneratePartners(stellarch, empire, 30, "stellarch companion"));
+        int contractDays = this.CalculateContractDays(stellarch.ageTracker.AgeBiologicalTicks - targetTicks);
+        this.PrepareClient(stellarch, targetTicks, "stellarch", empire, isPrisoner: false, contractDays: contractDays);
+        party.AddRange(this.GetOrGeneratePartners(stellarch, empire, 30, "stellarch companion", isPrisoner: false, contractDays: contractDays));
 
         this.activeContractStage = RoyaltyRegenesisStage.StellarchArrival;
-        this.DropClients(map, party, "The Stellarch has arrived",
-            $"The Stellarch has arrived for CryoRegenesis and has chosen to regress to age {targetAge}. Any spouses or lovers in the party have chosen age 30.");
+        string returnText = this.FormatReturnDeadline(contractDays);
+        string letterBody =
+            $"The Stellarch has arrived by shuttle for CryoRegenesis and has chosen to regress to age {targetAge}. " +
+            $"Any spouses or lovers in the party have chosen age 30. The imperial shuttle returns on {returnText}.";
+        this.DeliverClientsByShuttle(
+            map,
+            party,
+            empire,
+            "The Stellarch has arrived",
+            letterBody);
+        this.BeginContractQuest(
+            "CryoRegenesis: Stellarch",
+            letterBody,
+            empire,
+            isPrisoner: false);
     }
 
     private void StartEmperorContract(Map map)
     {
         Faction empire = this.EmpireFaction();
-        Pawn emperor = this.GeneratePawn(this.NamedPawnKind("Empire_Royal_Stellarch", this.NoblePawnKind()), empire, Rand.RangeInclusive(60, 100));
+        if (empire == null)
+        {
+            this.ScheduleRetry("Empire unavailable", "The Empire could not be found for the Emperor contract.");
+            return;
+        }
+
+        Pawn emperor = this.GeneratePawn(this.NamedPawnKind("Empire_Royal_Stellarch", this.NoblePawnKind(empire)), empire, Rand.RangeInclusive(60, 100));
         this.TrySetRoyalTitle(emperor, empire, "Emperor");
 
         List<Pawn> party = new List<Pawn> { emperor };
-        this.PrepareClient(emperor, 20L * GenDate.TicksPerYear, "emperor", triggerRoyalAscent: true);
-        party.AddRange(this.GetOrGeneratePartners(emperor, empire, 21, "imperial companion"));
+        long targetTicks = 20L * GenDate.TicksPerYear;
+        int contractDays = this.CalculateContractDays(emperor.ageTracker.AgeBiologicalTicks - targetTicks);
+        this.PrepareClient(emperor, targetTicks, "emperor", empire, isPrisoner: false, contractDays: contractDays, triggerRoyalAscent: true);
+        party.AddRange(this.GetOrGeneratePartners(emperor, empire, 21, "imperial companion", isPrisoner: false, contractDays: contractDays));
 
         this.activeContractStage = RoyaltyRegenesisStage.EmperorArrival;
-        this.DropClients(map, party, "The Emperor has arrived",
-            "The Emperor has arrived for CryoRegenesis and will regress to age 20. Any spouses or lovers in the party have chosen age 21.");
+        string returnText = this.FormatReturnDeadline(contractDays);
+        string letterBody =
+            $"The Emperor has arrived by shuttle for CryoRegenesis and will regress to age 20. " +
+            $"Any spouses or lovers in the party have chosen age 21. The imperial shuttle returns on {returnText}.";
+        this.DeliverClientsByShuttle(
+            map,
+            party,
+            empire,
+            "The Emperor has arrived",
+            letterBody);
+        this.BeginContractQuest(
+            "CryoRegenesis: The Emperor",
+            letterBody,
+            empire,
+            isPrisoner: false);
     }
 
-    private List<Pawn> GetOrGeneratePartners(Pawn noble, Faction faction, int targetAge, string role)
+    private List<Pawn> GetOrGeneratePartners(Pawn noble, Faction faction, int targetAge, string role, bool isPrisoner, int contractDays)
     {
         List<Pawn> partners = noble.relations?.DirectRelations
             ?.Where(relation =>
@@ -284,7 +456,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 
         if (!partners.Any() && Rand.Chance(0.65f))
         {
-            Pawn spouse = this.GeneratePawn(this.NoblePawnKind(), faction, Rand.RangeInclusive(35, 80));
+            Pawn spouse = this.GeneratePawn(this.NoblePawnKind(faction), faction, Rand.RangeInclusive(35, 80));
             noble.relations.AddDirectRelation(PawnRelationDefOf.Spouse, spouse);
             partners.Add(spouse);
         }
@@ -296,25 +468,38 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
                 partner.ageTracker.AgeBiologicalTicks = Rand.RangeInclusive(targetAge + 10, targetAge + 45) * (long)GenDate.TicksPerYear;
             }
 
-            this.PrepareClient(partner, targetAge * (long)GenDate.TicksPerYear, role);
+            this.PrepareClient(partner, targetAge * (long)GenDate.TicksPerYear, role, faction, isPrisoner, contractDays);
         }
 
         return partners;
     }
 
-    private void PrepareClient(Pawn pawn, long desiredAgeTicks, string role, bool triggerRoyalAscent = false)
+    private void PrepareClient(
+        Pawn pawn,
+        long desiredAgeTicks,
+        string role,
+        Faction sourceFaction,
+        bool isPrisoner,
+        int contractDays,
+        bool triggerRoyalAscent = false)
     {
         desiredAgeTicks = Math.Max(0, Math.Min(desiredAgeTicks, pawn.ageTracker.AgeBiologicalTicks));
         TrueAgeTracker tracker = RegenesisThoughts.GetOrAddTrueAgeTracker(pawn, pawn.ageTracker.AgeBiologicalTicks);
         if (tracker != null)
         {
             tracker.desiredAgeTicks = desiredAgeTicks;
+            tracker.underRegenContract = true;
         }
 
-        if (!pawn.health.hediffSet.HasHediff(HediffDefOf.Anesthetic))
+        this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner);
+        this.LockRecruitment(pawn);
+
+        if (isPrisoner && !pawn.health.hediffSet.HasHediff(HediffDefOf.Anesthetic))
         {
             pawn.health.AddHediff(HediffDefOf.Anesthetic);
         }
+
+        int returnByTick = Find.TickManager.TicksGame + Math.Max(MinContractDays, contractDays) * GenDate.TicksPerDay;
 
         this.activeClients.Add(new RoyaltyRegenesisClient
         {
@@ -322,14 +507,250 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             desiredAgeTicks = desiredAgeTicks,
             role = role,
             triggerRoyalAscent = triggerRoyalAscent,
+            returnByTick = returnByTick,
+            isPrisoner = isPrisoner,
+            sourceFaction = sourceFaction,
         });
     }
 
-    private void DropClients(Map map, List<Pawn> pawns, string label, string text)
+    private void ApplyGuestOrPrisonerStatus(Pawn pawn, bool isPrisoner)
     {
-        IntVec3 cell = DropCellFinder.RandomDropSpot(map);
-        DropPodUtility.DropThingsNear(cell, map, pawns.Cast<Thing>());
+        if (pawn?.guest == null)
+        {
+            return;
+        }
+
+#if RIMWORLD12
+        pawn.guest.SetGuestStatus(Faction.OfPlayer, isPrisoner);
+#else
+        pawn.guest.SetGuestStatus(Faction.OfPlayer, isPrisoner ? GuestStatus.Prisoner : GuestStatus.Guest);
+#endif
+
+        if (isPrisoner)
+        {
+#if RIMWORLD12 || RIMWORLD13 || RIMWORLD14
+            pawn.guest.interactionMode = PrisonerInteractionModeDefOf.NoInteraction;
+#else
+            // 1.5+: exclusive interaction modes; block recruitment attempts.
+            pawn.guest.SetNoInteraction();
+#endif
+#if !RIMWORLD12 && !RIMWORLD13
+            // Keep resistance high so they never "break" into recruitability.
+            if (pawn.guest.resistance < 50f)
+            {
+                pawn.guest.resistance = 99f;
+            }
+#endif
+        }
+    }
+
+    private void LockRecruitment(Pawn pawn)
+    {
+        if (pawn?.guest == null)
+        {
+            return;
+        }
+
+#if !RIMWORLD12 && !RIMWORLD13
+        pawn.guest.Recruitable = false;
+#endif
+    }
+
+    private int CalculateContractDays(long bioTicksToRemove)
+    {
+        // Treatment is fast in-casket, but contracts are narrative stays with a hard pickup.
+        double years = Math.Max(0.25, (double)bioTicksToRemove / GenDate.TicksPerYear);
+        int days = (int)Math.Ceiling(8 + years * 4);
+        return Math.Max(MinContractDays, Math.Min(MaxContractDays, days));
+    }
+
+    private string FormatReturnDeadline(int contractDays)
+    {
+        int returnTick = Find.TickManager.TicksGame + contractDays * GenDate.TicksPerDay;
+        return GenDate.DateFullStringAt(returnTick, Find.WorldGrid.LongLatOf(Find.CurrentMap?.Tile ?? 0));
+    }
+
+    private void DeliverClientsByShuttle(Map map, List<Pawn> pawns, Faction faction, string label, string text)
+    {
+        if (map == null || pawns == null || !pawns.Any())
+        {
+            return;
+        }
+
+        IntVec3 cell = this.FindShuttleLandingCell(map, faction);
+
+#if RIMWORLD12
+        this.DeliverByLegacyShuttle(map, pawns, faction, cell);
+#else
+        this.DeliverByTransportShip(map, pawns, faction, cell);
+#endif
+
         Find.LetterStack.ReceiveLetter(label, text, LetterDefOf.NeutralEvent, new LookTargets(pawns));
+    }
+
+#if RIMWORLD12
+    private void DeliverByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction, IntVec3 cell)
+    {
+        Thing shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
+        if (faction != null)
+        {
+            shuttle.SetFaction(faction);
+        }
+
+        CompTransporter transporter = shuttle.TryGetComp<CompTransporter>();
+        CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
+        if (transporter != null)
+        {
+            transporter.innerContainer.TryAddRangeOrTransfer(pawns.Cast<Thing>().ToList(), true, true);
+        }
+
+        if (compShuttle != null)
+        {
+            compShuttle.dropEverythingOnArrival = true;
+            compShuttle.leaveAfterTicks = GenDate.TicksPerHour;
+        }
+
+        Skyfaller skyfaller = SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShuttleIncoming, shuttle);
+        GenPlace.TryPlaceThing(skyfaller, cell, map, ThingPlaceMode.Near);
+    }
+
+    private void DepartByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction)
+    {
+        this.EjectClientsFromCaskets(map, pawns);
+
+        Thing shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
+        if (faction != null)
+        {
+            shuttle.SetFaction(faction);
+        }
+
+        IntVec3 cell = this.FindShuttleLandingCell(map, faction);
+        GenPlace.TryPlaceThing(shuttle, cell, map, ThingPlaceMode.Near);
+
+        CompTransporter transporter = shuttle.TryGetComp<CompTransporter>();
+        CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
+        foreach (Pawn pawn in pawns.Where(p => p != null && !p.Destroyed))
+        {
+            this.TransferPawnIntoTransporter(pawn, transporter);
+        }
+
+        if (compShuttle != null)
+        {
+            if (transporter != null && !transporter.LoadingInProgressOrReadyToLaunch)
+            {
+                TransporterUtility.InitiateLoading(Gen.YieldSingle(transporter));
+            }
+
+            compShuttle.Send();
+        }
+    }
+#else
+    private void DeliverByTransportShip(Map map, List<Pawn> pawns, Faction faction, IntVec3 cell)
+    {
+        Thing shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
+        if (faction != null)
+        {
+            shuttle.SetFaction(faction);
+        }
+
+        TransportShip ship = TransportShipMaker.MakeTransportShip(
+            TransportShipDefOf.Ship_Shuttle,
+            pawns.Cast<Thing>(),
+            shuttle);
+        ship.ArriveAt(cell, map.Parent);
+        ship.AddJobs(ShipJobDefOf.Unload, ShipJobDefOf.FlyAway);
+    }
+
+    private void DepartByTransportShip(Map map, List<Pawn> pawns, Faction faction)
+    {
+        this.EjectClientsFromCaskets(map, pawns);
+
+        List<Pawn> living = pawns.Where(p => p != null && !p.Destroyed && !p.Dead).ToList();
+        if (!living.Any())
+        {
+            return;
+        }
+
+        // Collect clients into the shuttle immediately so pickup is guaranteed.
+        List<Thing> cargo = new List<Thing>();
+        foreach (Pawn pawn in living)
+        {
+            if (pawn.Spawned)
+            {
+                pawn.DeSpawn(DestroyMode.Vanish);
+            }
+            else if (pawn.ParentHolder is Building_CryoRegenesis casket)
+            {
+                casket.EjectContents();
+                if (pawn.Spawned)
+                {
+                    pawn.DeSpawn(DestroyMode.Vanish);
+                }
+            }
+            else if (pawn.ParentHolder is IThingHolder holder && holder != Find.WorldPawns)
+            {
+                // Leave other holders if transfer fails later.
+            }
+
+            cargo.Add(pawn);
+        }
+
+        Thing shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
+        if (faction != null)
+        {
+            shuttle.SetFaction(faction);
+        }
+
+        IntVec3 cell = this.FindShuttleLandingCell(map, faction);
+        TransportShip ship = TransportShipMaker.MakeTransportShip(
+            TransportShipDefOf.Ship_Shuttle,
+            cargo,
+            shuttle);
+        ship.ArriveAt(cell, map.Parent);
+        // Already loaded: do not unload; leave immediately.
+        ship.AddJob(ShipJobDefOf.FlyAway);
+    }
+#endif
+
+    private void EjectClientsFromCaskets(Map map, List<Pawn> pawns)
+    {
+        if (map == null)
+        {
+            return;
+        }
+
+        foreach (Building_CryoRegenesis casket in map.listerBuildings.AllBuildingsColonistOfClass<Building_CryoRegenesis>())
+        {
+            if (casket.ContainedThing is Pawn contained && pawns.Contains(contained))
+            {
+                casket.EjectContents();
+            }
+        }
+    }
+
+    private void TransferPawnIntoTransporter(Pawn pawn, CompTransporter transporter)
+    {
+        if (pawn == null || transporter == null)
+        {
+            return;
+        }
+
+        if (pawn.Spawned)
+        {
+            pawn.DeSpawn(DestroyMode.Vanish);
+        }
+
+        transporter.innerContainer.TryAddOrTransfer(pawn, true);
+    }
+
+    private IntVec3 FindShuttleLandingCell(Map map, Faction faction)
+    {
+        Faction landingFaction = faction ?? Faction.OfPlayer;
+#if RIMWORLD12
+        return DropCellFinder.TradeDropSpot(map);
+#else
+        return DropCellFinder.GetBestShuttleLandingSpot(map, landingFaction);
+#endif
     }
 
     private void CheckActiveClients()
@@ -342,34 +763,118 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.activeClients.RemoveAll(client => client?.pawn == null || client.pawn.Destroyed);
         if (!this.activeClients.Any())
         {
-            this.ScheduleRetry("CryoRegenesis contract lost", "The active CryoRegenesis client could no longer be found.");
+            this.MajorTrustReset(
+                "CryoRegenesis clients vanished under contract. Trust is lost — the chain resets.",
+                null,
+                "Contract clients lost");
             return;
+        }
+
+        // Keep recruitment locked for the entire stay.
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            this.LockRecruitment(client.pawn);
+            if (client.pawn?.guest != null && client.isPrisoner && !client.pawn.IsPrisoner)
+            {
+                this.ApplyGuestOrPrisonerStatus(client.pawn, isPrisoner: true);
+            }
         }
 
         if (this.activeClients.Any(client => client.pawn.Dead))
         {
-            this.activeClients.Clear();
-            this.ScheduleRetry("CryoRegenesis contract failed", "A Royalty CryoRegenesis client died before the requested age regression was completed.");
+            Pawn dead = this.activeClients.First(client => client.pawn.Dead).pawn;
+            Faction sender = this.activeClients.FirstOrDefault()?.sourceFaction;
+            List<Pawn> survivors = this.activeClients
+                .Where(client => client.pawn != null && !client.pawn.Dead)
+                .Select(client => client.pawn)
+                .ToList();
+            Map map = survivors.FirstOrDefault(p => p.MapHeld != null)?.MapHeld ?? this.GetTargetMap();
+            if (map != null && survivors.Any())
+            {
+                this.DepartClients(map, survivors, sender);
+            }
+
+            this.MajorTrustReset(
+                $"{dead.Name.ToStringShort} died under a CryoRegenesis return contract. " +
+                "Trust is shattered — all progress is lost and the chain restarts from the beginning.",
+                sender,
+                "Client died under contract");
             return;
         }
 
-        if (this.activeClients.Any(client => !this.ClientReachedDesiredAge(client)))
+        bool allDone = this.activeClients.All(this.ClientReachedDesiredAge);
+        bool deadlineReached = this.activeClients.Any(client => Find.TickManager.TicksGame >= client.returnByTick);
+
+        if (!allDone && !deadlineReached)
         {
             return;
         }
 
         bool triggerEndgame = this.activeClients.Any(client => client.triggerRoyalAscent);
+        List<Pawn> departing = this.activeClients.Select(client => client.pawn).Where(p => p != null).ToList();
+        Faction sourceFaction = this.activeClients.FirstOrDefault()?.sourceFaction;
+        Map targetMap = departing.FirstOrDefault(p => p.MapHeld != null)?.MapHeld ?? this.GetTargetMap();
+
+        bool success = allDone;
+        this.ClearContractFlags(this.activeClients);
+
+        if (targetMap != null && departing.Any())
+        {
+            this.DepartClients(targetMap, departing, sourceFaction);
+        }
+
         this.activeClients.Clear();
 
-        if (triggerEndgame)
+        if (triggerEndgame && success)
         {
+            this.EndActiveContractQuest(QuestEndOutcome.Success);
             this.stage = RoyaltyRegenesisStage.Completed;
             this.royalAscentTriggered = true;
+            this.CompleteChainQuest();
             this.TryMakeRoyalAscentAvailable();
             return;
         }
 
-        this.CompleteActiveContract();
+        if (success)
+        {
+            this.EndActiveContractQuest(QuestEndOutcome.Success);
+            this.CompleteActiveContract();
+        }
+        else
+        {
+            // Soft failure: contract fails, stage progress kept, no full chain reset.
+            this.EndActiveContractQuest(QuestEndOutcome.Fail);
+            this.ScheduleRetry(
+                "CryoRegenesis contract expired",
+                "The pickup shuttle returned before the requested regression was finished. The clients have left. Another attempt may come later.");
+        }
+    }
+
+    private void DepartClients(Map map, List<Pawn> pawns, Faction faction)
+    {
+#if RIMWORLD12
+        this.DepartByLegacyShuttle(map, pawns, faction);
+#else
+        this.DepartByTransportShip(map, pawns, faction);
+#endif
+    }
+
+    private void ClearContractFlags(IEnumerable<RoyaltyRegenesisClient> clients)
+    {
+        foreach (RoyaltyRegenesisClient client in clients)
+        {
+            if (client?.pawn == null)
+            {
+                continue;
+            }
+
+            TrueAgeTracker tracker = client.pawn.health?.hediffSet?
+                .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+            if (tracker != null)
+            {
+                tracker.underRegenContract = false;
+            }
+        }
     }
 
     private bool ClientReachedDesiredAge(RoyaltyRegenesisClient client)
@@ -403,6 +908,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
                 }
                 else
                 {
+                    // Only after other factions succeed does the Empire take interest.
                     this.stage = RoyaltyRegenesisStage.LowerNobility;
                     this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(30, 60) * GenDate.TicksPerDay;
                 }
@@ -429,7 +935,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
         Find.LetterStack.ReceiveLetter(
             "CryoRegenesis contract complete",
-            "The Royalty CryoRegenesis client has reached the requested regression age.",
+            "The CryoRegenesis clients reached the requested regression age and have departed by shuttle. Check the Quests tab for chain progress.",
             LetterDefOf.PositiveEvent);
     }
 
@@ -437,11 +943,308 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     {
         Find.LetterStack.ReceiveLetter(label, text, LetterDefOf.NegativeEvent);
         this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(30, 60) * GenDate.TicksPerDay;
+        this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
     }
 
     private void SendTravelNotice(string label, string text)
     {
         Find.LetterStack.ReceiveLetter(label, text, LetterDefOf.NeutralEvent);
+        this.EnsureChainQuest();
+    }
+
+    public void NotifyClientRecruited(Pawn recruitee)
+    {
+        RoyaltyRegenesisClient client = this.activeClients.FirstOrDefault(c => c?.pawn == recruitee);
+        if (client == null)
+        {
+            return;
+        }
+
+        Faction faction = client.sourceFaction;
+
+        // Return any remaining contracted clients; the recruited one stays as a colonist.
+        List<Pawn> survivors = this.activeClients
+            .Where(c => c?.pawn != null && c.pawn != recruitee && !c.pawn.Dead)
+            .Select(c => c.pawn)
+            .ToList();
+        Map map = survivors.FirstOrDefault(p => p.MapHeld != null)?.MapHeld ?? this.GetTargetMap();
+        if (map != null && survivors.Any())
+        {
+            this.DepartClients(map, survivors, faction);
+        }
+
+        this.MajorTrustReset(
+            $"{recruitee.Name.ToStringShort} was recruited while under a CryoRegenesis return contract. " +
+            $"{(faction?.Name ?? "Their faction")} considers this a betrayal — trust is lost and the chain resets.",
+            faction,
+            "Contract client recruited");
+    }
+
+    public string GetChainProgressDescription()
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine(this.GetStageLabel(this.stage));
+        sb.AppendLine();
+        sb.AppendLine("Progress:");
+        sb.AppendLine("• Prisoner trials: " + this.rulerContractsCompleted + " / 3");
+        sb.AppendLine("• Planetary rulers: " + this.leaderContractsCompleted + " / 2");
+        sb.AppendLine("• Imperial nobles: " + this.nobleContractsCompleted + " / 2");
+        sb.AppendLine("• Stellarch: " + (this.stage > RoyaltyRegenesisStage.StellarchArrival || this.stage == RoyaltyRegenesisStage.Completed ? "done" : "pending"));
+        sb.AppendLine("• Emperor: " + (this.stage == RoyaltyRegenesisStage.Completed ? "done" : "pending"));
+
+        if (this.trustBreaks > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Trust breaks: " + this.trustBreaks);
+            if (!this.lastTrustBreakReason.NullOrEmpty())
+            {
+                sb.AppendLine("Last setback: " + this.lastTrustBreakReason);
+            }
+        }
+
+        if (this.activeClients.Any())
+        {
+            sb.AppendLine();
+            sb.AppendLine("Active contract clients: " + this.activeClients.Count);
+            int earliestReturn = this.activeClients.Min(c => c.returnByTick);
+            sb.AppendLine("Next return deadline: " + RoyaltyRegenesisQuestFactory.FormatTickDate(earliestReturn));
+        }
+        else if (this.stage != RoyaltyRegenesisStage.Completed && this.nextEventTick > Find.TickManager.TicksGame)
+        {
+            int days = (this.nextEventTick - Find.TickManager.TicksGame + GenDate.TicksPerDay - 1) / GenDate.TicksPerDay;
+            sb.AppendLine();
+            sb.AppendLine("Next event in about " + days + " day(s).");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    public string GetContractProgressDescription()
+    {
+        if (!this.activeClients.Any())
+        {
+            return "No active CryoRegenesis clients on this contract.";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int earliestReturn = this.activeClients.Min(c => c.returnByTick);
+        int ticksLeft = Math.Max(0, earliestReturn - Find.TickManager.TicksGame);
+        sb.AppendLine("Return shuttle: " + RoyaltyRegenesisQuestFactory.FormatTickDate(earliestReturn)
+            + " (" + ticksLeft.ToStringTicksToPeriod() + " remaining)");
+        sb.AppendLine();
+
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            if (client?.pawn == null)
+            {
+                continue;
+            }
+
+            Pawn pawn = client.pawn;
+            int currentYears = pawn.ageTracker.AgeBiologicalYears;
+            int targetYears = (int)(client.desiredAgeTicks / GenDate.TicksPerYear);
+            bool done = this.ClientReachedDesiredAge(client);
+            string location = pawn.ParentHolder is Building_CryoRegenesis
+                ? "in CryoRegenesis"
+                : (pawn.Spawned ? "on map" : "held");
+
+            sb.AppendLine("• " + pawn.Name.ToStringShort
+                + " — bio " + currentYears + " → " + targetYears
+                + (done ? " [ready]" : " [treating]")
+                + " (" + location + ")");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine(this.activeClients.All(this.ClientReachedDesiredAge)
+            ? "All clients ready for return."
+            : "Keep treating until each client reaches their target age before pickup.");
+        return sb.ToString().TrimEnd();
+    }
+
+    private void EnsureChainQuest()
+    {
+        if (this.chainQuest != null && !this.chainQuest.Historical)
+        {
+            return;
+        }
+
+        // Recover an existing ongoing chain quest after load if needed.
+        Quest existing = Find.QuestManager.QuestsListForReading.FirstOrDefault(q =>
+            q != null &&
+            !q.Historical &&
+            q.root != null &&
+            q.root.defName == RoyaltyRegenesisQuestFactory.ChainQuestDefName);
+
+        if (existing != null)
+        {
+            this.chainQuest = existing;
+            return;
+        }
+
+        this.chainQuest = RoyaltyRegenesisQuestFactory.MakeChainQuest();
+    }
+
+    private void BeginContractQuest(string title, string roleSummary, Faction sender, bool isPrisoner)
+    {
+        this.EnsureChainQuest();
+        this.EndActiveContractQuest(QuestEndOutcome.Fail, sendLetter: false);
+
+        int returnByTick = this.activeClients.Any()
+            ? this.activeClients.Max(c => c.returnByTick)
+            : Find.TickManager.TicksGame + MinContractDays * GenDate.TicksPerDay;
+
+        string description = RoyaltyRegenesisQuestFactory.BuildContractDescription(
+            roleSummary,
+            sender,
+            isPrisoner,
+            returnByTick,
+            this.activeClients.Select(c => c.pawn));
+
+        this.activeContractQuest = RoyaltyRegenesisQuestFactory.MakeContractQuest(
+            title,
+            description,
+            this.chainQuest);
+    }
+
+    private void EndActiveContractQuest(QuestEndOutcome outcome, bool sendLetter = true)
+    {
+        RoyaltyRegenesisQuestFactory.EndQuestSafe(this.activeContractQuest, outcome, sendLetter);
+        this.activeContractQuest = null;
+    }
+
+    private void CompleteChainQuest()
+    {
+        this.EnsureChainQuest();
+        if (this.chainQuest != null && !this.chainQuest.Historical)
+        {
+            this.chainQuest.description =
+                RoyaltyRegenesisQuestFactory.BuildChainDescriptionBody()
+                + "\n\nThe Emperor has been rejuvenated. The Imperial Rejuvenation chain is complete.";
+            RoyaltyRegenesisQuestFactory.EndQuestSafe(this.chainQuest, QuestEndOutcome.Success);
+        }
+
+        this.chainQuest = null;
+    }
+
+    /// <summary>
+    /// Death, recruitment, or loss of clients: fail the contract, wipe chain progress,
+    /// and force a long cooldown before anyone will trust you again.
+    /// </summary>
+    private void MajorTrustReset(string letterText, Faction offendedFaction, string shortReason)
+    {
+        this.EndActiveContractQuest(QuestEndOutcome.Fail);
+
+        this.ClearContractFlags(this.activeClients);
+        this.activeClients.Clear();
+
+        this.trustBreaks++;
+        this.lastTrustBreakReason = shortReason;
+        this.rulerContractsCompleted = 0;
+        this.leaderContractsCompleted = 0;
+        this.nobleContractsCompleted = 0;
+        this.royalAscentTriggered = false;
+        this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
+        this.stage = RoyaltyRegenesisStage.RulerPrisoners;
+        this.nextEventTick = Find.TickManager.TicksGame
+            + Rand.RangeInclusive(MajorResetMinDays, MajorResetMaxDays) * GenDate.TicksPerDay;
+
+        if (offendedFaction != null && offendedFaction != Faction.OfPlayer)
+        {
+            this.ApplyTrustBreakGoodwillPenalty(offendedFaction);
+        }
+
+        this.EnsureChainQuest();
+        if (this.chainQuest != null && !this.chainQuest.Historical)
+        {
+            this.chainQuest.description =
+                RoyaltyRegenesisQuestFactory.BuildChainDescriptionBody()
+                + "\n\nTRUST BROKEN: " + shortReason
+                + "\nAll stage progress has been reset. Foreign and imperial patrons will only return after a long cooling-off period.";
+        }
+
+        Find.LetterStack.ReceiveLetter(
+            "CryoRegenesis trust lost",
+            letterText + "\n\nThe Quests tab shows the chain restarting from the beginning.",
+            LetterDefOf.NegativeEvent);
+    }
+
+    private string GetStageLabel(RoyaltyRegenesisStage current)
+    {
+        switch (current)
+        {
+            case RoyaltyRegenesisStage.NotStarted:
+                return "Stage: not started";
+            case RoyaltyRegenesisStage.RulerPrisoners:
+                return "Stage: foreign prisoner trials (before Empire notice)";
+            case RoyaltyRegenesisStage.Leaders:
+                return "Stage: planetary rulers (before Empire notice)";
+            case RoyaltyRegenesisStage.LowerNobility:
+                return "Stage: Empire lower nobility";
+            case RoyaltyRegenesisStage.StellarchNotice:
+                return "Stage: Stellarch en route";
+            case RoyaltyRegenesisStage.StellarchArrival:
+                return "Stage: Stellarch contract";
+            case RoyaltyRegenesisStage.EmperorNotice:
+                return "Stage: Emperor en route";
+            case RoyaltyRegenesisStage.EmperorArrival:
+                return "Stage: Emperor contract";
+            case RoyaltyRegenesisStage.Completed:
+                return "Stage: complete";
+            default:
+                return "Stage: " + current;
+        }
+    }
+
+    private void ApplyTrustBreakGoodwillPenalty(Faction faction)
+    {
+        if (faction == null || faction == Faction.OfPlayer)
+        {
+            return;
+        }
+
+#if RIMWORLD12
+        faction.TryAffectGoodwillWith(
+            Faction.OfPlayer,
+            DeathTrustGoodwillPenalty,
+            true,
+            true,
+            "CryoRegenesis trust broken",
+            null);
+#else
+        faction.TryAffectGoodwillWith(
+            Faction.OfPlayer,
+            DeathTrustGoodwillPenalty,
+            true,
+            true,
+            HistoryEventDefOf.MemberKilled,
+            null);
+#endif
+    }
+
+    private void ApplyRecruitmentGoodwillPenalty(Faction faction, Pawn pawn)
+    {
+        if (faction == null || faction == Faction.OfPlayer)
+        {
+            return;
+        }
+
+#if RIMWORLD12
+        faction.TryAffectGoodwillWith(
+            Faction.OfPlayer,
+            RecruitGoodwillPenalty,
+            true,
+            true,
+            "Recruited CryoRegenesis contract client",
+            pawn);
+#else
+        faction.TryAffectGoodwillWith(
+            Faction.OfPlayer,
+            RecruitGoodwillPenalty,
+            true,
+            true,
+            HistoryEventDefOf.MemberCaptured,
+            pawn);
+#endif
     }
 
     private Pawn GeneratePawn(PawnKindDef kind, Faction faction, int biologicalAge)
@@ -452,21 +1255,32 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         return PawnGenerator.GeneratePawn(request);
     }
 
-    private PawnKindDef CommonPawnKind()
+    private PawnKindDef CommonPawnKind(Faction faction = null)
     {
+        if (faction?.def?.basicMemberKind != null)
+        {
+            return faction.def.basicMemberKind;
+        }
+
         return this.NamedPawnKind("Empire_Common_Lodger", this.AnyHumanPawnKind());
     }
 
-    private PawnKindDef NoblePawnKind()
+    private PawnKindDef NoblePawnKind(Faction faction = null)
     {
-        return this.NamedPawnKind("Empire_Royal_NobleWimp", this.CommonPawnKind());
+        if (faction != null && !this.IsEmpire(faction) && faction.def.basicMemberKind != null)
+        {
+            // Prefer the faction's own member kinds for non-Empire leaders.
+            return faction.def.basicMemberKind;
+        }
+
+        return this.NamedPawnKind("Empire_Royal_NobleWimp", this.CommonPawnKind(faction));
     }
 
     private PawnKindDef LowerNoblePawnKind()
     {
         return this.NamedPawnKind(
             Rand.Element("Empire_Royal_Yeoman", "Empire_Royal_Esquire", "Empire_Royal_Knight"),
-            this.NoblePawnKind());
+            this.NoblePawnKind(this.EmpireFaction()));
     }
 
     private PawnKindDef NamedPawnKind(string defName, PawnKindDef fallback)
@@ -492,19 +1306,93 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             }
         }
 
-        return this.RandomNonPlayerFaction();
+        return null;
     }
 
-    private Faction RandomNonPlayerFaction()
+    /// <summary>
+    /// Other planetary factions only — never Ancients, never Empire.
+    /// Empire contracts begin only after these succeed.
+    /// </summary>
+    private Faction RandomPlanetarySenderFaction()
     {
         return Find.FactionManager.AllFactionsListForReading
-            .Where(faction =>
-                faction != null &&
-                faction != Faction.OfPlayer &&
-                !faction.defeated &&
-                !faction.HostileTo(Faction.OfPlayer) &&
-                faction.def.humanlikeFaction)
+            .Where(this.IsEligiblePlanetarySender)
             .RandomElementWithFallback(null);
+    }
+
+    private bool IsEligiblePlanetarySender(Faction faction)
+    {
+        if (faction == null || faction == Faction.OfPlayer || faction.defeated)
+        {
+            return false;
+        }
+
+        if (!faction.def.humanlikeFaction)
+        {
+            return false;
+        }
+
+        if (faction.HostileTo(Faction.OfPlayer))
+        {
+            return false;
+        }
+
+        if (faction.Hidden)
+        {
+            return false;
+        }
+
+        if (this.IsEmpire(faction) || this.IsAncient(faction))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool IsEmpire(Faction faction)
+    {
+        if (faction?.def == null)
+        {
+            return false;
+        }
+
+        if (faction.def.defName == "Empire")
+        {
+            return true;
+        }
+
+        try
+        {
+            return faction.def == FactionDefOf.Empire;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool IsAncient(Faction faction)
+    {
+        if (faction?.def == null)
+        {
+            return false;
+        }
+
+        string defName = faction.def.defName;
+        if (defName == "Ancients" || defName == "AncientsHostile")
+        {
+            return true;
+        }
+
+        try
+        {
+            return faction.def == FactionDefOf.Ancients || faction.def == FactionDefOf.AncientsHostile;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void TrySetRoyalTitle(Pawn pawn, Faction faction, string titleDefName)
@@ -569,7 +1457,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     {
         Find.LetterStack.ReceiveLetter(
             "Imperial CryoRegenesis complete",
-            "The Emperor has reached age 20. Royal Ascent shuttle endgame protocols are now being activated.",
+            "The Emperor has reached age 20 and departed by shuttle. Royal Ascent endgame protocols are now being activated.",
             LetterDefOf.PositiveEvent);
 
         QuestScriptDef questDef = DefDatabase<QuestScriptDef>.GetNamedSilentFail("EndGame_RoyalAscent");
@@ -652,6 +1540,9 @@ public class RoyaltyRegenesisClient : IExposable
     public long desiredAgeTicks;
     public string role;
     public bool triggerRoyalAscent;
+    public int returnByTick;
+    public bool isPrisoner;
+    public Faction sourceFaction;
 
     public void ExposeData()
     {
@@ -659,6 +1550,9 @@ public class RoyaltyRegenesisClient : IExposable
         Scribe_Values.Look(ref this.desiredAgeTicks, "desiredAgeTicks", 0L);
         Scribe_Values.Look(ref this.role, "role");
         Scribe_Values.Look(ref this.triggerRoyalAscent, "triggerRoyalAscent", false);
+        Scribe_Values.Look(ref this.returnByTick, "returnByTick", 0);
+        Scribe_Values.Look(ref this.isPrisoner, "isPrisoner", false);
+        Scribe_References.Look(ref this.sourceFaction, "sourceFaction");
     }
 }
 
@@ -715,15 +1609,74 @@ public class QuestNode_StartRoyaltyRegenesisChain : QuestNode
 
     protected override void RunInt()
     {
-        Current.Game?.GetComponent<RoyaltyRegenesisQuestSystem>()
-            ?.DebugStartAt(RoyaltyRegenesisStage.RulerPrisoners);
-
-        QuestPart_QuestEnd endPart = new QuestPart_QuestEnd
+        // Prefer the GameComponent path; this node exists so the script def is valid
+        // if generated by the storyteller. The persistent quest is created by the system.
+        RoyaltyRegenesisQuestSystem system = Current.Game?.GetComponent<RoyaltyRegenesisQuestSystem>();
+        if (system == null)
         {
-            inSignal = QuestGen.quest.InitiateSignal,
-            outcome = QuestEndOutcome.Success,
-            sendLetter = false,
-        };
-        QuestGen.quest.AddPart(endPart);
+            return;
+        }
+
+        system.DebugStartAt(RoyaltyRegenesisStage.RulerPrisoners);
+    }
+}
+
+/// <summary>
+/// Placeholder root for per-contract quest script defs. Real contract quests are built in code.
+/// </summary>
+public class QuestNode_RoyaltyRegenesisContractPlaceholder : QuestNode
+{
+    protected override bool TestRunInt(Slate slate)
+    {
+        return true;
+    }
+
+    protected override void RunInt()
+    {
+    }
+}
+
+/// <summary>
+/// Regen-contract pawns never recruit voluntarily. If recruitment still happens,
+/// punish relations with their sending faction.
+/// </summary>
+[HarmonyPatch]
+public static class Patch_DoRecruit_RegenContract
+{
+    private static MethodBase TargetMethod()
+    {
+        // Prefer the full overload used by all recruit paths.
+        MethodInfo full = AccessTools.Method(
+            typeof(InteractionWorker_RecruitAttempt),
+            nameof(InteractionWorker_RecruitAttempt.DoRecruit),
+            new[]
+            {
+                typeof(Pawn),
+                typeof(Pawn),
+                typeof(string).MakeByRefType(),
+                typeof(string).MakeByRefType(),
+                typeof(bool),
+                typeof(bool),
+            });
+
+        if (full != null)
+        {
+            return full;
+        }
+
+        return AccessTools.Method(
+            typeof(InteractionWorker_RecruitAttempt),
+            nameof(InteractionWorker_RecruitAttempt.DoRecruit),
+            new[] { typeof(Pawn), typeof(Pawn), typeof(bool) });
+    }
+
+    public static void Prefix(Pawn recruiter, Pawn recruitee)
+    {
+        if (!RoyaltyRegenesisQuestSystem.IsActiveRegenContractPawn(recruitee))
+        {
+            return;
+        }
+
+        RoyaltyRegenesisQuestSystem.CurrentSystem?.NotifyClientRecruited(recruitee);
     }
 }

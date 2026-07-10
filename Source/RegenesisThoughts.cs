@@ -43,7 +43,13 @@ public static class RegenesisThoughts
         #if !RIMWORLD12 && !RIMWORLD13
         if (thought.CurStageIndex >= 2)
         {
-            if (pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
+            // Regen-quest contract clients must never become voluntarily recruitable.
+            TrueAgeTracker tracker = pawn.health?.hediffSet?
+                .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+            bool underContract = (tracker != null && tracker.underRegenContract)
+                || RoyaltyRegenesisQuestSystem.IsActiveRegenContractPawn(pawn);
+
+            if (!underContract && pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
             {
                 pawn.guest.Recruitable = true;
                 Messages.Message("Grateful to be so much younger, " + pawn.Name + " is now recruitable.", pawn, MessageTypeDefOf.PositiveEvent);
