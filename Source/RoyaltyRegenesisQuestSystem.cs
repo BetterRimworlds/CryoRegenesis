@@ -306,11 +306,21 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        int pawnCount = Rand.RangeInclusive(1, 2);
+        List<Pawn> availablePawns = this.GetAvailableWorldPawns(sender, 19);
+        if (!availablePawns.Any())
+        {
+            this.ScheduleRetry(
+                "No eligible faction members",
+                $"{sender.Name} has no eligible world pawns available for a CryoRegenesis trial. Retrying later.");
+            return;
+        }
+
+        int pawnCount = Math.Min(Rand.RangeInclusive(1, 2), availablePawns.Count);
         List<Pawn> pawns = new List<Pawn>();
         for (int i = 0; i < pawnCount; i++)
         {
-            Pawn pawn = this.GeneratePawn(this.CommonPawnKind(sender), sender, Rand.RangeInclusive(24, 70));
+            Pawn pawn = availablePawns.RandomElement();
+            availablePawns.Remove(pawn);
             int duration = Rand.Element(HalfYearTicks, GenDate.TicksPerYear, GenDate.TicksPerYear * 2);
             long targetTicks = Math.Max(18L * GenDate.TicksPerYear, pawn.ageTracker.AgeBiologicalTicks - duration);
             this.PrepareClient(pawn, targetTicks, "foreign prisoner", sender, isPrisoner: true, contractDays: 0);
@@ -350,9 +360,20 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        Pawn leader = this.GeneratePawn(this.NoblePawnKind(sender), sender, Rand.RangeInclusive(35, 82));
-        int yearsToRemove = Rand.RangeInclusive(2, 18);
-        long targetTicks = Math.Max(30L * GenDate.TicksPerYear, leader.ageTracker.AgeBiologicalTicks - yearsToRemove * GenDate.TicksPerYear);
+        Pawn leader = this.GetFactionLeader(sender, 31);
+        if (leader == null)
+        {
+            this.ScheduleRetry(
+                "No eligible faction ruler",
+                $"{sender.Name}'s ruler is unavailable for a CryoRegenesis stay. Retrying later.");
+            return;
+        }
+
+        int yearsToRemove = Rand.RangeInclusive(2, 60);
+        int targetAgeYears = Math.Max(
+            30,
+            (leader.ageTracker.AgeBiologicalYears - yearsToRemove) / 5 * 5);
+        long targetTicks = targetAgeYears * GenDate.TicksPerYear;
         int contractDays = this.CalculateContractDays(1);
 
         // Leaders come as guests (not prisoners) with a hard return time.
@@ -386,8 +407,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        Pawn pawn = this.GeneratePawn(this.LowerNoblePawnKind(), empire, Rand.RangeInclusive(31, 72));
         int targetAge = Rand.RangeInclusive(21, 40);
+        Pawn pawn = this.GetAvailableWorldPawns(empire, targetAge + 1).RandomElementWithFallback(null);
+        if (pawn == null)
+        {
+            this.ScheduleRetry("No eligible imperial noble", "No eligible Imperial world pawn is available for a CryoRegenesis stay. Retrying later.");
+            return;
+        }
+
         long targetTicks = targetAge * (long)GenDate.TicksPerYear;
         int contractDays = this.CalculateContractDays(1);
 
@@ -420,15 +447,19 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        Pawn stellarch = this.GeneratePawn(this.NamedPawnKind("Empire_Royal_Stellarch", this.NoblePawnKind(empire)), empire, Rand.RangeInclusive(45, 85));
-        this.TrySetRoyalTitle(stellarch, empire, "Stellarch");
-
         int targetAge = Rand.RangeInclusive(21, 35);
+        Pawn stellarch = this.GetAvailableWorldPawns(empire, targetAge + 1).RandomElementWithFallback(null);
+        if (stellarch == null)
+        {
+            this.ScheduleRetry("No eligible Stellarch", "No eligible Imperial world pawn is available for the Stellarch's CryoRegenesis stay. Retrying later.");
+            return;
+        }
+
         long targetTicks = targetAge * (long)GenDate.TicksPerYear;
         List<Pawn> party = new List<Pawn> { stellarch };
         int contractDays = this.CalculateContractDays(party.Count);
         this.PrepareClient(stellarch, targetTicks, "stellarch", empire, isPrisoner: false, contractDays: contractDays);
-        party.AddRange(this.GetOrGeneratePartners(stellarch, empire, 30, "stellarch companion", isPrisoner: false, contractDays: contractDays));
+        party.AddRange(this.GetWorldPawnPartners(stellarch, empire, 30, "stellarch companion", isPrisoner: false, contractDays: contractDays));
         contractDays = this.CalculateContractDays(party.Count);
         this.SetActiveContractDeadlineDays(contractDays);
 
@@ -459,14 +490,18 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        Pawn emperor = this.GeneratePawn(this.NamedPawnKind("Empire_Royal_Stellarch", this.NoblePawnKind(empire)), empire, Rand.RangeInclusive(60, 100));
-        this.TrySetRoyalTitle(emperor, empire, "Emperor");
+        Pawn emperor = this.GetFactionLeader(empire, 21);
+        if (emperor == null)
+        {
+            this.ScheduleRetry("Emperor unavailable", "The Empire's leader is unavailable for a CryoRegenesis stay. Retrying later.");
+            return;
+        }
 
         List<Pawn> party = new List<Pawn> { emperor };
         long targetTicks = 20L * GenDate.TicksPerYear;
         int contractDays = this.CalculateContractDays(party.Count);
         this.PrepareClient(emperor, targetTicks, "emperor", empire, isPrisoner: false, contractDays: contractDays, triggerRoyalAscent: true);
-        party.AddRange(this.GetOrGeneratePartners(emperor, empire, 21, "imperial companion", isPrisoner: false, contractDays: contractDays));
+        party.AddRange(this.GetWorldPawnPartners(emperor, empire, 21, "imperial companion", isPrisoner: false, contractDays: contractDays));
         contractDays = this.CalculateContractDays(party.Count);
         this.SetActiveContractDeadlineDays(contractDays);
 
@@ -488,7 +523,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             isPrisoner: false);
     }
 
-    private List<Pawn> GetOrGeneratePartners(Pawn noble, Faction faction, int targetAge, string role, bool isPrisoner, int contractDays)
+    private List<Pawn> GetWorldPawnPartners(Pawn noble, Faction faction, int targetAge, string role, bool isPrisoner, int contractDays)
     {
         List<Pawn> partners = noble.relations?.DirectRelations
             ?.Where(relation =>
@@ -496,24 +531,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                 relation.def == PawnRelationDefOf.Lover ||
                 relation.def == PawnRelationDefOf.Fiance)
             .Select(relation => relation.otherPawn)
-            .Where(pawn => pawn != null && !pawn.Dead)
+            .Where(pawn => this.IsAvailableWorldPawn(pawn, faction, targetAge + 1))
             .Distinct()
             .ToList() ?? new List<Pawn>();
 
-        if (!partners.Any() && Rand.Chance(0.65f))
-        {
-            Pawn spouse = this.GeneratePawn(this.NoblePawnKind(faction), faction, Rand.RangeInclusive(35, 80));
-            noble.relations.AddDirectRelation(PawnRelationDefOf.Spouse, spouse);
-            partners.Add(spouse);
-        }
-
         foreach (Pawn partner in partners)
         {
-            if (partner.ageTracker.AgeBiologicalYears < targetAge + 5)
-            {
-                partner.ageTracker.AgeBiologicalTicks = Rand.RangeInclusive(targetAge + 10, targetAge + 45) * (long)GenDate.TicksPerYear;
-            }
-
             this.PrepareClient(partner, targetAge * (long)GenDate.TicksPerYear, role, faction, isPrisoner, contractDays);
         }
 
@@ -2101,12 +2124,37 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 #endif
     }
 
-    private Pawn GeneratePawn(PawnKindDef kind, Faction faction, int biologicalAge)
+    private Pawn GetFactionLeader(Faction faction, int minimumBiologicalAge)
     {
-        PawnGenerationRequest request = new PawnGenerationRequest(kind, faction);
-        request.FixedBiologicalAge = biologicalAge;
-        request.FixedChronologicalAge = biologicalAge;
-        return PawnGenerator.GeneratePawn(request);
+        Pawn leader = faction?.leader;
+        return this.IsAvailableWorldPawn(leader, faction, minimumBiologicalAge, includeFactionLeader: true)
+            ? leader
+            : null;
+    }
+
+    private List<Pawn> GetAvailableWorldPawns(Faction faction, int minimumBiologicalAge)
+    {
+        if (faction == null || Find.WorldPawns == null)
+        {
+            return new List<Pawn>();
+        }
+
+        return Find.WorldPawns.AllPawnsAlive
+            .Where(pawn => this.IsAvailableWorldPawn(pawn, faction, minimumBiologicalAge))
+            .ToList();
+    }
+
+    private bool IsAvailableWorldPawn(Pawn pawn, Faction faction, int minimumBiologicalAge, bool includeFactionLeader = false)
+    {
+        return pawn != null
+            && !pawn.Dead
+            && pawn.Faction == faction
+            && (includeFactionLeader || pawn != faction.leader)
+            && pawn.ageTracker != null
+            && pawn.ageTracker.AgeBiologicalYears >= minimumBiologicalAge
+            && !pawn.Spawned
+            && !IsActiveRegenContractPawn(pawn)
+            && Find.WorldPawns?.AllPawnsAlive.Contains(pawn) == true;
     }
 
     private PawnKindDef CommonPawnKind(Faction faction = null)
