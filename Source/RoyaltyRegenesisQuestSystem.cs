@@ -489,6 +489,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         {
             tracker.desiredAgeTicks = desiredAgeTicks;
             tracker.underRegenContract = true;
+            tracker.contractStartAgeTicks = pawn.ageTracker.AgeBiologicalTicks;
         }
 
         this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner);
