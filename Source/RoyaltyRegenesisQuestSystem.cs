@@ -923,6 +923,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             }
         }
 
+        this.EnsureGuestClientsAreQuestLodgers();
+
         if (this.activeClients.Any(client => client.pawn.Dead))
         {
             Pawn dead = this.activeClients.First(client => client.pawn.Dead).pawn;
@@ -994,6 +996,91 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
                 + " allReady=" + this.pickupAllClientsReady
                 + " shuttle=" + (this.contractShuttle?.LabelCap ?? "null"));
         }
+    }
+
+    /// Vanilla Royalty hospitality guests are temporary player-faction pawns whose
+    /// original faction is retained by QuestPart_ExtraFaction. A guest tracker alone
+    /// only creates an uncontrolled visitor, with no bed assignment or Operations UI.
+    private void EnsureGuestClientsAreQuestLodgers()
+    {
+        if (this.pickupShuttleSpawned || this.activeContractQuest == null || this.activeContractQuest.Historical)
+        {
+            return;
+        }
+
+        foreach (IGrouping<Faction, RoyaltyRegenesisClient> factionClients in this.activeClients
+                     .Where(client => client != null && !client.isPrisoner && client.pawn != null)
+                     .GroupBy(client => client.sourceFaction))
+        {
+            Faction homeFaction = factionClients.Key;
+            List<Pawn> pawns = factionClients.Select(client => client.pawn).Distinct().ToList();
+            QuestPart_ExtraFaction extraFactionPart = this.activeContractQuest.PartsListForReading
+                .OfType<QuestPart_ExtraFaction>()
+                .FirstOrDefault(part =>
+                    part.extraFaction != null &&
+                    part.extraFaction.faction == homeFaction &&
+                    part.extraFaction.factionType == ExtraFactionType.HomeFaction);
+
+            if (extraFactionPart == null)
+            {
+                extraFactionPart = this.activeContractQuest.ExtraFaction(
+                    homeFaction,
+                    pawns,
+                    ExtraFactionType.HomeFaction);
+            }
+            else
+            {
+                extraFactionPart.affectedPawns.AddRange(
+                    pawns.Where(pawn => !extraFactionPart.affectedPawns.Contains(pawn)));
+            }
+
+            foreach (Pawn pawn in pawns)
+            {
+                this.ReleaseFromCurrentLord(pawn);
+                if (pawn.Faction != Faction.OfPlayer)
+                {
+                    pawn.SetFaction(Faction.OfPlayer);
+                }
+            }
+        }
+    }
+
+    private void RestoreGuestClientFactions()
+    {
+        foreach (RoyaltyRegenesisClient client in this.activeClients.Where(client => client != null && !client.isPrisoner))
+        {
+            Pawn pawn = client.pawn;
+            if (pawn != null && !pawn.Destroyed && client.sourceFaction != null && pawn.Faction == Faction.OfPlayer)
+            {
+                this.ReleaseFromCurrentLord(pawn);
+                pawn.SetFaction(client.sourceFaction);
+                this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner: false);
+            }
+        }
+    }
+
+    private void AssignExitOnShuttleLord(Map map, Thing shuttle, List<Pawn> pawns, Faction faction)
+    {
+        this.RestoreGuestClientFactions();
+        this.ReleaseFromCurrentLords(pawns);
+        LordMaker.MakeNewLord(
+            faction ?? Faction.OfPlayer,
+            new LordJob_ExitOnShuttle(shuttle),
+            map,
+            pawns);
+    }
+
+    private void ReleaseFromCurrentLords(IEnumerable<Pawn> pawns)
+    {
+        foreach (Pawn pawn in pawns)
+        {
+            this.ReleaseFromCurrentLord(pawn);
+        }
+    }
+
+    private void ReleaseFromCurrentLord(Pawn pawn)
+    {
+        pawn?.GetLord()?.Notify_PawnLost(pawn, PawnLostCondition.ForcedToJoinOtherLord);
     }
 
     private void FinishContractAfterDeparture(bool success)
@@ -1254,7 +1341,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         }
 #endif
 
-        LordMaker.MakeNewLord(faction ?? Faction.OfPlayer, new LordJob_ExitOnShuttle(shuttle), map, living);
+        this.AssignExitOnShuttleLord(map, shuttle, living, faction);
         this.pickupShuttleSpawned = true;
         this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
         this.RefreshClientAgeProgress();
@@ -1308,7 +1395,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             return true;
         }
 
-        LordMaker.MakeNewLord(faction ?? Faction.OfPlayer, new LordJob_ExitOnShuttle(shuttle), map, living);
+        this.AssignExitOnShuttleLord(map, shuttle, living, faction);
 
         this.RefreshClientAgeProgress();
         this.LogRoyaltyDebug(
@@ -1363,7 +1450,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.pickupShuttleSpawned = true;
         this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
 
-        LordMaker.MakeNewLord(faction ?? Faction.OfPlayer, new LordJob_ExitOnShuttle(shuttle), map, living);
+        this.AssignExitOnShuttleLord(map, shuttle, living, faction);
 
         this.RefreshClientAgeProgress();
         this.LogRoyaltyDebug(
@@ -1860,10 +1947,16 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             title,
             description,
             this.chainQuest);
+
+        if (!isPrisoner)
+        {
+            this.EnsureGuestClientsAreQuestLodgers();
+        }
     }
 
     private void EndActiveContractQuest(QuestEndOutcome outcome, bool sendLetter = true)
     {
+        this.RestoreGuestClientFactions();
         RoyaltyRegenesisQuestFactory.EndQuestSafe(this.activeContractQuest, outcome, sendLetter);
         this.activeContractQuest = null;
     }
