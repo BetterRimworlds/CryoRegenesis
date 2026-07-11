@@ -16,6 +16,7 @@ solutionPath="Source/${MOD}.sln"
 
 # Define an array of configurations
 configurations=("v1.2" "v1.3" "v1.4" "v1.5" "v1.6")
+#configurations=("v1.2")
 
 dotnet restore "$solutionPath"
 
@@ -75,16 +76,16 @@ if [ "$1" == "1" ]; then
     exit
 fi
 
-# Watch for changes to .cs and XML files in the directory and subdirectories
-inotifywait --recursive --monitor --format "%e %w%f" \
-    --exclude '/\.idea($|/)' \
-    --event modify,move,create,delete "$dir" "$MOD" |
-    while read event fullpath; do
-        if [[ "$fullpath" == "$dir"* && "$fullpath" == *.cs ]]; then
-            echo "Running build for $fullpath"
-            build || echo "Build failed, skipping sync."
-        elif [[ "$fullpath" == "$MOD"* && "$fullpath" == *.xml ]]; then
-            echo "Running sync_mod for $fullpath"
-            sync_mod
-        fi
-    done
+## Watch for changes to .cs and XML files in the directory and subdirectories
+#inotifywait --recursive --monitor --format "%e %w%f" \
+#    --exclude '/\.idea($|/)' \
+#    --event modify,move,create,delete "$dir" "$MOD" |
+#    while read event fullpath; do
+#        if [[ "$fullpath" == "$dir"* && "$fullpath" == *.cs ]]; then
+#            echo "Running build for $fullpath"
+#            build || echo "Build failed, skipping sync."
+#        elif [[ "$fullpath" == "$MOD"* && "$fullpath" == *.xml ]]; then
+#            echo "Running sync_mod for $fullpath"
+#            sync_mod
+#        fi
+#    done
