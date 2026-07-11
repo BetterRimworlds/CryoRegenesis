@@ -219,7 +219,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             Pawn pawn = ContainedThing as Pawn;
             float pawnAge = pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear;
 
-            isTargetAge = this.regenesisCycle.IsTargetAge(pawn, rate);
+            isTargetAge = this.regenesisCycle.IsTargetAge(pawn);
             hasInjuries = this.regenesisCycle.HasCurableInjuries;
 
             // if (this.isSafeToRepair == false)
@@ -233,6 +233,14 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
             if (power.PowerOn)
             {
+                // Latch contract completion before the healthy-at-target branch ejects
+                // the pawn and returns. Natural Guest departure otherwise bypasses
+                // MarkTargetAgeReached entirely.
+                if (isTargetAge)
+                {
+                    this.regenesisCycle.MarkTargetAgeReached(pawn);
+                }
+
                 if (isTargetAge && !hasInjuries)
                 {
                     this.EjectContents();
@@ -251,11 +259,6 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
                 if (this.regenesisCycle.IsOutOfFuelForHealing(pawn, refuelable))
                 {
                     Log.Message("Not enough Uranium to heal.");
-                }
-
-                if (isTargetAge)
-                {
-                    this.regenesisCycle.MarkTargetAgeReached(pawn);
                 }
 
                 this.regenesisCycle.TryHealNextInjury(pawn, refuelable);

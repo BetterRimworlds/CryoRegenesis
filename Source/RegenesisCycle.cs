@@ -59,16 +59,17 @@ public class RegenesisCycle
     public void MarkTargetAgeReached(Pawn pawn)
     {
         this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks;
+        RoyaltyRegenesisQuestSystem.NotifyRegenesisTargetReached(pawn);
     }
 
-    public bool IsTargetAge(Pawn pawn, int rate)
+    public bool IsTargetAge(Pawn pawn)
     {
-        return pawn.ageTracker.AgeBiologicalTicks <= (this.targetAgeTicks + rate);
+        return pawn.ageTracker.AgeBiologicalTicks <= this.targetAgeTicks;
     }
 
     public void UpdateHealingEta(Pawn pawn, int rate)
     {
-        if (!this.HasCurableInjuries || this.IsTargetAge(pawn, rate) || this.restoreCoolDown == NoRegenesisInProgress)
+        if (!this.HasCurableInjuries || this.IsTargetAge(pawn) || this.restoreCoolDown == NoRegenesisInProgress)
         {
             return;
         }
@@ -180,6 +181,11 @@ public class RegenesisCycle
 
     public bool ShouldEjectAfterHealing(Pawn pawn)
     {
+        if (RoyaltyRegenesisQuestSystem.IsActiveRegenContractPawn(pawn))
+        {
+            return false;
+        }
+
         return CryoRegenesis.Settings.regenUntilHealed
             && !this.enteredHealthy
             && pawn.RaceProps.Humanlike
