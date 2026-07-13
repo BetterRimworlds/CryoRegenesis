@@ -1,4 +1,18 @@
 // ==== Source/JobDriver_CarryToCryoRegenesis.cs ====
+/*
+ * Ordered job: carry a patient into a CryoRegenesis casket.
+ *
+ * Immobility gate (do not narrow this):
+ *   PatientIsImmobile() is true when the pawn is Downed *or* Moving capacity
+ *   is 0%. Players treat "Unconscious / Moving 0%" as carriable; requiring only
+ *   `pawn.Downed` missed edge cases and disagreed with the float-menu check in
+ *   AllowHostedGuestsPatch (keep both in sync).
+ *
+ * If the carry *menu option* is missing entirely on one RW version, that is
+ * usually a Harmony load failure — not this driver. See CryoRegenesis.cs and
+ * Patch_DoRecruit_RegenContract docblocks.
+ */
+using RimWorld;
 using Verse;
 using Verse.AI;
 
@@ -20,6 +34,27 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
     private Building_CryoRegenesis Casket =>
         job.GetTarget(CasketIndex).Thing as Building_CryoRegenesis;
 
+    /// <summary>
+    /// Patient can be picked up when Downed or when Moving is 0%.
+    /// Must stay aligned with AllowHostedGuestsPatch.IsCryoCarryTargetState.
+    /// </summary>
+    private bool PatientIsImmobile()
+    {
+        Pawn patient = Patient;
+        if (patient == null || patient.Dead)
+            return false;
+
+        if (patient.Downed)
+            return true;
+
+        PawnCapacitiesHandler capacities = patient.health?.capacities;
+        if (capacities == null)
+            return false;
+
+        return !capacities.CapableOf(PawnCapacityDefOf.Moving) ||
+               capacities.GetLevel(PawnCapacityDefOf.Moving) <= 0f;
+    }
+
     public override bool TryMakePreToilReservations(bool errorOnFailed)
     {
         return pawn.Reserve(Patient, job, 1, -1, null, errorOnFailed) &&
@@ -40,7 +75,8 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
             Patient == null || Patient.Dead || Casket == null || Casket.HasAnyContents
         );
 
-        yield return Toils_Goto.GotoThing(PatientIndex, PathEndMode.Touch);
+        // OnCell matches vanilla CarryToCryptosleepCasket and reaches pawns in beds.
+        yield return Toils_Goto.GotoThing(PatientIndex, PathEndMode.OnCell);
 
         /*
          * Sedation may take a few ticks to down a large pawn (humans have a
@@ -57,8 +93,8 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
 
         waitForDowned.initAction = () =>
         {
-            // Already downed? Skip the wait entirely.
-            if (Patient != null && Patient.Downed)
+            // Already immobile? Skip the wait entirely.
+            if (PatientIsImmobile())
             {
                 ReadyForNextToil();
             }
@@ -66,7 +102,7 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
 
         waitForDowned.tickAction = () =>
         {
-            if (Patient != null && Patient.Downed)
+            if (PatientIsImmobile())
             {
                 ReadyForNextToil();
             }
@@ -74,7 +110,7 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
 
         waitForDowned.AddFailCondition(() =>
             waitForDowned.actor.jobs.curDriver.ticksLeftThisToil <= 0 &&
-            (Patient == null || !Patient.Downed)
+            !PatientIsImmobile()
         );
 
         yield return waitForDowned;
