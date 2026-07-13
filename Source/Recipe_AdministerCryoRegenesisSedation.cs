@@ -88,16 +88,24 @@ public class Recipe_AdministerCryoRegenesisSedation : Recipe_Surgery
         if (map == null)
             return null;
 
+        /*
+         * Availability (carrier == null) must NOT require the patient to path
+         * to the casket. Prisoners, prison guests, and area-restricted guests
+         * often cannot leave their pen, and the whole point of sedation is that
+         * a doctor carries them. Only check that an empty colony casket exists.
+         *
+         * When applying (carrier != null), require the doctor to reserve/reach.
+         */
         return map.listerBuildings
             .AllBuildingsColonistOfClass<Building_CryoRegenesis>()
             .Where(c => !c.HasAnyContents)
             .OrderBy(c => c.Position.DistanceToSquared(pawn.PositionHeld))
             .FirstOrDefault(c =>
             {
-                if (carrier != null)
-                    return carrier.CanReserveAndReach(c, PathEndMode.InteractionCell, Danger.Deadly);
+                if (carrier == null)
+                    return true;
 
-                return pawn.CanReach(c, PathEndMode.InteractionCell, Danger.Deadly);
+                return carrier.CanReserveAndReach(c, PathEndMode.InteractionCell, Danger.Deadly);
             });
     }
 
