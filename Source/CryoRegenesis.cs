@@ -8,6 +8,40 @@
  *   https://github.com/BetterRimworlds/CryoRegenesis
  *
  * This file is licensed under the MIT License.
+ *
+ * =============================================================================
+ * HARMONY PATCH LOADING — DO NOT REGRESS
+ * =============================================================================
+ *
+ * Problem (RimWorld 1.2, 2026-07):
+ *   "Carry to CryoRegenesis casket" never appeared for unconscious / Downed
+ *   prisoners. Eligibility and float-menu code looked correct; the real failure
+ *   was that *no* Harmony patches in this assembly applied at all.
+ *
+ * Root cause:
+ *   Mod construction used a single `harmony.PatchAll(Assembly)`. One unrelated
+ *   patch (Patch_DoRecruit_RegenContract) resolved TargetMethod() against the
+ *   *1.3+* InteractionWorker_RecruitAttempt.DoRecruit signature. On 1.2 that
+ *   method still takes `float recruitChance`, so AccessTools returned null,
+ *   PatchAll threw, and the catch block only logged:
+ *     "Failed to load harmony patches: ..."
+ *   Every other patch — including FloatMenuMakerMap.AddHumanlikeOrders for the
+ *   carry option — died with it. Symptom looked like a carry-eligibility bug.
+ *
+ * How not to repeat this:
+ *   1. Never rely on one PatchAll for the whole assembly when any TargetMethod
+ *      is version-sensitive. Apply each [HarmonyPatch] type with
+ *      CreateClassProcessor(type).Patch() inside its own try/catch (see ctor).
+ *   2. When resolving vanilla methods by signature, probe *every* supported
+ *      RimWorld version (1.2 often differs). Prefer ordered AccessTools.Method
+ *      fallbacks; never assume 1.3+ is the only shape.
+ *   3. If a float-menu / job feature "does nothing" on one game version only,
+ *      check the player log first for Harmony load failures before rewriting
+ *      gameplay conditions (Downed, Moving %, beds, etc.).
+ *   4. After changing any TargetMethod / patch attribute, boot *each* target
+ *      version (or at least 1.2 and latest) and confirm no
+ *      "[CryoRegenesis] Harmony patch failed" lines at startup.
+ * =============================================================================
  */
 
 using RimWorld;
@@ -28,13 +62,26 @@ public class CryoRegenesis: Mod
         Settings = GetSettings<Settings>() ?? new Settings();
 
         var harmony = new Harmony("FrontierDevelopments.DeadCryptosleep");
-        try
+        /*
+         * Apply each [HarmonyPatch] type independently. A single bad TargetMethod
+         * (version-mismatched signature) must not abort the rest — that used to
+         * silently kill the Carry-to-CryoRegenesis float menu on RimWorld 1.2.
+         */
+        foreach (Type type in Assembly.GetExecutingAssembly().GetTypes())
         {
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Failed to load harmony patches: {e.Message}\n{e.StackTrace}");
+            object[] attrs = type.GetCustomAttributes(typeof(HarmonyPatch), inherit: true);
+            if (attrs == null || attrs.Length == 0)
+                continue;
+
+            try
+            {
+                harmony.CreateClassProcessor(type).Patch();
+            }
+            catch (Exception e)
+            {
+                Log.Error(
+                    $"[CryoRegenesis] Harmony patch failed on {type.FullName}: {e.Message}\n{e.StackTrace}");
+            }
         }
     }
 
@@ -448,6 +495,7 @@ public static class CryoRegenesisDefOf
 {
     public static HediffDef CryoRegenesisSedation;
     public static JobDef CR_CarryToCryoRegenesis;
+    public static RecipeDef CR_AdministerCryoRegenesisSedation;
 
     static CryoRegenesisDefOf()
     {
