@@ -16,6 +16,7 @@ using HarmonyLib;
 using RimWorld;
 using RimWorld.QuestGen;
 using Verse;
+using Verse.AI.Group;
 
 #if RIMWORLD15 || RIMWORLD16
 using LudeonTK;
@@ -29,10 +30,14 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     private const int HalfYearTicks = GenDate.TicksPerYear / 2;
     private const int RecruitGoodwillPenalty = -35;
     private const int DeathTrustGoodwillPenalty = -75;
-    private const int MinContractDays = 3;
-    private const int MaxContractDays = 30;
+    private const int ContractDaysPerClient = 2;
+    private const int MinContractDays = 2;
     private const int MajorResetMinDays = 60;
     private const int MajorResetMaxDays = 90;
+    /// <summary>
+    /// Vanilla hospitality pickup grace (Script_Hospitality_Worker shuttleLeaveDelayTicks = 3*60000).
+    /// </summary>
+    private const int ShuttleLeaveDelayDays = 3;
 
     private RoyaltyRegenesisStage stage = RoyaltyRegenesisStage.NotStarted;
     private RoyaltyRegenesisStage activeContractStage = RoyaltyRegenesisStage.NotStarted;
@@ -46,6 +51,26 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     private List<RoyaltyRegenesisClient> activeClients = new List<RoyaltyRegenesisClient>();
     private Quest chainQuest;
     private Quest activeContractQuest;
+    /// <summary>TicksGame when the current contract was opened.</summary>
+    private int contractStartTick = -1;
+    /// <summary>TicksGame when the return/pickup shuttle is due.</summary>
+    private int contractDeadlineTick = -1;
+#if !RIMWORLD12
+    /// <summary>Active contract shuttle transport (delivery or pickup).</summary>
+    private TransportShip contractTransportShip;
+#endif
+    private Thing contractShuttle;
+    /// <summary>True once the send-off (pickup) shuttle has been spawned for this contract.</summary>
+    private bool pickupShuttleSpawned;
+    /// <summary>TicksGame when the pickup shuttle became available for loading.</summary>
+    private int pickupShuttleSpawnTick = -1;
+    /// <summary>True once every active client has reached the requested age during pickup.</summary>
+    private bool pickupAllClientsReady;
+    /// <summary>
+    /// True once the contract quest has been logged as completed (every client reached
+    /// their target age). Success is banked here — shuttle logistics can no longer fail it.
+    /// </summary>
+    private bool contractCompletionLogged;
 
     public RoyaltyRegenesisQuestSystem(Game game)
     {
@@ -93,6 +118,16 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Collections.Look(ref this.activeClients, "crRoyalActiveClients", LookMode.Deep);
         Scribe_References.Look(ref this.chainQuest, "crRoyalChainQuest");
         Scribe_References.Look(ref this.activeContractQuest, "crRoyalActiveContractQuest");
+        Scribe_Values.Look(ref this.contractStartTick, "crRoyalContractStartTick", -1);
+        Scribe_Values.Look(ref this.contractDeadlineTick, "crRoyalContractDeadlineTick", -1);
+        Scribe_Values.Look(ref this.pickupShuttleSpawned, "crRoyalPickupShuttleSpawned", false);
+        Scribe_Values.Look(ref this.pickupShuttleSpawnTick, "crRoyalPickupShuttleSpawnTick", -1);
+        Scribe_Values.Look(ref this.pickupAllClientsReady, "crRoyalPickupAllClientsReady", false);
+        Scribe_Values.Look(ref this.contractCompletionLogged, "crRoyalContractCompletionLogged", false);
+#if !RIMWORLD12
+        Scribe_References.Look(ref this.contractTransportShip, "crRoyalContractTransportShip");
+#endif
+        Scribe_References.Look(ref this.contractShuttle, "crRoyalContractShuttle");
 
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
@@ -104,6 +139,11 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             if (this.lastTrustBreakReason == null)
             {
                 this.lastTrustBreakReason = string.Empty;
+            }
+
+            if (this.activeClients.Any())
+            {
+                this.EnsureContractDeadline();
             }
         }
     }
@@ -228,6 +268,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 
         this.EndActiveContractQuest(QuestEndOutcome.Fail, sendLetter: false);
         this.activeClients.Clear();
+        this.ClearContractShuttle();
+        this.ClearContractTiming();
         this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
         this.stage = debugStage;
         this.nextEventTick = Find.TickManager.TicksGame;
@@ -266,25 +308,23 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 
         int pawnCount = Rand.RangeInclusive(1, 2);
         List<Pawn> pawns = new List<Pawn>();
-        int contractDays = 0;
-
         for (int i = 0; i < pawnCount; i++)
         {
             Pawn pawn = this.GeneratePawn(this.CommonPawnKind(sender), sender, Rand.RangeInclusive(24, 70));
             int duration = Rand.Element(HalfYearTicks, GenDate.TicksPerYear, GenDate.TicksPerYear * 2);
             long targetTicks = Math.Max(18L * GenDate.TicksPerYear, pawn.ageTracker.AgeBiologicalTicks - duration);
-            int days = this.CalculateContractDays(pawn.ageTracker.AgeBiologicalTicks - targetTicks);
-            contractDays = Math.Max(contractDays, days);
-            this.PrepareClient(pawn, targetTicks, "foreign prisoner", sender, isPrisoner: true, contractDays: days);
+            this.PrepareClient(pawn, targetTicks, "foreign prisoner", sender, isPrisoner: true, contractDays: 0);
             pawns.Add(pawn);
         }
 
+        int contractDays = this.CalculateContractDays(pawns.Count);
+        this.SetActiveContractDeadlineDays(contractDays);
         this.activeContractStage = RoyaltyRegenesisStage.RulerPrisoners;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
             $"{sender.Name} has sent prisoners for a trial CryoRegenesis contract. " +
             $"Their requested regression is six months, one year, or two years. " +
-            $"They arrive and depart by shuttle and must be returned by {returnText}. " +
+            $"Their shuttle will stay parked on site and departs with them on {returnText}. " +
             "Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
@@ -313,15 +353,16 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         Pawn leader = this.GeneratePawn(this.NoblePawnKind(sender), sender, Rand.RangeInclusive(35, 82));
         int yearsToRemove = Rand.RangeInclusive(2, 18);
         long targetTicks = Math.Max(30L * GenDate.TicksPerYear, leader.ageTracker.AgeBiologicalTicks - yearsToRemove * GenDate.TicksPerYear);
-        int contractDays = this.CalculateContractDays(leader.ageTracker.AgeBiologicalTicks - targetTicks);
+        int contractDays = this.CalculateContractDays(1);
 
         // Leaders come as guests (not prisoners) with a hard return time.
         this.PrepareClient(leader, targetTicks, "planetary ruler", sender, isPrisoner: false, contractDays: contractDays);
+        this.SetActiveContractDeadlineDays(contractDays);
         this.activeContractStage = RoyaltyRegenesisStage.Leaders;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
             $"{leader.Name.ToStringShort} of {sender.Name}, a ruler over the age of 30, has arrived by shuttle " +
-            $"for a privately negotiated CryoRegenesis stay. The shuttle returns on {returnText}. " +
+            $"for a privately negotiated CryoRegenesis stay. Their shuttle waits on site and departs on {returnText}. " +
             "Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
@@ -348,14 +389,15 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         Pawn pawn = this.GeneratePawn(this.LowerNoblePawnKind(), empire, Rand.RangeInclusive(31, 72));
         int targetAge = Rand.RangeInclusive(21, 40);
         long targetTicks = targetAge * (long)GenDate.TicksPerYear;
-        int contractDays = this.CalculateContractDays(pawn.ageTracker.AgeBiologicalTicks - targetTicks);
+        int contractDays = this.CalculateContractDays(1);
 
         this.PrepareClient(pawn, targetTicks, "lower imperial noble", empire, isPrisoner: false, contractDays: contractDays);
+        this.SetActiveContractDeadlineDays(contractDays);
         this.activeContractStage = RoyaltyRegenesisStage.LowerNobility;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
             $"The Empire has sent {pawn.Name.ToStringShort}, a lower noble, by shuttle to verify your CryoRegenesis process. " +
-            $"They must return by {returnText}. Do not recruit them — death or recruitment will destroy trust and reset the chain.";
+            $"Their shuttle waits on site and departs on {returnText}. Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
             new List<Pawn> { pawn },
@@ -384,15 +426,17 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         int targetAge = Rand.RangeInclusive(21, 35);
         long targetTicks = targetAge * (long)GenDate.TicksPerYear;
         List<Pawn> party = new List<Pawn> { stellarch };
-        int contractDays = this.CalculateContractDays(stellarch.ageTracker.AgeBiologicalTicks - targetTicks);
+        int contractDays = this.CalculateContractDays(party.Count);
         this.PrepareClient(stellarch, targetTicks, "stellarch", empire, isPrisoner: false, contractDays: contractDays);
         party.AddRange(this.GetOrGeneratePartners(stellarch, empire, 30, "stellarch companion", isPrisoner: false, contractDays: contractDays));
+        contractDays = this.CalculateContractDays(party.Count);
+        this.SetActiveContractDeadlineDays(contractDays);
 
         this.activeContractStage = RoyaltyRegenesisStage.StellarchArrival;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
             $"The Stellarch has arrived by shuttle for CryoRegenesis and has chosen to regress to age {targetAge}. " +
-            $"Any spouses or lovers in the party have chosen age 30. The imperial shuttle returns on {returnText}.";
+            $"Any spouses or lovers in the party have chosen age 30. The imperial shuttle waits on site and departs on {returnText}.";
         this.DeliverClientsByShuttle(
             map,
             party,
@@ -420,15 +464,17 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 
         List<Pawn> party = new List<Pawn> { emperor };
         long targetTicks = 20L * GenDate.TicksPerYear;
-        int contractDays = this.CalculateContractDays(emperor.ageTracker.AgeBiologicalTicks - targetTicks);
+        int contractDays = this.CalculateContractDays(party.Count);
         this.PrepareClient(emperor, targetTicks, "emperor", empire, isPrisoner: false, contractDays: contractDays, triggerRoyalAscent: true);
         party.AddRange(this.GetOrGeneratePartners(emperor, empire, 21, "imperial companion", isPrisoner: false, contractDays: contractDays));
+        contractDays = this.CalculateContractDays(party.Count);
+        this.SetActiveContractDeadlineDays(contractDays);
 
         this.activeContractStage = RoyaltyRegenesisStage.EmperorArrival;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
             $"The Emperor has arrived by shuttle for CryoRegenesis and will regress to age 20. " +
-            $"Any spouses or lovers in the party have chosen age 21. The imperial shuttle returns on {returnText}.";
+            $"Any spouses or lovers in the party have chosen age 21. The imperial shuttle waits on site and departs on {returnText}.";
         this.DeliverClientsByShuttle(
             map,
             party,
@@ -500,18 +546,78 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             pawn.health.AddHediff(HediffDefOf.Anesthetic);
         }
 
-        int returnByTick = Find.TickManager.TicksGame + Math.Max(MinContractDays, contractDays) * GenDate.TicksPerDay;
-
-        this.activeClients.Add(new RoyaltyRegenesisClient
+        int now = Find.TickManager.TicksGame;
+        if (this.contractStartTick < 0)
         {
-            pawn = pawn,
-            desiredAgeTicks = desiredAgeTicks,
-            role = role,
-            triggerRoyalAscent = triggerRoyalAscent,
-            returnByTick = returnByTick,
-            isPrisoner = isPrisoner,
-            sourceFaction = sourceFaction,
-        });
+            this.contractStartTick = now;
+        }
+
+        int stayDays = Math.Max(MinContractDays, contractDays);
+        // Always a real future TicksGame deadline — never 0 (0 soft-fails immediately).
+        int returnByTick = now + stayDays * GenDate.TicksPerDay;
+
+        RoyaltyRegenesisClient client = new RoyaltyRegenesisClient();
+        client.pawn = pawn;
+        client.desiredAgeTicks = desiredAgeTicks;
+        client.role = role;
+        client.triggerRoyalAscent = triggerRoyalAscent;
+        client.returnByTick = returnByTick;
+        client.isPrisoner = isPrisoner;
+        client.sourceFaction = sourceFaction;
+        this.activeClients.Add(client);
+
+        this.EnsureContractDeadline();
+    }
+
+    /// <summary>
+    /// Syncs <see cref="contractDeadlineTick"/> from client return ticks.
+    /// Only repairs clearly invalid (≤ 0) deadlines — does not push a live timer forward.
+    /// </summary>
+    private void EnsureContractDeadline()
+    {
+        if (!this.activeClients.Any())
+        {
+            this.ClearContractTiming();
+            return;
+        }
+
+        int now = Find.TickManager.TicksGame;
+        if (this.contractStartTick < 0)
+        {
+            this.contractStartTick = now;
+        }
+
+        int minDeadline = this.contractStartTick + MinContractDays * GenDate.TicksPerDay;
+
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            if (client == null)
+            {
+                continue;
+            }
+
+            // Unset / corrupt only. Do not rewrite valid future deadlines every tick.
+            if (client.returnByTick <= 0)
+            {
+                client.returnByTick = minDeadline;
+            }
+        }
+
+        this.contractDeadlineTick = this.activeClients.Max(c => c.returnByTick);
+        if (this.contractDeadlineTick < minDeadline)
+        {
+            this.contractDeadlineTick = minDeadline;
+        }
+    }
+
+    private void ClearContractTiming()
+    {
+        this.contractStartTick = -1;
+        this.contractDeadlineTick = -1;
+        this.pickupShuttleSpawned = false;
+        this.pickupShuttleSpawnTick = -1;
+        this.pickupAllClientsReady = false;
+        this.contractCompletionLogged = false;
     }
 
     private void ApplyGuestOrPrisonerStatus(Pawn pawn, bool isPrisoner)
@@ -557,20 +663,49 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 #endif
     }
 
-    private int CalculateContractDays(long bioTicksToRemove)
+    private int CalculateContractDays(int clientCount)
     {
-        // Treatment is fast in-casket, but contracts are narrative stays with a hard pickup.
-        double years = Math.Max(0.25, (double)bioTicksToRemove / GenDate.TicksPerYear);
-        int days = (int)Math.Ceiling(8 + years * 4);
-        return Math.Max(MinContractDays, Math.Min(MaxContractDays, days));
+        return Math.Max(MinContractDays, Math.Max(1, clientCount) * ContractDaysPerClient);
+    }
+
+    private void SetActiveContractDeadlineDays(int contractDays)
+    {
+        if (!this.activeClients.Any())
+        {
+            return;
+        }
+
+        int now = Find.TickManager.TicksGame;
+        if (this.contractStartTick < 0)
+        {
+            this.contractStartTick = now;
+        }
+
+        int stayDays = Math.Max(MinContractDays, contractDays);
+        int returnByTick = this.contractStartTick + stayDays * GenDate.TicksPerDay;
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            if (client != null)
+            {
+                client.returnByTick = returnByTick;
+            }
+        }
+
+        this.contractDeadlineTick = returnByTick;
     }
 
     private string FormatReturnDeadline(int contractDays)
     {
         int returnTick = Find.TickManager.TicksGame + contractDays * GenDate.TicksPerDay;
-        return GenDate.DateFullStringAt(returnTick, Find.WorldGrid.LongLatOf(Find.CurrentMap?.Tile ?? 0));
+        return RoyaltyRegenesisQuestFactory.FormatGameTickDate(returnTick);
     }
 
+    /// <summary>
+    /// Contract shuttle: GenerateShuttle → Arrive → Unload → park for the entire contract.
+    /// The same shuttle carries the clients home — <see cref="BoardAndSendShuttle"/> flips it
+    /// to leave-when-loaded when treatment completes or the deadline hits.
+    /// Faction is left unset so CompShuttle shows Autoload.
+    /// </summary>
     private void DeliverClientsByShuttle(Map map, List<Pawn> pawns, Faction faction, string label, string text)
     {
         if (map == null || pawns == null || !pawns.Any())
@@ -578,144 +713,98 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        IntVec3 cell = this.FindShuttleLandingCell(map, faction);
-
 #if RIMWORLD12
-        this.DeliverByLegacyShuttle(map, pawns, faction, cell);
+        // No WaitForever ship job in 1.2: park far longer than any contract can last.
+        this.DeliverByLegacyShuttle(map, pawns, faction, 10 * GenDate.TicksPerYear);
 #else
-        this.DeliverByTransportShip(map, pawns, faction, cell);
+        this.DeliverByTransportShip(map, pawns, faction);
 #endif
 
         Find.LetterStack.ReceiveLetter(label, text, LetterDefOf.NeutralEvent, new LookTargets(pawns));
     }
 
 #if RIMWORLD12
-    private void DeliverByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction, IntVec3 cell)
+    /// <summary>
+    /// RimWorld 1.2: <see cref="QuestGen_Shuttle.GenerateShuttle"/> + ShuttleIncoming.
+    /// Parks after drop-off for the whole contract with Autoload/Send for the return trip.
+    /// </summary>
+    private void DeliverByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction, int stayTicks)
     {
-        Thing shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
-        if (faction != null)
+        // No owningFaction: player-facing guest controls (Autoload) require null/player faction.
+        Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
+            owningFaction: null,
+            requiredPawns: pawns,
+            leaveImmediatelyWhenSatisfied: false,
+            dropEverythingOnArrival: true,
+            stayAfterDroppedEverythingOnArrival: true,
+            hideControls: false);
+
+        CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
+        if (compShuttle != null)
         {
-            shuttle.SetFaction(faction);
+            compShuttle.leaveAfterTicks = stayTicks;
         }
 
         CompTransporter transporter = shuttle.TryGetComp<CompTransporter>();
-        CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
-        if (transporter != null)
+        transporter?.innerContainer.TryAddRangeOrTransfer(pawns.Cast<Thing>(), true, false);
+
+        this.contractShuttle = shuttle;
+
+        IntVec3 cell = DropCellFinder.TradeDropSpot(map);
+        if (!cell.IsValid)
         {
-            transporter.innerContainer.TryAddRangeOrTransfer(pawns.Cast<Thing>().ToList(), true, true);
+            cell = DropCellFinder.RandomDropSpot(map);
         }
 
-        if (compShuttle != null)
-        {
-            compShuttle.dropEverythingOnArrival = true;
-            compShuttle.leaveAfterTicks = GenDate.TicksPerHour;
-        }
-
-        Skyfaller skyfaller = SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShuttleIncoming, shuttle);
-        GenPlace.TryPlaceThing(skyfaller, cell, map, ThingPlaceMode.Near);
-    }
-
-    private void DepartByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction)
-    {
-        this.EjectClientsFromCaskets(map, pawns);
-
-        Thing shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
-        if (faction != null)
-        {
-            shuttle.SetFaction(faction);
-        }
-
-        IntVec3 cell = this.FindShuttleLandingCell(map, faction);
-        GenPlace.TryPlaceThing(shuttle, cell, map, ThingPlaceMode.Near);
-
-        CompTransporter transporter = shuttle.TryGetComp<CompTransporter>();
-        CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
-        foreach (Pawn pawn in pawns.Where(p => p != null && !p.Destroyed))
-        {
-            this.TransferPawnIntoTransporter(pawn, transporter);
-        }
-
-        if (compShuttle != null)
-        {
-            if (transporter != null && !transporter.LoadingInProgressOrReadyToLaunch)
-            {
-                TransporterUtility.InitiateLoading(Gen.YieldSingle(transporter));
-            }
-
-            compShuttle.Send();
-        }
+        GenPlace.TryPlaceThing(
+            SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShuttleIncoming, shuttle),
+            cell,
+            map,
+            ThingPlaceMode.Near);
     }
 #else
-    private void DeliverByTransportShip(Map map, List<Pawn> pawns, Faction faction, IntVec3 cell)
+    /// <summary>
+    /// RimWorld 1.3+: contract shuttle (Arrive → Unload → WaitForever with gizmos → FlyAway).
+    /// It stays parked until <see cref="BoardAndSendShuttle"/> tells it to leave with the clients.
+    /// </summary>
+    private void DeliverByTransportShip(Map map, List<Pawn> pawns, Faction faction)
     {
-        Thing shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
-        if (faction != null)
-        {
-            shuttle.SetFaction(faction);
-        }
+        // Match Util_TransportShip_Pickup: no owningFaction so Autoload gizmos appear.
+        Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
+            owningFaction: null,
+            requiredPawns: pawns,
+            hideControls: false);
 
+        // Never use MakeTransportShip(contents) destroyLeftover path — transfer safely.
         TransportShip ship = TransportShipMaker.MakeTransportShip(
             TransportShipDefOf.Ship_Shuttle,
-            pawns.Cast<Thing>(),
+            null,
             shuttle);
-        ship.ArriveAt(cell, map.Parent);
-        ship.AddJobs(ShipJobDefOf.Unload, ShipJobDefOf.FlyAway);
-    }
+        ship.TransporterComp.innerContainer.TryAddRangeOrTransfer(pawns.Cast<Thing>(), true, false);
 
-    private void DepartByTransportShip(Map map, List<Pawn> pawns, Faction faction)
-    {
-        this.EjectClientsFromCaskets(map, pawns);
+        ShipJob_Arrive arrive = (ShipJob_Arrive)ShipJobMaker.MakeShipJob(ShipJobDefOf.Arrive);
+        arrive.mapParent = map.Parent;
+        arrive.factionForArrival = faction ?? Faction.OfPlayer;
+        ship.AddJob(arrive);
+        ship.AddJob(ShipJobDefOf.Unload);
 
-        List<Pawn> living = pawns.Where(p => p != null && !p.Destroyed && !p.Dead).ToList();
-        if (!living.Any())
-        {
-            return;
-        }
+        ShipJob_Wait wait = (ShipJob_Wait)ShipJobMaker.MakeShipJob(ShipJobDefOf.WaitForever);
+        wait.leaveImmediatelyWhenSatisfied = false; // stays parked for the whole contract
+        wait.showGizmos = true;
+        ship.AddJob(wait);
 
-        // Collect clients into the shuttle immediately so pickup is guaranteed.
-        List<Thing> cargo = new List<Thing>();
-        foreach (Pawn pawn in living)
-        {
-            if (pawn.Spawned)
-            {
-                pawn.DeSpawn(DestroyMode.Vanish);
-            }
-            else if (pawn.ParentHolder is Building_CryoRegenesis casket)
-            {
-                casket.EjectContents();
-                if (pawn.Spawned)
-                {
-                    pawn.DeSpawn(DestroyMode.Vanish);
-                }
-            }
-            else if (pawn.ParentHolder is IThingHolder holder && holder != Find.WorldPawns)
-            {
-                // Leave other holders if transfer fails later.
-            }
-
-            cargo.Add(pawn);
-        }
-
-        Thing shuttle = ThingMaker.MakeThing(ThingDefOf.Shuttle);
-        if (faction != null)
-        {
-            shuttle.SetFaction(faction);
-        }
-
-        IntVec3 cell = this.FindShuttleLandingCell(map, faction);
-        TransportShip ship = TransportShipMaker.MakeTransportShip(
-            TransportShipDefOf.Ship_Shuttle,
-            cargo,
-            shuttle);
-        ship.ArriveAt(cell, map.Parent);
-        // Already loaded: do not unload; leave immediately.
         ship.AddJob(ShipJobDefOf.FlyAway);
+        ship.Start();
+
+        this.contractTransportShip = ship;
+        this.contractShuttle = shuttle;
+        this.pickupShuttleSpawned = false;
     }
 #endif
 
     private void EjectClientsFromCaskets(Map map, List<Pawn> pawns)
     {
-        if (map == null)
+        if (map == null || pawns == null)
         {
             return;
         }
@@ -729,29 +818,20 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         }
     }
 
-    private void TransferPawnIntoTransporter(Pawn pawn, CompTransporter transporter)
+    private void DestroyClientsOffMap(IEnumerable<Pawn> pawns)
     {
-        if (pawn == null || transporter == null)
+        foreach (Pawn pawn in pawns.Where(p => p != null && !p.Destroyed))
         {
-            return;
+            if (pawn.Spawned)
+            {
+                pawn.DeSpawn(DestroyMode.Vanish);
+            }
+
+            if (!pawn.Destroyed)
+            {
+                pawn.Destroy(DestroyMode.Vanish);
+            }
         }
-
-        if (pawn.Spawned)
-        {
-            pawn.DeSpawn(DestroyMode.Vanish);
-        }
-
-        transporter.innerContainer.TryAddOrTransfer(pawn, true);
-    }
-
-    private IntVec3 FindShuttleLandingCell(Map map, Faction faction)
-    {
-        Faction landingFaction = faction ?? Faction.OfPlayer;
-#if RIMWORLD12
-        return DropCellFinder.TradeDropSpot(map);
-#else
-        return DropCellFinder.GetBestShuttleLandingSpot(map, landingFaction);
-#endif
     }
 
     private void CheckActiveClients()
@@ -761,13 +841,84 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
+        // Refresh latches before any success/fail decisions (including destroy/leave).
+        this.RefreshClientAgeProgress();
+
+        // Only drop truly destroyed pawns. Clients still in a skyfaller/shuttle container
+        // are not Destroyed and must not fail the contract.
+        int beforeCount = this.activeClients.Count;
         this.activeClients.RemoveAll(client => client?.pawn == null || client.pawn.Destroyed);
+        if (beforeCount != this.activeClients.Count)
+        {
+            this.LogRoyaltyDebug(
+                "Removed " + (beforeCount - this.activeClients.Count)
+                + " destroyed/null client(s). Remaining=" + this.activeClients.Count
+                + " pickupSpawned=" + this.pickupShuttleSpawned
+                + " allReady=" + this.pickupAllClientsReady);
+        }
+
         if (!this.activeClients.Any())
         {
+            if (this.pickupShuttleSpawned)
+            {
+                this.LogRoyaltyDebug(
+                    "All clients gone after pickup spawn → FinishContractAfterDeparture(success="
+                    + this.pickupAllClientsReady + ")");
+                this.FinishContractAfterDeparture(this.pickupAllClientsReady);
+                return;
+            }
+
+            if (this.contractCompletionLogged)
+            {
+                this.LogRoyaltyDebug("Clients gone before pickup, but contract already completed — cleanup only.");
+                this.FinishContractAfterDeparture(true);
+                return;
+            }
+
+            this.ClearContractShuttle();
             this.MajorTrustReset(
                 "CryoRegenesis clients vanished under contract. Trust is lost — the chain resets.",
                 null,
                 "Contract clients lost");
+            return;
+        }
+
+        if (this.pickupShuttleSpawned)
+        {
+            this.RefreshClientAgeProgress();
+
+            bool allInTransport = this.activeClients.All(client => this.IsClientInReturnTransport(client.pawn));
+            if (allInTransport)
+            {
+                this.LogRoyaltyDebug(
+                    "All clients in return transport → FinishContractAfterDeparture(success="
+                    + this.pickupAllClientsReady + ")");
+                this.LogClientAgeSnapshot("pre-finish (in transport)");
+                this.FinishContractAfterDeparture(this.pickupAllClientsReady);
+                return;
+            }
+
+            if (this.PickupLoadingWindowExpired())
+            {
+                this.LogRoyaltyDebug(
+                    "Pickup loading window expired. allReady=" + this.pickupAllClientsReady
+                    + " onMap=" + this.activeClients.Count(c => this.IsClientAvailableOnMap(c.pawn))
+                    + " inTransport=" + this.activeClients.Count(c => this.IsClientInReturnTransport(c.pawn)));
+                this.LogClientAgeSnapshot("pickup timeout");
+                this.FailContractAfterPickupTimeout();
+                return;
+            }
+
+            if (this.activeClients.Any(client => !this.IsClientAvailableOnMap(client.pawn)))
+            {
+                return;
+            }
+        }
+
+        // Wait until the delivery shuttle has finished unloading before success/deadline checks.
+        // Otherwise a brand-new contract can "complete" or soft-fail while clients are still landing.
+        if (!this.pickupShuttleSpawned && this.activeClients.Any(client => !this.IsClientAvailableOnMap(client.pawn)))
+        {
             return;
         }
 
@@ -803,31 +954,93 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        bool allDone = this.activeClients.All(this.ClientReachedDesiredAge);
-        bool deadlineReached = this.activeClients.Any(client => Find.TickManager.TicksGame >= client.returnByTick);
+        this.EnsureContractDeadline();
+        this.RefreshClientAgeProgress();
+
+        bool allDone = this.pickupAllClientsReady;
+        if (this.pickupShuttleSpawned)
+        {
+            return;
+        }
+
+        bool deadlineReached = this.IsContractDeadlineReached();
 
         if (!allDone && !deadlineReached)
         {
             return;
         }
 
-        bool triggerEndgame = this.activeClients.Any(client => client.triggerRoyalAscent);
+        this.LogRoyaltyDebug(
+            "Sending clients to board the contract shuttle. reason="
+            + (allDone ? "all clients ready" : "deadline reached")
+            + " allDone=" + allDone
+            + " deadlineReached=" + deadlineReached
+            + " deadlineTick=" + this.contractDeadlineTick
+            + " now=" + Find.TickManager.TicksGame
+            + " contractStart=" + this.contractStartTick);
+        this.LogClientAgeSnapshot(allDone ? "early return (ready)" : "deadline return");
+
         List<Pawn> departing = this.activeClients.Select(client => client.pawn).Where(p => p != null).ToList();
         Faction sourceFaction = this.activeClients.FirstOrDefault()?.sourceFaction;
         Map targetMap = departing.FirstOrDefault(p => p.MapHeld != null)?.MapHeld ?? this.GetTargetMap();
 
-        bool success = allDone;
-        this.ClearContractFlags(this.activeClients);
-
-        if (targetMap != null && departing.Any())
+        if (departing.Any())
         {
-            this.DepartClients(targetMap, departing, sourceFaction);
+            if (targetMap == null)
+            {
+                this.LogRoyaltyDebug("DepartClients aborted: targetMap is null.");
+                return;
+            }
+
+            if (!this.DepartClients(targetMap, departing, sourceFaction))
+            {
+                this.LogRoyaltyDebug("DepartClients returned false (will retry next check).");
+                return;
+            }
+
+            this.LogRoyaltyDebug(
+                "DepartClients succeeded. pickupSpawned=" + this.pickupShuttleSpawned
+                + " allReady=" + this.pickupAllClientsReady
+                + " shuttle=" + (this.contractShuttle?.LabelCap ?? "null"));
+        }
+    }
+
+    private void FinishContractAfterDeparture(bool success)
+    {
+        // Final re-evaluation from latched per-client flags (pawns may already be gone).
+        this.RefreshClientAgeProgress();
+        bool latchedSuccess = this.pickupAllClientsReady
+            || (this.activeClients.Any() && this.activeClients.All(c => c.everReachedDesiredAge));
+        if (latchedSuccess != success)
+        {
+            this.LogRoyaltyDebug(
+                "Finish success override: arg=" + success + " → latched=" + latchedSuccess);
+            success = latchedSuccess;
         }
 
+        this.LogRoyaltyDebug(
+            "FinishContractAfterDeparture success=" + success
+            + " stage=" + this.activeContractStage
+            + " clients=" + this.activeClients.Count
+            + " triggerRoyalAscent=" + this.activeClients.Any(c => c.triggerRoyalAscent));
+        this.LogClientAgeSnapshot("finish");
+
+        bool triggerEndgame = this.activeClients.Any(client => client.triggerRoyalAscent);
+        bool alreadyLogged = this.contractCompletionLogged;
+        this.ClearContractFlags(this.activeClients);
         this.activeClients.Clear();
+        this.ClearContractShuttle();
+        this.ClearContractTiming();
+
+        if (alreadyLogged)
+        {
+            this.LogRoyaltyDebug("Contract was already logged as completed at target-age; departure is cleanup only.");
+            return;
+        }
 
         if (triggerEndgame && success)
         {
+            this.LogRoyaltyDebug("Outcome: SUCCESS + Royal Ascent endgame.");
             this.EndActiveContractQuest(QuestEndOutcome.Success);
             this.stage = RoyaltyRegenesisStage.Completed;
             this.royalAscentTriggered = true;
@@ -838,25 +1051,356 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 
         if (success)
         {
+            this.LogRoyaltyDebug("Outcome: SUCCESS — CompleteActiveContract.");
             this.EndActiveContractQuest(QuestEndOutcome.Success);
             this.CompleteActiveContract();
         }
         else
         {
             // Soft failure: contract fails, stage progress kept, no full chain reset.
+            this.LogRoyaltyDebug("Outcome: FAIL — contract expired (regression not finished / ready never latched).");
             this.EndActiveContractQuest(QuestEndOutcome.Fail);
             this.ScheduleRetry(
                 "CryoRegenesis contract expired",
-                "The pickup shuttle returned before the requested regression was finished. The clients have left. Another attempt may come later.");
+                "The contract return deadline was reached before the requested regression was finished. But one or more of the clients have left the map. Another attempt may come later.");
         }
     }
 
-    private void DepartClients(Map map, List<Pawn> pawns, Faction faction)
+    private void FailContractAfterPickupTimeout()
+    {
+        if (this.contractCompletionLogged)
+        {
+            this.LogRoyaltyDebug("Pickup window expired after completion was logged — contract stays completed.");
+            this.ClearContractFlags(this.activeClients);
+            this.activeClients.Clear();
+            this.ClearContractShuttle();
+            this.ClearContractTiming();
+            Find.LetterStack.ReceiveLetter(
+                "Regenesis shuttle left without clients",
+                "The shuttle left before every CryoRegenesis client was loaded, "
+                + "but they had already reached their target ages — the contract remains completed.",
+                LetterDefOf.NeutralEvent);
+            return;
+        }
+
+        this.LogRoyaltyDebug("FailContractAfterPickupTimeout — clients not loaded in time.");
+        this.LogClientAgeSnapshot("pickup timeout fail");
+        this.ClearContractFlags(this.activeClients);
+        this.activeClients.Clear();
+        this.ClearContractShuttle();
+        this.ClearContractTiming();
+        this.EndActiveContractQuest(QuestEndOutcome.Fail);
+        this.ScheduleRetry(
+            "CryoRegenesis return missed",
+            "The shuttle left before every CryoRegenesis client was loaded. Another attempt may come later.");
+    }
+
+    private bool IsContractDeadlineReached()
+    {
+        if (this.contractDeadlineTick <= 0)
+        {
+            return false;
+        }
+
+        int now = Find.TickManager.TicksGame;
+
+        // Never fire before the minimum stay after contract start.
+        if (this.contractStartTick >= 0)
+        {
+            int minDeadline = this.contractStartTick + MinContractDays * GenDate.TicksPerDay;
+            if (now < minDeadline)
+            {
+                return false;
+            }
+        }
+
+        return now >= this.contractDeadlineTick;
+    }
+
+    /// <summary>
+    /// True when the client is map-reachable (spawned, in a casket, or walking) — not still
+    /// aboard an incoming delivery shuttle / skyfaller.
+    /// </summary>
+    private bool IsClientAvailableOnMap(Pawn pawn)
+    {
+        if (pawn == null || pawn.Destroyed || pawn.Dead)
+        {
+            return false;
+        }
+
+        if (pawn.Spawned)
+        {
+            return true;
+        }
+
+        // Inside a player cryo casket counts as "on map" for contract progress.
+        if (pawn.ParentHolder is Building_CryoRegenesis)
+        {
+            return true;
+        }
+
+        // Still in shuttle/transporter/skyfaller — wait for unload.
+        return false;
+    }
+
+    private bool IsClientInReturnTransport(Pawn pawn)
+    {
+        if (pawn == null || pawn.Destroyed || pawn.Dead)
+        {
+            return false;
+        }
+
+        return !this.IsClientAvailableOnMap(pawn);
+    }
+
+    private bool PickupLoadingWindowExpired()
+    {
+        if (!this.pickupShuttleSpawned || this.pickupShuttleSpawnTick < 0)
+        {
+            return false;
+        }
+
+        return Find.TickManager.TicksGame >= this.pickupShuttleSpawnTick + ShuttleLeaveDelayDays * GenDate.TicksPerDay;
+    }
+
+    /// <summary>
+    /// Send clients home aboard the contract shuttle that has been parked on site the whole
+    /// stay. A replacement shuttle is spawned only if the parked one was lost (destroyed, etc.).
+    /// </summary>
+    private bool DepartClients(Map map, List<Pawn> pawns, Faction faction)
+    {
+        this.RefreshClientAgeProgress();
+        this.LogRoyaltyDebug(
+            "DepartClients begin. map=" + (map?.ToString() ?? "null")
+            + " pawns=" + (pawns?.Count ?? 0)
+            + " faction=" + (faction?.Name ?? "null")
+            + " allReady=" + this.pickupAllClientsReady);
+
+        this.EjectClientsFromCaskets(map, pawns);
+
+        List<Pawn> living = pawns.Where(p => p != null && !p.Destroyed && !p.Dead).ToList();
+        if (!living.Any())
+        {
+            this.LogRoyaltyDebug("DepartClients: no living pawns after eject.");
+            return false;
+        }
+
+        // Prisoners are kept anesthetized during treatment; wake them so they can walk
+        // themselves aboard like any other departing guest.
+        foreach (Pawn pawn in living)
+        {
+            Hediff anesthetic = pawn.health?.hediffSet?.GetFirstHediffOfDef(HediffDefOf.Anesthetic);
+            if (anesthetic != null)
+            {
+                pawn.health.RemoveHediff(anesthetic);
+                this.LogRoyaltyDebug("Removed anesthetic from " + pawn.Name.ToStringShort);
+            }
+        }
+
+        // Normal path: the contract shuttle has been parked on site since delivery.
+        Thing shuttle = this.GetUsableContractShuttle(map);
+        if (shuttle != null && !this.pickupShuttleSpawned)
+        {
+            this.LogRoyaltyDebug("Boarding the parked contract shuttle for departure: " + shuttle.LabelCap);
+            this.BoardAndSendShuttle(map, shuttle, living, faction);
+            this.LogClientAgeSnapshot("after board-and-send (parked shuttle)");
+            return true;
+        }
+
+        // Fallback: the parked shuttle was lost — spawn a replacement to carry them home.
+        this.LogRoyaltyDebug("Spawning replacement departure shuttle for " + living.Count + " client(s).");
+        bool spawned = this.SpawnPickupShuttle(map, living, faction);
+        this.LogRoyaltyDebug("SpawnPickupShuttle result=" + spawned + " pickupSpawned=" + this.pickupShuttleSpawned);
+        this.LogClientAgeSnapshot("after spawn pickup shuttle");
+        return spawned;
+    }
+
+    private Thing GetUsableContractShuttle(Map map)
+    {
+        if (this.contractShuttle != null && !this.contractShuttle.Destroyed && this.contractShuttle.Spawned
+            && this.contractShuttle.Map == map)
+        {
+            return this.contractShuttle;
+        }
+
+#if !RIMWORLD12
+        if (this.contractTransportShip != null
+            && this.contractTransportShip.ShipExistsAndIsSpawned
+            && this.contractTransportShip.shipThing != null
+            && this.contractTransportShip.shipThing.Map == map)
+        {
+            this.contractShuttle = this.contractTransportShip.shipThing;
+            return this.contractShuttle;
+        }
+#endif
+
+        return null;
+    }
+
+    private void BoardAndSendShuttle(Map map, Thing shuttle, List<Pawn> living, Faction faction)
+    {
+        CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
+        if (compShuttle != null)
+        {
+            compShuttle.requiredPawns.Clear();
+            compShuttle.requiredPawns.AddRange(living);
+        }
+
+#if !RIMWORLD12
+        // Promote Wait job to leave as soon as required pawns re-board; keep Send gizmo usable.
+        if (this.contractTransportShip != null
+            && this.contractTransportShip.curJob is ShipJob_Wait waitJob)
+        {
+            waitJob.leaveImmediatelyWhenSatisfied = true;
+            waitJob.showGizmos = true;
+        }
+#endif
+
+#if RIMWORLD12
+        if (compShuttle != null)
+        {
+            compShuttle.leaveImmediatelyWhenSatisfied = true;
+            if (compShuttle.leaveAfterTicks <= 0 || compShuttle.leaveAfterTicks > ShuttleLeaveDelayDays * GenDate.TicksPerDay)
+            {
+                compShuttle.leaveAfterTicks = ShuttleLeaveDelayDays * GenDate.TicksPerDay;
+            }
+        }
+#endif
+
+        LordMaker.MakeNewLord(faction ?? Faction.OfPlayer, new LordJob_ExitOnShuttle(shuttle), map, living);
+        this.pickupShuttleSpawned = true;
+        this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
+        this.RefreshClientAgeProgress();
+        this.LogRoyaltyDebug(
+            "BoardAndSendShuttle: pickupSpawned=true tick=" + this.pickupShuttleSpawnTick
+            + " requiredPawns=" + living.Count
+            + " allReady=" + this.pickupAllClientsReady);
+    }
+
+    private bool SpawnPickupShuttle(Map map, List<Pawn> living, Faction faction)
     {
 #if RIMWORLD12
-        this.DepartByLegacyShuttle(map, pawns, faction);
+        Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
+            owningFaction: null,
+            requiredPawns: living,
+            leaveImmediatelyWhenSatisfied: true,
+            hideControls: false);
+
+        CompShuttle compShuttle = shuttle?.TryGetComp<CompShuttle>();
+        if (shuttle == null || compShuttle == null)
+        {
+            Log.Error("[CryoRegenesis] Pickup shuttle generation failed; destroying clients off-map.");
+            this.DestroyClientsOffMap(living);
+            return true;
+        }
+
+        compShuttle.leaveAfterTicks = ShuttleLeaveDelayDays * GenDate.TicksPerDay;
+        this.contractShuttle = shuttle;
+        this.pickupShuttleSpawned = true;
+        this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
+
+        IntVec3 cell = DropCellFinder.TradeDropSpot(map);
+        if (!cell.IsValid)
+        {
+            cell = DropCellFinder.RandomDropSpot(map);
+        }
+
+        if (!GenPlace.TryPlaceThing(
+                SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShuttleIncoming, shuttle),
+                cell,
+                map,
+                ThingPlaceMode.Near))
+        {
+            Log.Warning("[CryoRegenesis] Could not place pickup shuttle; destroying clients off-map.");
+            this.DestroyClientsOffMap(living);
+            if (!shuttle.Destroyed)
+            {
+                shuttle.Destroy(DestroyMode.Vanish);
+            }
+
+            return true;
+        }
+
+        LordMaker.MakeNewLord(faction ?? Faction.OfPlayer, new LordJob_ExitOnShuttle(shuttle), map, living);
+
+        this.RefreshClientAgeProgress();
+        this.LogRoyaltyDebug(
+            "Pickup shuttle (1.2) placed. leaveAfterTicks=" + compShuttle.leaveAfterTicks
+            + " allReady=" + this.pickupAllClientsReady);
+
+        Find.LetterStack.ReceiveLetter(
+            "Regenesis Replacement Shuttle",
+            "A replacement shuttle has arrived to collect the CryoRegenesis clients. Load them before it leaves.",
+            LetterDefOf.NeutralEvent,
+            new LookTargets(shuttle));
 #else
-        this.DepartByTransportShip(map, pawns, faction);
+        Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
+            owningFaction: null,
+            requiredPawns: living,
+            hideControls: false);
+
+        if (shuttle == null)
+        {
+            Log.Error("[CryoRegenesis] Pickup shuttle generation failed; destroying clients off-map.");
+            this.DestroyClientsOffMap(living);
+            return true;
+        }
+
+        TransportShip ship = TransportShipMaker.MakeTransportShip(
+            TransportShipDefOf.Ship_Shuttle,
+            null,
+            shuttle);
+
+        ShipJob_Arrive arrive = (ShipJob_Arrive)ShipJobMaker.MakeShipJob(ShipJobDefOf.Arrive);
+        arrive.mapParent = map.Parent;
+        arrive.factionForArrival = faction ?? Faction.OfPlayer;
+        if (living[0].MapHeld == map)
+        {
+            arrive.mapOfPawn = living[0];
+        }
+
+        ship.AddJob(arrive);
+
+        ShipJob_WaitTime wait = (ShipJob_WaitTime)ShipJobMaker.MakeShipJob(ShipJobDefOf.WaitTime);
+        wait.duration = ShuttleLeaveDelayDays * GenDate.TicksPerDay;
+        wait.leaveImmediatelyWhenSatisfied = true;
+        wait.showGizmos = true;
+        wait.sendAwayIfAllDespawned = living.Cast<Thing>().ToList();
+        ship.AddJob(wait);
+
+        ship.AddJob(ShipJobDefOf.FlyAway);
+        ship.Start();
+
+        this.contractTransportShip = ship;
+        this.contractShuttle = shuttle;
+        this.pickupShuttleSpawned = true;
+        this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
+
+        LordMaker.MakeNewLord(faction ?? Faction.OfPlayer, new LordJob_ExitOnShuttle(shuttle), map, living);
+
+        this.RefreshClientAgeProgress();
+        this.LogRoyaltyDebug(
+            "Pickup shuttle (TransportShip) started. waitDays=" + ShuttleLeaveDelayDays
+            + " leaveImmediatelyWhenSatisfied=true"
+            + " allReady=" + this.pickupAllClientsReady
+            + " ship=" + (ship != null)
+            + " shuttleThing=" + (shuttle?.LabelCap ?? "null"));
+
+        Find.LetterStack.ReceiveLetter(
+            "Regenesis Replacement Shuttle",
+            "A replacement shuttle has arrived to collect the CryoRegenesis clients. Load them before it leaves.",
+            LetterDefOf.NeutralEvent,
+            new LookTargets(shuttle));
+#endif
+
+        return true;
+    }
+
+    private void ClearContractShuttle()
+    {
+        this.contractShuttle = null;
+#if !RIMWORLD12
+        this.contractTransportShip = null;
 #endif
     }
 
@@ -878,9 +1422,219 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         }
     }
 
+    /// <summary>
+    /// Recompute age latches for every living client and update <see cref="pickupAllClientsReady"/>.
+    /// Once a client has ever hit the padded target, that fact is sticky for the contract.
+    /// </summary>
+    private void RefreshClientAgeProgress()
+    {
+        if (!this.activeClients.Any())
+        {
+            return;
+        }
+
+        bool anyNew = false;
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            if (client == null)
+            {
+                continue;
+            }
+
+            if (client.everReachedDesiredAge)
+            {
+                continue;
+            }
+
+            if (this.EvaluateAgeAgainstTarget(client, out _, out _, out _))
+            {
+                client.everReachedDesiredAge = true;
+                anyNew = true;
+                Pawn p = client.pawn;
+                this.LogRoyaltyDebug(
+                    "Client FIRST reached target: "
+                    + (p?.Name?.ToStringShort ?? "?")
+                    + " bioTicks=" + (p?.ageTracker?.AgeBiologicalTicks ?? -1)
+                    + " desired=" + client.desiredAgeTicks
+                    + " years=" + (p?.ageTracker?.AgeBiologicalYears.ToString() ?? "?")
+                    + "→" + (client.desiredAgeTicks / GenDate.TicksPerYear));
+
+                if (p != null && !p.Destroyed)
+                {
+                    Find.LetterStack.ReceiveLetter(
+                        "Regenesis client ready",
+                        p.Name.ToStringShort + " has reached the contracted target age of "
+                        + ((float)client.desiredAgeTicks / GenDate.TicksPerYear).ToString("0.#")
+                        + ". Their part of the contract is fulfilled.",
+                        LetterDefOf.PositiveEvent,
+                        new LookTargets(p));
+                }
+            }
+        }
+
+        bool allEver = this.activeClients.All(c => c != null && c.everReachedDesiredAge);
+        if (allEver && !this.pickupAllClientsReady)
+        {
+            this.pickupAllClientsReady = true;
+            this.LogRoyaltyDebug("All clients have latched everReachedDesiredAge → pickupAllClientsReady=true");
+            this.MarkContractQuestCompleted();
+        }
+        else if (anyNew)
+        {
+            this.LogRoyaltyDebug(
+                "Age progress: ready "
+                + this.activeClients.Count(c => c.everReachedDesiredAge)
+                + "/" + this.activeClients.Count
+                + " pickupAllClientsReady=" + this.pickupAllClientsReady);
+        }
+    }
+
+    /// <summary>
+    /// Logs the contract quest as completed the moment every client has reached their
+    /// target age. Success is banked here, no matter how long the departure takes —
+    /// departure and pickup afterwards are cleanup only.
+    /// </summary>
+    private void MarkContractQuestCompleted()
+    {
+        if (this.contractCompletionLogged)
+        {
+            return;
+        }
+
+        this.contractCompletionLogged = true;
+        this.LogRoyaltyDebug(
+            "All clients reached target age → contract quest completed now (stage=" + this.activeContractStage + ").");
+        this.EndActiveContractQuest(QuestEndOutcome.Success);
+
+        if (this.activeClients.Any(client => client != null && client.triggerRoyalAscent))
+        {
+            this.stage = RoyaltyRegenesisStage.Completed;
+            this.royalAscentTriggered = true;
+            this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
+            this.CompleteChainQuest();
+            this.TryMakeRoyalAscentAvailable();
+            return;
+        }
+
+        this.CompleteActiveContract();
+    }
+
+    /// <summary>
+    /// True when this client has ever met the contracted age (sticky), or currently meets it.
+    /// </summary>
     private bool ClientReachedDesiredAge(RoyaltyRegenesisClient client)
     {
-        return client.pawn.ageTracker.AgeBiologicalTicks <= client.desiredAgeTicks + CheckIntervalTicks;
+        if (client == null)
+        {
+            return false;
+        }
+
+        if (client.everReachedDesiredAge)
+        {
+            return true;
+        }
+
+        if (this.EvaluateAgeAgainstTarget(client, out _, out _, out _))
+        {
+            client.everReachedDesiredAge = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Current bio age is at/below contracted target, padded by elapsed contract time so
+    /// natural aging while waiting to depart does not fail a finished regen.
+    /// </summary>
+    private bool EvaluateAgeAgainstTarget(
+        RoyaltyRegenesisClient client,
+        out long currentTicks,
+        out long allowedTicks,
+        out long agePadTicks)
+    {
+        currentTicks = -1;
+        allowedTicks = -1;
+        agePadTicks = CheckIntervalTicks;
+
+        if (client?.pawn?.ageTracker == null)
+        {
+            return false;
+        }
+
+        if (this.contractStartTick >= 0)
+        {
+            agePadTicks += Math.Max(0, Find.TickManager.TicksGame - this.contractStartTick);
+        }
+
+        // Also allow the full contracted stay window (deadline - start) so a client who
+        // finished on day 1 and ages until a late deadline still counts.
+        if (this.contractStartTick >= 0 && this.contractDeadlineTick > this.contractStartTick)
+        {
+            agePadTicks = Math.Max(agePadTicks, (long)(this.contractDeadlineTick - this.contractStartTick) + CheckIntervalTicks);
+        }
+
+        currentTicks = client.pawn.ageTracker.AgeBiologicalTicks;
+        allowedTicks = client.desiredAgeTicks + agePadTicks;
+        return currentTicks <= allowedTicks;
+    }
+
+    private void LogRoyaltyDebug(string message)
+    {
+        Log.Message("[CryoRegenesis Royalty] t=" + Find.TickManager.TicksGame + " " + message);
+    }
+
+    private void LogClientAgeSnapshot(string context)
+    {
+        int now = Find.TickManager.TicksGame;
+        long elapsed = this.contractStartTick >= 0 ? Math.Max(0, now - this.contractStartTick) : -1;
+        this.LogRoyaltyDebug(
+            "Age snapshot (" + context + "): clients=" + this.activeClients.Count
+            + " start=" + this.contractStartTick
+            + " deadline=" + this.contractDeadlineTick
+            + " elapsedTicks=" + elapsed
+            + " elapsedDays=" + (elapsed >= 0 ? (elapsed / (float)GenDate.TicksPerDay).ToString("0.00") : "?")
+            + " pickupSpawned=" + this.pickupShuttleSpawned
+            + " allReady=" + this.pickupAllClientsReady);
+
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            if (client == null)
+            {
+                this.LogRoyaltyDebug("  • (null client entry)");
+                continue;
+            }
+
+            Pawn pawn = client.pawn;
+            if (pawn == null || pawn.Destroyed)
+            {
+                this.LogRoyaltyDebug(
+                    "  • " + (client.role ?? "?")
+                    + " pawn=null/destroyed everReached=" + client.everReachedDesiredAge
+                    + " desiredTicks=" + client.desiredAgeTicks);
+                continue;
+            }
+
+            bool meets = this.EvaluateAgeAgainstTarget(client, out long cur, out long allowed, out long pad);
+            string holder = pawn.ParentHolder != null ? pawn.ParentHolder.GetType().Name : "none";
+            this.LogRoyaltyDebug(
+                "  • " + pawn.Name.ToStringShort
+                + " role=" + (client.role ?? "?")
+                + " bioYears=" + pawn.ageTracker.AgeBiologicalYearsFloat.ToString("0.000")
+                + " targetYears=" + ((double)client.desiredAgeTicks / GenDate.TicksPerYear).ToString("0.000")
+                + " bioTicks=" + cur
+                + " desiredTicks=" + client.desiredAgeTicks
+                + " padTicks=" + pad
+                + " allowedTicks=" + allowed
+                + " overBy=" + (cur - client.desiredAgeTicks)
+                + " meetsNow=" + meets
+                + " everReached=" + client.everReachedDesiredAge
+                + " dead=" + pawn.Dead
+                + " spawned=" + pawn.Spawned
+                + " onMap=" + this.IsClientAvailableOnMap(pawn)
+                + " inTransport=" + this.IsClientInReturnTransport(pawn)
+                + " holder=" + holder);
+        }
     }
 
     private void CompleteActiveContract()
@@ -936,7 +1690,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
         Find.LetterStack.ReceiveLetter(
             "CryoRegenesis contract complete",
-            "The CryoRegenesis clients reached the requested regression age and have departed by shuttle. Check the Quests tab for chain progress.",
+            "The CryoRegenesis clients have reached the requested regression age — the contract is fulfilled. "
+            + "They will board their shuttle and depart. Check the Quests tab for chain progress.",
             LetterDefOf.PositiveEvent);
     }
 
@@ -1007,8 +1762,10 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         {
             sb.AppendLine();
             sb.AppendLine("Active contract clients: " + this.activeClients.Count);
-            int earliestReturn = this.activeClients.Min(c => c.returnByTick);
-            sb.AppendLine("Next return deadline: " + RoyaltyRegenesisQuestFactory.FormatTickDate(earliestReturn));
+            int deadline = this.contractDeadlineTick > 0
+                ? this.contractDeadlineTick
+                : this.activeClients.Min(c => c.returnByTick);
+            sb.AppendLine("Shuttle departs: " + RoyaltyRegenesisQuestFactory.FormatGameTickDate(deadline));
         }
         else if (this.stage != RoyaltyRegenesisStage.Completed && this.nextEventTick > Find.TickManager.TicksGame)
         {
@@ -1028,10 +1785,14 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         }
 
         StringBuilder sb = new StringBuilder();
-        int earliestReturn = this.activeClients.Min(c => c.returnByTick);
-        int ticksLeft = Math.Max(0, earliestReturn - Find.TickManager.TicksGame);
-        sb.AppendLine("Return shuttle: " + RoyaltyRegenesisQuestFactory.FormatTickDate(earliestReturn)
-            + " (" + ticksLeft.ToStringTicksToPeriod() + " remaining)");
+        int deadline = this.contractDeadlineTick > 0
+            ? this.contractDeadlineTick
+            : this.activeClients.Min(c => c.returnByTick);
+        int ticksLeft = Math.Max(0, deadline - Find.TickManager.TicksGame);
+        sb.AppendLine(this.pickupShuttleSpawned
+            ? "Shuttle: boarding — load the clients; it leaves once all are aboard."
+            : "Shuttle departs: " + RoyaltyRegenesisQuestFactory.FormatGameTickDate(deadline)
+                + " (" + ticksLeft.ToStringTicksToPeriod() + " remaining)");
         sb.AppendLine();
 
         foreach (RoyaltyRegenesisClient client in this.activeClients)
@@ -1042,23 +1803,30 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             }
 
             Pawn pawn = client.pawn;
-            int currentYears = pawn.ageTracker.AgeBiologicalYears;
-            int targetYears = (int)(client.desiredAgeTicks / GenDate.TicksPerYear);
+            float currentYears = pawn.ageTracker.AgeBiologicalYearsFloat;
+            double targetYears = (double)client.desiredAgeTicks / GenDate.TicksPerYear;
             bool done = this.ClientReachedDesiredAge(client);
             string location = pawn.ParentHolder is Building_CryoRegenesis
                 ? "in CryoRegenesis"
                 : (pawn.Spawned ? "on map" : "held");
+            TrueAgeTracker tracker = pawn.health?.hediffSet?
+                .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+            string percent = tracker != null
+                ? " (" + tracker.GetContractProgressPercent().ToString("0") + "% there)"
+                : string.Empty;
 
             sb.AppendLine("• " + pawn.Name.ToStringShort
-                + " — bio " + currentYears + " → " + targetYears
+                + " — bio " + currentYears.ToString("0.00") + " → " + targetYears.ToString("0.00")
+                + percent
                 + (done ? " [ready]" : " [treating]")
+                + (client.everReachedDesiredAge && !done ? " [was ready]" : "")
                 + " (" + location + ")");
         }
 
         sb.AppendLine();
-        sb.AppendLine(this.activeClients.All(this.ClientReachedDesiredAge)
+        sb.AppendLine(this.pickupAllClientsReady || this.activeClients.All(this.ClientReachedDesiredAge)
             ? "All clients ready for return."
-            : "Keep treating until each client reaches their target age before pickup.");
+            : "Keep treating until each client reaches their target age before the shuttle departs.");
         return sb.ToString().TrimEnd();
     }
 
@@ -1090,8 +1858,16 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.EnsureChainQuest();
         this.EndActiveContractQuest(QuestEndOutcome.Fail, sendLetter: false);
 
-        int returnByTick = this.activeClients.Any()
-            ? this.activeClients.Max(c => c.returnByTick)
+        if (this.contractStartTick < 0)
+        {
+            this.contractStartTick = Find.TickManager.TicksGame;
+        }
+
+        this.EnsureContractDeadline();
+        this.pickupShuttleSpawned = false;
+
+        int returnByTick = this.contractDeadlineTick > 0
+            ? this.contractDeadlineTick
             : Find.TickManager.TicksGame + MinContractDays * GenDate.TicksPerDay;
 
         string description = RoyaltyRegenesisQuestFactory.BuildContractDescription(
@@ -1137,6 +1913,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
 
         this.ClearContractFlags(this.activeClients);
         this.activeClients.Clear();
+        this.ClearContractShuttle();
+        this.ClearContractTiming();
 
         this.trustBreaks++;
         this.lastTrustBreakReason = shortReason;
@@ -1458,7 +2236,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     {
         Find.LetterStack.ReceiveLetter(
             "Imperial CryoRegenesis complete",
-            "The Emperor has reached age 20 and departed by shuttle. Royal Ascent endgame protocols are now being activated.",
+            "The Emperor has been restored to age 20. Royal Ascent endgame protocols are now being activated.",
             LetterDefOf.PositiveEvent);
 
         QuestScriptDef questDef = DefDatabase<QuestScriptDef>.GetNamedSilentFail("EndGame_RoyalAscent");
@@ -1544,6 +2322,11 @@ public class RoyaltyRegenesisClient : IExposable
     public int returnByTick;
     public bool isPrisoner;
     public Faction sourceFaction;
+    /// <summary>
+    /// Latched the first time this client meets the contracted age (with wait pad).
+    /// Survives subsequent natural aging so pickup success is not lost.
+    /// </summary>
+    public bool everReachedDesiredAge;
 
     public void ExposeData()
     {
@@ -1554,6 +2337,7 @@ public class RoyaltyRegenesisClient : IExposable
         Scribe_Values.Look(ref this.returnByTick, "returnByTick", 0);
         Scribe_Values.Look(ref this.isPrisoner, "isPrisoner", false);
         Scribe_References.Look(ref this.sourceFaction, "sourceFaction");
+        Scribe_Values.Look(ref this.everReachedDesiredAge, "everReachedDesiredAge", false);
     }
 }
 
@@ -1637,36 +2421,38 @@ public class QuestNode_RoyaltyRegenesisContractPlaceholder : QuestNode
     }
 }
 
-/// <summary>
-/// Regen-contract pawns never recruit voluntarily. If recruitment still happens,
-/// punish relations with their sending faction.
-/// </summary>
-[HarmonyPatch]
-/*
+/**
+ * Regen-contract pawns never recruit voluntarily. If recruitment still happens,
+ * punish relations with their sending faction.
+ *
+ * =============================================================================
  * CRITICAL — TargetMethod() MUST resolve on EVERY supported RimWorld version
- * or this patch (and historically the whole assembly) fails to apply.
+ * =============================================================================
  *
  * Incident (2026-07, RW 1.2):
  *   This patch originally looked up only the 1.3+ DoRecruit overloads
  *   (no float recruitChance). On 1.2, AccessTools.Method returned null,
  *   harmony.PatchAll() threw, and *all* mod Harmony patches failed to apply —
- *   including Carry-to-CryoRegenesis float menu orders.
+ *   including the Carry-to-CryoRegenesis float menu. The carry feature looked
+ *   broken; the failure was this method resolution.
  *
- * Signature shapes:
+ * Signature map (verify before changing):
  *   1.2:     DoRecruit(Pawn, Pawn, float recruitChance, out string, out string, bool, bool)
  *            DoRecruit(Pawn, Pawn, float recruitChance, bool)
  *   1.3–1.6: DoRecruit(Pawn, Pawn, out string, out string, bool, bool)
  *            DoRecruit(Pawn, Pawn, bool)
  *
- * Rules:
+ * How not to repeat this:
  *   - Always try the 1.2 (float) overloads first, then 1.3+ shapes.
  *   - Never return null from TargetMethod without a compile-time version gate;
  *     a null target aborts batch PatchAll (mitigated in CryoRegenesis ctor by
  *     per-type CreateClassProcessor, but a null target still means THIS patch
- *     never runs).
+ *     does nothing and used to kill everything).
  *   - After any DoRecruit / recruit API change, boot RW 1.2 and confirm no
  *     "[CryoRegenesis] Harmony patch failed on ...Patch_DoRecruit_RegenContract".
+ * =============================================================================
  */
+[HarmonyPatch]
 public static class Patch_DoRecruit_RegenContract
 {
     private static MethodBase TargetMethod()
