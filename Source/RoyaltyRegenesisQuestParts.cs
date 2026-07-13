@@ -140,7 +140,7 @@ public static class RoyaltyRegenesisQuestFactory
         sb.AppendLine(isPrisoner
             ? "Status: prisoners under contract (do not recruit)."
             : "Status: guests under contract (do not recruit).");
-        sb.AppendLine("Return shuttle arrives: " + FormatGameTickDate(returnByTick));
+        sb.AppendLine("Shuttle departs (parked on site until then): " + FormatGameTickDate(returnByTick));
         sb.AppendLine();
         sb.AppendLine("Clients:");
         foreach (Pawn pawn in clients.Where(p => p != null))
@@ -151,8 +151,8 @@ public static class RoyaltyRegenesisQuestFactory
         sb.AppendLine();
         sb.AppendLine("Objectives:");
         sb.AppendLine("1. Place clients in a CryoRegenesis casket.");
-        sb.AppendLine("2. Reach their requested regression age before the return shuttle.");
-        sb.AppendLine("3. Return them alive by shuttle — death or recruitment resets the whole chain.");
+        sb.AppendLine("2. Reach their requested regression age before their shuttle departs.");
+        sb.AppendLine("3. Return them alive aboard their shuttle — death or recruitment resets the whole chain.");
         return sb.ToString().TrimEnd();
     }
 
