@@ -476,6 +476,14 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             string bioTime = "AgeBiological".Translate((NamedArgument) years,
                 (NamedArgument) quadrums, (NamedArgument) days);
 
+            var trueAgeTracker = pawn.health?.hediffSet?
+                .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+            if (trueAgeTracker != null && trueAgeTracker.underRegenContract && trueAgeTracker.desiredAgeTicks > 0)
+            {
+                bioTime += "\nContract target age: " + trueAgeTracker.GetContractTargetAgeYears().ToString("0.#")
+                    + " (" + trueAgeTracker.GetContractProgressPercent().ToString("0") + "% there)";
+            }
+
             if (this.regenesisCycle.HasCurableInjuries)
             {
                 return base.GetInspectString() + ", " + this.regenesisCycle.AgeHediffs() + " Age Disabilities, " + this.regenesisCycle.InjuryHediffs() + " Injuries\n" + bioTime + "\nTime To Heal: " + this.regenesisCycle.TtlToHeal;

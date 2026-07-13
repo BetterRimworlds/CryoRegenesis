@@ -9,6 +9,8 @@
  * This file is licensed under the MIT License.
  */
 
+using System;
+using System.Text;
 using RimWorld;
 using Verse;
 
@@ -56,6 +58,12 @@ public class TrueAgeTracker : HediffWithComps
     /// </summary>
     public bool underRegenContract = false;
 
+    /// <summary>
+    /// Biological age (ticks) when the current regen contract began.
+    /// Used to compute regression progress toward <see cref="desiredAgeTicks"/>.
+    /// </summary>
+    public long contractStartAgeTicks = 0;
+
     public override void ExposeData()
     {
         base.ExposeData();
@@ -65,6 +73,7 @@ public class TrueAgeTracker : HediffWithComps
         Scribe_Values.Look(ref this.cryoRegenesisRemovedAgeTicks, "cryoRegenesisRemovedAgeTicks", 0L);
         Scribe_Values.Look(ref this.desiredAgeTicks, "desiredAgeTicks", 0L);
         Scribe_Values.Look(ref this.underRegenContract, "underRegenContract", false);
+        Scribe_Values.Look(ref this.contractStartAgeTicks, "contractStartAgeTicks", 0L);
     }
 
     public override void Tick()
@@ -137,5 +146,88 @@ public class TrueAgeTracker : HediffWithComps
         return (float)ticks / 3600000f;
     }
 
-    public override bool Visible => false;
+    private bool UnderActiveContract =>
+        this.underRegenContract && this.desiredAgeTicks > 0 && this.pawn?.ageTracker != null;
+
+    public float GetContractTargetAgeYears()
+    {
+        return AgeTicksToYears(this.desiredAgeTicks);
+    }
+
+    /// <summary>
+    /// 0–100% of the contracted regression completed (100 once at/below the target age).
+    /// Falls back to 0 when no contract start age was recorded (pre-existing saves).
+    /// </summary>
+    public float GetContractProgressPercent()
+    {
+        if (!this.UnderActiveContract)
+        {
+            return 0f;
+        }
+
+        long currentTicks = this.pawn.ageTracker.AgeBiologicalTicks;
+        if (currentTicks <= this.desiredAgeTicks)
+        {
+            return 100f;
+        }
+
+        if (this.contractStartAgeTicks <= this.desiredAgeTicks)
+        {
+            return 0f;
+        }
+
+        float progress = (this.contractStartAgeTicks - currentTicks)
+            / (float)(this.contractStartAgeTicks - this.desiredAgeTicks) * 100f;
+        return Math.Max(0f, Math.Min(100f, progress));
+    }
+
+    /// <summary>
+    /// Only shown on the Health tab while under an active Regenesis contract, so the
+    /// player can see the contracted target age and how close the pawn is to it.
+    /// </summary>
+    public override bool Visible => this.UnderActiveContract;
+
+    public override string LabelBase => this.UnderActiveContract ? "Regenesis contract" : base.LabelBase;
+
+    public override string LabelInBrackets
+    {
+        get
+        {
+            if (!this.UnderActiveContract)
+            {
+                return base.LabelInBrackets;
+            }
+
+            return "target age " + this.GetContractTargetAgeYears().ToString("0.#")
+                + ", " + this.GetContractProgressPercent().ToString("0") + "% there";
+        }
+    }
+
+    public override string TipStringExtra
+    {
+        get
+        {
+            string baseTip = base.TipStringExtra;
+            if (!this.UnderActiveContract)
+            {
+                return baseTip;
+            }
+
+            StringBuilder sb = new StringBuilder();
+            if (!baseTip.NullOrEmpty())
+            {
+                sb.AppendLine(baseTip.TrimEnd());
+            }
+
+            float currentYears = this.pawn.ageTracker.AgeBiologicalYearsFloat;
+            float targetYears = this.GetContractTargetAgeYears();
+            sb.AppendLine("Current biological age: " + currentYears.ToString("0.00"));
+            sb.AppendLine("Contracted target age: " + targetYears.ToString("0.00"));
+            sb.AppendLine("Regression progress: " + this.GetContractProgressPercent().ToString("0.0") + "%");
+            sb.AppendLine(currentYears > targetYears
+                ? "Years left to remove: " + (currentYears - targetYears).ToString("0.00")
+                : "Target age reached — ready to board the shuttle home.");
+            return sb.ToString().TrimEnd();
+        }
+    }
 }
