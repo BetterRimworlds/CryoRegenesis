@@ -34,6 +34,7 @@
 		<defaultPlacingRot>South</defaultPlacingRot>
 		<building>
 			<ai_chillDestination>false</ai_chillDestination>
+			<isPlayerEjectable>true</isPlayerEjectable>
 		</building>
 		<costList>
 			<Steel>250</Steel>
