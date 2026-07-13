@@ -62,25 +62,20 @@ public class CryoRegenesis: Mod
         Settings = GetSettings<Settings>() ?? new Settings();
 
         var harmony = new Harmony("FrontierDevelopments.DeadCryptosleep");
-        /*
-         * Apply each [HarmonyPatch] type independently. A single bad TargetMethod
-         * (version-mismatched signature) must not abort the rest — that used to
-         * silently kill the Carry-to-CryoRegenesis float menu on RimWorld 1.2.
-         */
+
         foreach (Type type in Assembly.GetExecutingAssembly().GetTypes())
         {
-            object[] attrs = type.GetCustomAttributes(typeof(HarmonyPatch), inherit: true);
-            if (attrs == null || attrs.Length == 0)
-                continue;
-
             try
             {
+                if (!type.IsDefined(typeof(HarmonyPatch), inherit: true))
+                    continue;
+
                 harmony.CreateClassProcessor(type).Patch();
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
                 Log.Error(
-                    $"[CryoRegenesis] Harmony patch failed on {type.FullName}: {e.Message}\n{e.StackTrace}");
+                    $"[CryoRegenesis] Harmony patch failed on {type.FullName}: {ex}");
             }
         }
     }
