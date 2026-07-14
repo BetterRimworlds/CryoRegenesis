@@ -21,7 +21,7 @@ using LudeonTK;
 
 namespace BetterRimworlds.CryoRegenesis;
 
-public class RoyaltyRegenesisQuestSystem : GameComponent
+public partial class RoyaltyRegenesisQuestSystem : GameComponent
 {
     private const int CheckIntervalTicks = 2500;
     private const int HalfYearTicks = GenDate.TicksPerYear / 2;
@@ -127,6 +127,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_References.Look(ref this.contractTransportShip, "crRoyalContractTransportShip");
 #endif
         Scribe_References.Look(ref this.contractShuttle, "crRoyalContractShuttle");
+        this.ExposeCompletionRewardData();
 
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
@@ -615,6 +616,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.pickupShuttleSpawnTick = -1;
         this.pickupAllClientsReady = false;
         this.contractCompletionLogged = false;
+        this.ResetCompletionRewardState();
     }
 
     private void ApplyGuestOrPrisonerStatus(Pawn pawn, bool isPrisoner)
@@ -1119,6 +1121,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         if (triggerEndgame && success)
         {
             this.LogRoyaltyDebug("Outcome: SUCCESS + Royal Ascent endgame.");
+            this.GrantCompletionRewardIfEligible(this.activeContractStage);
             this.EndActiveContractQuest(QuestEndOutcome.Success);
             this.stage = RoyaltyRegenesisStage.Completed;
             this.royalAscentTriggered = true;
@@ -1130,6 +1133,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         if (success)
         {
             this.LogRoyaltyDebug("Outcome: SUCCESS — CompleteActiveContract.");
+            this.GrantCompletionRewardIfEligible(this.activeContractStage);
             this.EndActiveContractQuest(QuestEndOutcome.Success);
             this.CompleteActiveContract();
         }
@@ -1575,6 +1579,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.LogRoyaltyDebug(
             "All clients reached target age → contract quest completed now (stage=" + this.activeContractStage + ").");
         this.EndActiveContractQuest(QuestEndOutcome.Success);
+        this.GrantCompletionRewardIfEligible(this.activeContractStage);
 
         if (this.activeClients.Any(client => client != null && client.triggerRoyalAscent))
         {
