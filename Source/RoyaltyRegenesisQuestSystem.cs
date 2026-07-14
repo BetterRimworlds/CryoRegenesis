@@ -7,9 +7,6 @@
  * This file is licensed under the MIT License.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -34,9 +31,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     private const int MinContractDays = 2;
     private const int MajorResetMinDays = 60;
     private const int MajorResetMaxDays = 90;
-    /// <summary>
-    /// Vanilla hospitality pickup grace (Script_Hospitality_Worker shuttleLeaveDelayTicks = 3*60000).
-    /// </summary>
+    /// Vanilla hospitality pickup grace period (Script_Hospitality_Worker shuttleLeaveDelayTicks = 3*60000).
     private const int ShuttleLeaveDelayDays = 3;
 
     private RoyaltyRegenesisStage stage = RoyaltyRegenesisStage.NotStarted;
@@ -51,25 +46,29 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     private List<RoyaltyRegenesisClient> activeClients = new List<RoyaltyRegenesisClient>();
     private Quest chainQuest;
     private Quest activeContractQuest;
-    /// <summary>TicksGame when the current contract was opened.</summary>
+
+    /// TicksGame when the current contract was opened.
     private int contractStartTick = -1;
-    /// <summary>TicksGame when the return/pickup shuttle is due.</summary>
+
+    /// TicksGame when the return/pickup shuttle is due.
     private int contractDeadlineTick = -1;
 #if !RIMWORLD12
-    /// <summary>Active contract shuttle transport (delivery or pickup).</summary>
+    /// Active contract shuttle transport (delivery or pickup).
     private TransportShip contractTransportShip;
 #endif
     private Thing contractShuttle;
-    /// <summary>True once the send-off (pickup) shuttle has been spawned for this contract.</summary>
+
+    /// True once the send-off (pickup) shuttle has been spawned for this contract.
     private bool pickupShuttleSpawned;
-    /// <summary>TicksGame when the pickup shuttle became available for loading.</summary>
+
+    /// TicksGame when the pickup shuttle became available for loading.
     private int pickupShuttleSpawnTick = -1;
-    /// <summary>True once every active client has reached the requested age during pickup.</summary>
+
+    /// True once every active client has reached the requested age during pickup.
     private bool pickupAllClientsReady;
-    /// <summary>
+
     /// True once the contract quest has been logged as completed (every client reached
     /// their target age). Success is banked here — shuttle logistics can no longer fail it.
-    /// </summary>
     private bool contractCompletionLogged;
 
     public RoyaltyRegenesisQuestSystem(Game game)
@@ -569,10 +568,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.EnsureContractDeadline();
     }
 
-    /// <summary>
     /// Syncs <see cref="contractDeadlineTick"/> from client return ticks.
     /// Only repairs clearly invalid (≤ 0) deadlines — does not push a live timer forward.
-    /// </summary>
     private void EnsureContractDeadline()
     {
         if (!this.activeClients.Any())
@@ -700,12 +697,10 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         return RoyaltyRegenesisQuestFactory.FormatGameTickDate(returnTick);
     }
 
-    /// <summary>
     /// Contract shuttle: GenerateShuttle → Arrive → Unload → park for the entire contract.
     /// The same shuttle carries the clients home — <see cref="BoardAndSendShuttle"/> flips it
     /// to leave-when-loaded when treatment completes or the deadline hits.
     /// Faction is left unset so CompShuttle shows Autoload.
-    /// </summary>
     private void DeliverClientsByShuttle(Map map, List<Pawn> pawns, Faction faction, string label, string text)
     {
         if (map == null || pawns == null || !pawns.Any())
@@ -724,10 +719,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
     }
 
 #if RIMWORLD12
-    /// <summary>
     /// RimWorld 1.2: <see cref="QuestGen_Shuttle.GenerateShuttle"/> + ShuttleIncoming.
     /// Parks after drop-off for the whole contract with Autoload/Send for the return trip.
-    /// </summary>
     private void DeliverByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction, int stayTicks)
     {
         // No owningFaction: player-facing guest controls (Autoload) require null/player faction.
@@ -763,10 +756,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
             ThingPlaceMode.Near);
     }
 #else
-    /// <summary>
     /// RimWorld 1.3+: contract shuttle (Arrive → Unload → WaitForever with gizmos → FlyAway).
     /// It stays parked until <see cref="BoardAndSendShuttle"/> tells it to leave with the clients.
-    /// </summary>
     private void DeliverByTransportShip(Map map, List<Pawn> pawns, Faction faction)
     {
         // Match Util_TransportShip_Pickup: no owningFaction so Autoload gizmos appear.
@@ -1117,10 +1108,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         return now >= this.contractDeadlineTick;
     }
 
-    /// <summary>
     /// True when the client is map-reachable (spawned, in a casket, or walking) — not still
     /// aboard an incoming delivery shuttle / skyfaller.
-    /// </summary>
     private bool IsClientAvailableOnMap(Pawn pawn)
     {
         if (pawn == null || pawn.Destroyed || pawn.Dead)
@@ -1163,10 +1152,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         return Find.TickManager.TicksGame >= this.pickupShuttleSpawnTick + ShuttleLeaveDelayDays * GenDate.TicksPerDay;
     }
 
-    /// <summary>
     /// Send clients home aboard the contract shuttle that has been parked on site the whole
     /// stay. A replacement shuttle is spawned only if the parked one was lost (destroyed, etc.).
-    /// </summary>
     private bool DepartClients(Map map, List<Pawn> pawns, Faction faction)
     {
         this.RefreshClientAgeProgress();
@@ -1422,10 +1409,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         }
     }
 
-    /// <summary>
     /// Recompute age latches for every living client and update <see cref="pickupAllClientsReady"/>.
     /// Once a client has ever hit the padded target, that fact is sticky for the contract.
-    /// </summary>
     private void RefreshClientAgeProgress()
     {
         if (!this.activeClients.Any())
@@ -1489,11 +1474,9 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         }
     }
 
-    /// <summary>
     /// Logs the contract quest as completed the moment every client has reached their
     /// target age. Success is banked here, no matter how long the departure takes —
     /// departure and pickup afterwards are cleanup only.
-    /// </summary>
     private void MarkContractQuestCompleted()
     {
         if (this.contractCompletionLogged)
@@ -1519,9 +1502,7 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.CompleteActiveContract();
     }
 
-    /// <summary>
     /// True when this client has ever met the contracted age (sticky), or currently meets it.
-    /// </summary>
     private bool ClientReachedDesiredAge(RoyaltyRegenesisClient client)
     {
         if (client == null)
@@ -1543,10 +1524,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         return false;
     }
 
-    /// <summary>
     /// Current bio age is at/below contracted target, padded by elapsed contract time so
     /// natural aging while waiting to depart does not fail a finished regen.
-    /// </summary>
     private bool EvaluateAgeAgainstTarget(
         RoyaltyRegenesisClient client,
         out long currentTicks,
@@ -1903,10 +1882,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         this.chainQuest = null;
     }
 
-    /// <summary>
     /// Death, recruitment, or loss of clients: fail the contract, wipe chain progress,
     /// and force a long cooldown before anyone will trust you again.
-    /// </summary>
     private void MajorTrustReset(string letterText, Faction offendedFaction, string shortReason)
     {
         this.EndActiveContractQuest(QuestEndOutcome.Fail);
@@ -2088,10 +2065,8 @@ public class RoyaltyRegenesisQuestSystem : GameComponent
         return null;
     }
 
-    /// <summary>
     /// Other planetary factions only — never Ancients, never Empire.
     /// Empire contracts begin only after these succeed.
-    /// </summary>
     private Faction RandomPlanetarySenderFaction()
     {
         return Find.FactionManager.AllFactionsListForReading
@@ -2322,10 +2297,9 @@ public class RoyaltyRegenesisClient : IExposable
     public int returnByTick;
     public bool isPrisoner;
     public Faction sourceFaction;
-    /// <summary>
+
     /// Latched the first time this client meets the contracted age (with wait pad).
     /// Survives subsequent natural aging so pickup success is not lost.
-    /// </summary>
     public bool everReachedDesiredAge;
 
     public void ExposeData()
@@ -2406,9 +2380,7 @@ public class QuestNode_StartRoyaltyRegenesisChain : QuestNode
     }
 }
 
-/// <summary>
 /// Placeholder root for per-contract quest script defs. Real contract quests are built in code.
-/// </summary>
 public class QuestNode_RoyaltyRegenesisContractPlaceholder : QuestNode
 {
     protected override bool TestRunInt(Slate slate)
@@ -2418,108 +2390,5 @@ public class QuestNode_RoyaltyRegenesisContractPlaceholder : QuestNode
 
     protected override void RunInt()
     {
-    }
-}
-
-/**
- * Regen-contract pawns never recruit voluntarily. If recruitment still happens,
- * punish relations with their sending faction.
- *
- * =============================================================================
- * CRITICAL — TargetMethod() MUST resolve on EVERY supported RimWorld version
- * =============================================================================
- *
- * Incident (2026-07, RW 1.2):
- *   This patch originally looked up only the 1.3+ DoRecruit overloads
- *   (no float recruitChance). On 1.2, AccessTools.Method returned null,
- *   harmony.PatchAll() threw, and *all* mod Harmony patches failed to apply —
- *   including the Carry-to-CryoRegenesis float menu. The carry feature looked
- *   broken; the failure was this method resolution.
- *
- * Signature map (verify before changing):
- *   1.2:     DoRecruit(Pawn, Pawn, float recruitChance, out string, out string, bool, bool)
- *            DoRecruit(Pawn, Pawn, float recruitChance, bool)
- *   1.3–1.6: DoRecruit(Pawn, Pawn, out string, out string, bool, bool)
- *            DoRecruit(Pawn, Pawn, bool)
- *
- * How not to repeat this:
- *   - Always try the 1.2 (float) overloads first, then 1.3+ shapes.
- *   - Never return null from TargetMethod without a compile-time version gate;
- *     a null target aborts batch PatchAll (mitigated in CryoRegenesis ctor by
- *     per-type CreateClassProcessor, but a null target still means THIS patch
- *     does nothing and used to kill everything).
- *   - After any DoRecruit / recruit API change, boot RW 1.2 and confirm no
- *     "[CryoRegenesis] Harmony patch failed on ...Patch_DoRecruit_RegenContract".
- * =============================================================================
- */
-[HarmonyPatch]
-public static class Patch_DoRecruit_RegenContract
-{
-    private static MethodBase TargetMethod()
-    {
-        // RimWorld 1.2: DoRecruit(..., float recruitChance, out string, out string, bool, bool)
-        MethodInfo rw12 = AccessTools.Method(
-            typeof(InteractionWorker_RecruitAttempt),
-            nameof(InteractionWorker_RecruitAttempt.DoRecruit),
-            new[]
-            {
-                typeof(Pawn),
-                typeof(Pawn),
-                typeof(float),
-                typeof(string).MakeByRefType(),
-                typeof(string).MakeByRefType(),
-                typeof(bool),
-                typeof(bool),
-            });
-
-        if (rw12 != null)
-        {
-            return rw12;
-        }
-
-        // RimWorld 1.3+: recruitChance argument was removed.
-        MethodInfo full = AccessTools.Method(
-            typeof(InteractionWorker_RecruitAttempt),
-            nameof(InteractionWorker_RecruitAttempt.DoRecruit),
-            new[]
-            {
-                typeof(Pawn),
-                typeof(Pawn),
-                typeof(string).MakeByRefType(),
-                typeof(string).MakeByRefType(),
-                typeof(bool),
-                typeof(bool),
-            });
-
-        if (full != null)
-        {
-            return full;
-        }
-
-        // Last-resort short overloads.
-        MethodInfo short12 = AccessTools.Method(
-            typeof(InteractionWorker_RecruitAttempt),
-            nameof(InteractionWorker_RecruitAttempt.DoRecruit),
-            new[] { typeof(Pawn), typeof(Pawn), typeof(float), typeof(bool) });
-
-        if (short12 != null)
-        {
-            return short12;
-        }
-
-        return AccessTools.Method(
-            typeof(InteractionWorker_RecruitAttempt),
-            nameof(InteractionWorker_RecruitAttempt.DoRecruit),
-            new[] { typeof(Pawn), typeof(Pawn), typeof(bool) });
-    }
-
-    public static void Prefix(Pawn recruiter, Pawn recruitee)
-    {
-        if (!RoyaltyRegenesisQuestSystem.IsActiveRegenContractPawn(recruitee))
-        {
-            return;
-        }
-
-        RoyaltyRegenesisQuestSystem.CurrentSystem?.NotifyClientRecruited(recruitee);
     }
 }
