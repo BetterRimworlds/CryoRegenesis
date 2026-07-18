@@ -10,6 +10,7 @@
  * This file is licensed under the MIT License.
  */
 
+using System;
 using RimWorld;
 using Verse;
 
@@ -27,16 +28,25 @@ public class Thought_RegenesisBodyPositivity : Thought_DurationBased
 
     public override void Init()
     {
-        base.Init();
+        // Mood bonus before CalculateDuration so BodyPurist can scale it.
         this._moodBonus = BetterRandom.pick(-15, 15);
+        base.Init();
     }
 
+    /// <summary>
+    /// Always add a new stack; MemoryThoughtHandler drops the oldest past stackLimit.
+    /// Default Thought_Memory merge only Renew()s the oldest and discards new years/duration.
+    /// </summary>
+    public override bool TryMergeWithExistingMemory(out bool showBubble)
+    {
+        showBubble = true;
+        return false;
+    }
 
     public override int CurStageIndex
     {
         get
         {
-            // Messages.Message("Years Younger: " + this._yearsReversed, MessageTypeDefOf.PositiveEvent);
             if (_yearsReversed >= 60) return 4;
             if (_yearsReversed >= 40) return 3;
             if (_yearsReversed >= 20) return 2;
@@ -80,22 +90,34 @@ public class Thought_RegenesisBodyPositivity : Thought_DurationBased
             return;
         }
 
-        bool isBodyPurist = pawn.story?.traits?.HasTrait(TraitDefOf.BodyPurist) ?? false;
+        int years = Math.Max(0, _yearsReversed);
+        if (years <= 5)
+        {
+            DurationDays = BetterRandom.pick(5, 20);
+        }
+        else if (years <= 15)
+        {
+            DurationDays = BetterRandom.pick(15, 45);
+        }
+        else
+        {
+            // Cumulative True Age removed > 15 years: at least 30–60 days.
+            int minDays = BetterRandom.pick(30, 60);
+            int maxDays = Math.Min(300, Math.Max(minDays, years * 3));
+            DurationDays = BetterRandom.pick(minDays, maxDays);
+        }
 
+        bool isBodyPurist = pawn.story?.traits?.HasTrait(TraitDefOf.BodyPurist) ?? false;
         bool recentlyResurrected = pawn.health?.hediffSet?.HasHediff(HediffDefOf.ResurrectionSickness) ?? false;
 
         if (recentlyResurrected)
         {
-            DurationDays = BetterRandom.pick(60, 600);
+            DurationDays = Math.Max(DurationDays, BetterRandom.pick(60, 600));
         }
         else if (isBodyPurist)
         {
-            DurationDays = BetterRandom.pick(30, 300) * BetterRandom.pick(1, 3);
+            DurationDays *= BetterRandom.pick(1, 3);
             this._moodBonus *= BetterRandom.pick(1, 2);
-        }
-        else
-        {
-            DurationDays = BetterRandom.pick(30, 300);
         }
     }
 

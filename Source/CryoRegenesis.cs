@@ -312,6 +312,17 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
         Pawn pawn = ContainedThing as Pawn;
         pawn.health.AddHediff(cryosickness);
 
+        // True Age ledger must update before body-positivity thoughts, which
+        // read lifetime years erased from the tracker.
+        int sessionYearsRemoved = 0;
+        if (pawn.ageTracker != null)
+        {
+            int currentAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
+            sessionYearsRemoved = this.regenesisCycle.OriginalAge - currentAge;
+        }
+
+        this.ApplyTrueAgeOnEject(pawn);
+
         if ((pawn.IsPrisoner == true || pawn.IsColonist) && pawn.NonHumanlikeOrWildMan() == false)
         {
             // Remove negative and now-irrelevant thoughts:
@@ -333,10 +344,8 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
             cosmetics.PossiblyChangeHairColor(pawn);
 
-            // Give them a positive thought.
-            int currentAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
-
-            RegenesisThoughts.AddBodyPositivityThought(pawn, this.regenesisCycle.OriginalAge, currentAge);
+            // Stackable regen mood; stage/duration from lifetime True Age removed.
+            RegenesisThoughts.AddBodyPositivityThought(pawn, sessionYearsRemoved);
         }
 
         pawn.needs.rest.SetInitialLevel();
@@ -347,7 +356,6 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             power.PowerOutput = 0;
         }
 
-        this.ApplyTrueAgeOnEject(pawn);
         base.EjectContents();
 
         this.ResetTrueAgeTracking();
