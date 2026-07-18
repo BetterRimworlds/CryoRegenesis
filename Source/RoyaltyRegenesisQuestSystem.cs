@@ -420,18 +420,28 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             (leader.ageTracker.AgeBiologicalYears - yearsToRemove) / 5 * 5);
         long targetTicks = targetAgeYears * GenDate.TicksPerYear;
         // Leaders come as guests (not prisoners) with a hard return time.
-        this.PrepareClient(leader, targetTicks, "planetary ruler", sender, isPrisoner: false, contractDays: MinContractDays);
-        int contractDays = this.CalculateContractDays();
+        List<Pawn> party = new List<Pawn> { leader };
+        int contractDays = MinContractDays;
+        this.PrepareClient(leader, targetTicks, "planetary ruler", sender, isPrisoner: false, contractDays: contractDays);
+        party.AddRange(this.PrepareRomanticPartners(
+            leader,
+            sender,
+            "ruler companion",
+            isPrisoner: false,
+            contractDays: contractDays));
+        contractDays = this.CalculateContractDays();
         this.SetActiveContractDeadlineDays(contractDays);
         this.activeContractStage = RoyaltyRegenesisStage.Leaders;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
             $"{leader.Name.ToStringShort} of {sender.Name}, a ruler over the age of 30, has arrived by shuttle " +
-            $"for a privately negotiated CryoRegenesis stay. Their shuttle waits on site and departs on {returnText}. " +
+            $"for a privately negotiated CryoRegenesis stay."
+            + RoyaltyRegenesisQuestPartners.CompanionArrivalText(party.Count - 1)
+            + $" Their shuttle waits on site and departs on {returnText}. " +
             "Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
-            new List<Pawn> { leader },
+            party,
             sender,
             "CryoRegenesis contract: ruler",
             letterBody);
@@ -461,24 +471,56 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         int pawnCount = Math.Min(Rand.RangeInclusive(2, 10), availableNobles.Count);
         List<Pawn> pawns = new List<Pawn>();
+        HashSet<Pawn> party = new HashSet<Pawn>();
+        int contractDays = MinContractDays;
+        int nobleCount = 0;
         for (int i = 0; i < pawnCount; i++)
         {
+            availableNobles.RemoveAll(candidate => party.Contains(candidate));
+            if (!availableNobles.Any())
+            {
+                break;
+            }
+
             Pawn pawn = availableNobles.RandomElement();
             availableNobles.Remove(pawn);
             int targetAge = Rand.RangeInclusive(21, Math.Min(40, pawn.ageTracker.AgeBiologicalYears - 1));
             long targetTicks = targetAge * (long)GenDate.TicksPerYear;
-            this.PrepareClient(pawn, targetTicks, "lower imperial noble", empire, isPrisoner: false, contractDays: MinContractDays);
+            this.PrepareClient(pawn, targetTicks, "lower imperial noble", empire, isPrisoner: false, contractDays: contractDays);
             pawns.Add(pawn);
+            party.Add(pawn);
+            nobleCount++;
+
+            // Spouses/lovers ride with their noble rather than as a second independent client.
+            foreach (Pawn partner in this.PrepareRomanticPartners(
+                pawn,
+                empire,
+                "noble companion",
+                isPrisoner: false,
+                contractDays: contractDays,
+                alreadyInParty: party))
+            {
+                pawns.Add(partner);
+                party.Add(partner);
+                availableNobles.Remove(partner);
+            }
         }
 
-        int contractDays = this.CalculateContractDays();
+        if (nobleCount == 0)
+        {
+            this.ScheduleRetry("No eligible imperial nobles", "No eligible Imperial world pawns are available for a CryoRegenesis stay. Retrying later.");
+            return;
+        }
+
+        contractDays = this.CalculateContractDays();
         this.SetActiveContractDeadlineDays(contractDays);
         this.activeContractStage = RoyaltyRegenesisStage.LowerNobility;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
-            $"The Empire has sent {pawns.Count} lower nobles by shuttle to verify your CryoRegenesis process. " +
-            $"Each has chosen their own regression age between 21 and 40. " +
-            $"Their shuttle waits on site and departs on {returnText}. Do not recruit them — death or recruitment will destroy trust and reset the chain.";
+            $"The Empire has sent {nobleCount} lower nobles by shuttle to verify your CryoRegenesis process. " +
+            $"Each noble has chosen their own regression age between 21 and 40."
+            + RoyaltyRegenesisQuestPartners.CompanionArrivalText(pawns.Count - nobleCount)
+            + $" Their shuttle waits on site and departs on {returnText}. Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
             pawns,
@@ -513,15 +555,21 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         List<Pawn> party = new List<Pawn> { stellarch };
         int contractDays = MinContractDays;
         this.PrepareClient(stellarch, targetTicks, "stellarch", empire, isPrisoner: false, contractDays: contractDays);
-        party.AddRange(this.GetWorldPawnPartners(stellarch, empire, 30, "stellarch companion", isPrisoner: false, contractDays: contractDays));
+        party.AddRange(this.PrepareRomanticPartners(
+            stellarch,
+            empire,
+            "stellarch companion",
+            isPrisoner: false,
+            contractDays: contractDays));
         contractDays = this.CalculateContractDays();
         this.SetActiveContractDeadlineDays(contractDays);
 
         this.activeContractStage = RoyaltyRegenesisStage.StellarchArrival;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
-            $"The Stellarch has arrived by shuttle for CryoRegenesis and has chosen to regress to age {targetAge}. " +
-            $"Any spouses or lovers in the party have chosen age 30. The imperial shuttle waits on site and departs on {returnText}.";
+            $"The Stellarch has arrived by shuttle for CryoRegenesis and has chosen to regress to age {targetAge}."
+            + RoyaltyRegenesisQuestPartners.CompanionArrivalText(party.Count - 1)
+            + $" The imperial shuttle waits on site and departs on {returnText}.";
         this.DeliverClientsByShuttle(
             map,
             party,
@@ -555,15 +603,21 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         long targetTicks = 20L * GenDate.TicksPerYear;
         int contractDays = MinContractDays;
         this.PrepareClient(emperor, targetTicks, "emperor", empire, isPrisoner: false, contractDays: contractDays, triggerRoyalAscent: true);
-        party.AddRange(this.GetWorldPawnPartners(emperor, empire, 21, "imperial companion", isPrisoner: false, contractDays: contractDays));
+        party.AddRange(this.PrepareRomanticPartners(
+            emperor,
+            empire,
+            "imperial companion",
+            isPrisoner: false,
+            contractDays: contractDays));
         contractDays = this.CalculateContractDays();
         this.SetActiveContractDeadlineDays(contractDays);
 
         this.activeContractStage = RoyaltyRegenesisStage.EmperorArrival;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
-            $"The Emperor has arrived by shuttle for CryoRegenesis and will regress to age 20. " +
-            $"Any spouses or lovers in the party have chosen age 21. The imperial shuttle waits on site and departs on {returnText}.";
+            $"The Emperor has arrived by shuttle for CryoRegenesis and will regress to age 20."
+            + RoyaltyRegenesisQuestPartners.CompanionArrivalText(party.Count - 1)
+            + $" The imperial shuttle waits on site and departs on {returnText}.";
         this.DeliverClientsByShuttle(
             map,
             party,
@@ -577,24 +631,36 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             isPrisoner: false);
     }
 
-    private List<Pawn> GetWorldPawnPartners(Pawn noble, Faction faction, int targetAge, string role, bool isPrisoner, int contractDays)
+    /// Spouses, fiancés, and lovers for all royalty-chain guest contracts.
+    /// Ages come from <see cref="RoyaltyRegenesisQuestPartners"/> (husbands 45, wives/girlfriends 20).
+    private List<Pawn> PrepareRomanticPartners(
+        Pawn primary,
+        Faction faction,
+        string role,
+        bool isPrisoner,
+        int contractDays,
+        ICollection<Pawn> alreadyInParty = null)
     {
-        List<Pawn> partners = noble.relations?.DirectRelations
-            ?.Where(relation =>
-                relation.def == PawnRelationDefOf.Spouse ||
-                relation.def == PawnRelationDefOf.Lover ||
-                relation.def == PawnRelationDefOf.Fiance)
-            .Select(relation => relation.otherPawn)
-            .Where(pawn => this.IsAvailableWorldPawn(pawn, faction, targetAge + 1))
-            .Distinct()
-            .ToList() ?? new List<Pawn>();
+        List<Pawn> prepared = new List<Pawn>();
+        List<RoyaltyRegenesisQuestPartners.PartnerArrival> partners =
+            RoyaltyRegenesisQuestPartners.Collect(
+                primary,
+                (partner, minimumAge) => this.IsAvailableWorldPawn(partner, faction, minimumAge),
+                alreadyInParty);
 
-        foreach (Pawn partner in partners)
+        foreach (RoyaltyRegenesisQuestPartners.PartnerArrival partner in partners)
         {
-            this.PrepareClient(partner, targetAge * (long)GenDate.TicksPerYear, role, faction, isPrisoner, contractDays);
+            this.PrepareClient(
+                partner.pawn,
+                partner.TargetAgeTicks,
+                role,
+                faction,
+                isPrisoner,
+                contractDays);
+            prepared.Add(partner.pawn);
         }
 
-        return partners;
+        return prepared;
     }
 
     private void PrepareClient(
