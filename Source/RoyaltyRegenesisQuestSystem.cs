@@ -451,31 +451,42 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        int targetAge = Rand.RangeInclusive(21, 40);
-        Pawn pawn = this.GetAvailableWorldPawns(empire, targetAge + 1).RandomElementWithFallback(null);
-        if (pawn == null)
+        // Each noble must be older than the youngest requestable age (21) to have anything to regress.
+        List<Pawn> availableNobles = this.GetAvailableWorldPawns(empire, 22);
+        if (!availableNobles.Any())
         {
-            this.ScheduleRetry("No eligible imperial noble", "No eligible Imperial world pawn is available for a CryoRegenesis stay. Retrying later.");
+            this.ScheduleRetry("No eligible imperial nobles", "No eligible Imperial world pawns are available for a CryoRegenesis stay. Retrying later.");
             return;
         }
 
-        long targetTicks = targetAge * (long)GenDate.TicksPerYear;
-        this.PrepareClient(pawn, targetTicks, "lower imperial noble", empire, isPrisoner: false, contractDays: MinContractDays);
+        int pawnCount = Math.Min(Rand.RangeInclusive(2, 10), availableNobles.Count);
+        List<Pawn> pawns = new List<Pawn>();
+        for (int i = 0; i < pawnCount; i++)
+        {
+            Pawn pawn = availableNobles.RandomElement();
+            availableNobles.Remove(pawn);
+            int targetAge = Rand.RangeInclusive(21, Math.Min(40, pawn.ageTracker.AgeBiologicalYears - 1));
+            long targetTicks = targetAge * (long)GenDate.TicksPerYear;
+            this.PrepareClient(pawn, targetTicks, "lower imperial noble", empire, isPrisoner: false, contractDays: MinContractDays);
+            pawns.Add(pawn);
+        }
+
         int contractDays = this.CalculateContractDays();
         this.SetActiveContractDeadlineDays(contractDays);
         this.activeContractStage = RoyaltyRegenesisStage.LowerNobility;
         string returnText = this.FormatReturnDeadline(contractDays);
         string letterBody =
-            $"The Empire has sent {pawn.Name.ToStringShort}, a lower noble, by shuttle to verify your CryoRegenesis process. " +
+            $"The Empire has sent {pawns.Count} lower nobles by shuttle to verify your CryoRegenesis process. " +
+            $"Each has chosen their own regression age between 21 and 40. " +
             $"Their shuttle waits on site and departs on {returnText}. Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
-            new List<Pawn> { pawn },
+            pawns,
             empire,
             "Imperial CryoRegenesis contract",
             letterBody);
         this.BeginContractQuest(
-            "CryoRegenesis: Imperial noble",
+            "CryoRegenesis: Imperial nobles",
             letterBody,
             empire,
             isPrisoner: false);
@@ -631,6 +642,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         client.isPrisoner = isPrisoner;
         client.sourceFaction = sourceFaction;
         this.activeClients.Add(client);
+        this.completionRewardClientCount = this.activeClients.Count;
 
         this.EnsureContractDeadline();
     }
@@ -731,23 +743,25 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     }
 
     /// <summary>
-    /// Allows enough time for the slowest requested regression at the casket's
-    /// normal rate, with a day for loading, unloading, and treatment setup.
+    /// Allows enough time for every requested regression run back-to-back in a
+    /// single casket at its normal rate, with a handling day per client for
+    /// loading, unloading, and treatment setup between sessions.
     /// </summary>
     private int CalculateContractDays()
     {
-        long longestRegressionTicks = this.activeClients
+        long totalRegressionTicks = this.activeClients
             .Where(client => client?.pawn?.ageTracker != null)
             .Select(client => Math.Max(0L, client.pawn.ageTracker.AgeBiologicalTicks - client.desiredAgeTicks))
             .DefaultIfEmpty(0L)
-            .Max();
+            .Sum();
 
         int regressionDays = (int)Math.Ceiling(
-            (double)longestRegressionTicks
+            (double)totalRegressionTicks
             / RegressionTicksPerGameTick
             / GenDate.TicksPerDay);
 
-        return Math.Max(MinContractDays, regressionDays + ContractHandlingBufferDays);
+        int handlingDays = ContractHandlingBufferDays * Math.Max(1, this.activeClients.Count);
+        return Math.Max(MinContractDays, regressionDays + handlingDays);
     }
 
     private void SetActiveContractDeadlineDays(int contractDays)
