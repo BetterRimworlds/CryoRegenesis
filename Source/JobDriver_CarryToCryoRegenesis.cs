@@ -34,10 +34,8 @@ public class JobDriver_CarryToCryoRegenesis : JobDriver
     private Building_CryoRegenesis Casket =>
         job.GetTarget(CasketIndex).Thing as Building_CryoRegenesis;
 
-    /// <summary>
     /// Patient can be picked up when Downed or when Moving is 0%.
     /// Must stay aligned with AllowHostedGuestsPatch.IsCryoCarryTargetState.
-    /// </summary>
     private bool PatientIsImmobile()
     {
         Pawn patient = Patient;

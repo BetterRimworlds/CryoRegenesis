@@ -242,10 +242,8 @@ namespace CryoRegenesis.HarmonyPatches
             };
         }
 
-        /// <summary>
         /// True when the pawn is carriable: Downed, Moving at 0%, or sedated
         /// and about to collapse. JobDriver waits for Downed after sedation.
-        /// </summary>
         private static bool IsCryoCarryTargetState(Pawn targetPawn)
         {
             if (targetPawn == null || targetPawn.Dead)

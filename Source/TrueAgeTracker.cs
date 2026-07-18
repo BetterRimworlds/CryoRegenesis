@@ -25,7 +25,6 @@ public static class TrueAgeDefOf
     }
 }
 
-/// <summary>
 /// Invisible hediff that tracks a pawn's True Age independently of
 /// vanilla biological/chronological age. Added when a pawn first uses
 /// the CryoRegenesis Casket.
@@ -42,7 +41,6 @@ public static class TrueAgeDefOf
 ///   - In cryptosleep: pawn is despawned, Tick() never fires
 ///   - In Stargate buffer: pawn is in a timeless state
 ///   - In both cases, consciousAliveTicks simply stops incrementing
-/// </summary>
 public class TrueAgeTracker : HediffWithComps
 {
     public bool aliveYearsInitialized = false;
@@ -75,13 +73,11 @@ public class TrueAgeTracker : HediffWithComps
         this.consciousAliveTicks++;
     }
 
-    /// <summary>
     /// Initialize the ledger with the pawn's pre-CryoRegenesis biological age.
     /// Called once, when the hediff is first added.
     ///
     /// Before this moment, True Age = Bio Age, so the pawn's current
     /// biological age IS their lived time.
-    /// </summary>
     public void Initialize(long preRegenesisBioTicks)
     {
         if (this.aliveYearsInitialized)
@@ -93,11 +89,9 @@ public class TrueAgeTracker : HediffWithComps
         this.aliveYearsInitialized = true;
     }
 
-    /// <summary>
     /// Record that CryoRegenesis has removed biological age.
     /// This does NOT reduce consciousAliveTicks — the pawn still
     /// lived through that time.
-    /// </summary>
     public void RecordCryoRegenesisDeAging(long removedTicks)
     {
         if (removedTicks <= 0)
