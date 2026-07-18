@@ -20,9 +20,14 @@ public partial class RoyaltyRegenesisQuestSystem
     private const int GuaranteedUranium = 50;
     private bool completionRewardGranted;
 
+    /// Party size of the current contract, recorded as clients are prepared.
+    /// Read at grant time, when activeClients may already be cleared/emptied.
+    private int completionRewardClientCount;
+
     private void ExposeCompletionRewardData()
     {
         Scribe_Values.Look(ref this.completionRewardGranted, "crRoyalCompletionRewardGranted", false);
+        Scribe_Values.Look(ref this.completionRewardClientCount, "crRoyalCompletionRewardClientCount", 0);
     }
 
     private void ResetCompletionRewardState()
@@ -44,12 +49,20 @@ public partial class RoyaltyRegenesisQuestSystem
             return;
         }
 
+        // Nobles arrive 2-10 per contract; their tier pays out per client treated.
+        int payoutMultiplier = contractStage == RoyaltyRegenesisStage.LowerNobility
+            ? Math.Max(1, this.completionRewardClientCount)
+            : 1;
+
         RewardEntry bonus = tier.bonuses.RandomElement();
+        int luciferiumCount = tier.luciferium * payoutMultiplier;
+        int uraniumCount = GuaranteedUranium * payoutMultiplier;
+        int bonusCount = bonus.count * payoutMultiplier;
         List<RewardEntry> rewards = new List<RewardEntry>
         {
-            new RewardEntry(ThingDefOf.Luciferium, tier.luciferium, "Luciferium"),
-            new RewardEntry(ThingDefOf.Uranium, GuaranteedUranium, "uranium"),
-            bonus,
+            new RewardEntry(ThingDefOf.Luciferium, luciferiumCount, "Luciferium"),
+            new RewardEntry(ThingDefOf.Uranium, uraniumCount, "uranium"),
+            new RewardEntry(bonus.def, bonusCount, bonus.label),
         };
 
         List<Thing> delivered = new List<Thing>();
@@ -59,11 +72,15 @@ public partial class RoyaltyRegenesisQuestSystem
         }
 
         this.completionRewardGranted = true;
+        string clientCountText = payoutMultiplier > 1
+            ? " for " + payoutMultiplier + " clients"
+            : string.Empty;
         Find.LetterStack.ReceiveLetter(
             "CryoRegenesis contract reward",
-            "In gratitude for completing the " + tier.name + " contract, the client has delivered "
-            + tier.luciferium + " Luciferium, " + GuaranteedUranium + " uranium, and a random bonus cache: "
-            + bonus.count + " " + bonus.label + ".",
+            "In gratitude for completing the " + tier.name + " contract" + clientCountText
+            + ", the client has delivered "
+            + luciferiumCount + " Luciferium, " + uraniumCount + " uranium, and a random bonus cache: "
+            + bonusCount + " " + bonus.label + ".",
             LetterDefOf.PositiveEvent,
             delivered.Any() ? new LookTargets(delivered) : null);
     }
