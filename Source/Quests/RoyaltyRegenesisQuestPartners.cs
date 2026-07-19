@@ -39,6 +39,53 @@ public static class RoyaltyRegenesisQuestPartners
             || def == PawnRelationDefOf.Fiance;
     }
 
+    /// Former romantic partners — still DirectRelations, but never allowed as
+    /// boarding companions on regen pickup shuttles.
+    public static bool IsExRelation(PawnRelationDef def)
+    {
+        return def == PawnRelationDefOf.ExSpouse
+            || def == PawnRelationDefOf.ExLover;
+    }
+
+    /// True when <paramref name="pawn"/> has any non-ex DirectRelation to at least
+    /// one of <paramref name="others"/> (spouse, parent, child, sibling, lover, …).
+    public static bool IsNonExDirectRelationOfAny(Pawn pawn, IEnumerable<Pawn> others)
+    {
+        if (pawn?.relations?.DirectRelations == null || others == null)
+        {
+            return false;
+        }
+
+        HashSet<Pawn> targets = new HashSet<Pawn>();
+        foreach (Pawn other in others)
+        {
+            if (other != null && !other.Destroyed)
+            {
+                targets.Add(other);
+            }
+        }
+
+        if (targets.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (DirectPawnRelation relation in pawn.relations.DirectRelations)
+        {
+            if (relation?.otherPawn == null || IsExRelation(relation.def))
+            {
+                continue;
+            }
+
+            if (targets.Contains(relation.otherPawn))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// Short arrival-letter blurb when companions are present.
     public static string CompanionArrivalText(int companionCount)
     {
