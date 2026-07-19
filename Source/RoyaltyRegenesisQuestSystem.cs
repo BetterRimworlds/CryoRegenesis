@@ -130,10 +130,49 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         return CurrentSystem?.activeClients.FirstOrDefault(client => client?.pawn == pawn);
     }
 
-    /// <summary>
+    /// True when <paramref name="thing"/> is the parked regen pickup shuttle for the
+    /// active contract (not a one-shot delivery drop-off).
+    public bool IsRegenPickupShuttle(Thing thing)
+    {
+        if (thing == null || !this.pickupShuttleSpawned)
+        {
+            return false;
+        }
+
+        Thing shuttle = this.GetContractShuttleThing();
+        return shuttle != null && shuttle == thing;
+    }
+
+    /// Whether a pawn may board a regen pickup shuttle under colony control.
+    /// Active contract clients always may; free colonists only when they have a
+    /// non-ex DirectRelation to one of those clients (family / current partners).
+    public static bool MayBoardRegenPickupShuttle(Pawn pawn)
+    {
+        if (pawn == null || pawn.Destroyed || pawn.Dead)
+        {
+            return false;
+        }
+
+        if (IsActiveRegenContractPawn(pawn))
+        {
+            return true;
+        }
+
+        RoyaltyRegenesisQuestSystem system = CurrentSystem;
+        if (system == null || system.activeClients == null || !system.activeClients.Any())
+        {
+            return false;
+        }
+
+        IEnumerable<Pawn> clients = system.activeClients
+            .Where(client => client?.pawn != null && !client.pawn.Destroyed)
+            .Select(client => client.pawn);
+
+        return RoyaltyRegenesisQuestPartners.IsNonExDirectRelationOfAny(pawn, clients);
+    }
+
     /// Called by a CryoRegenesis casket on the exact tick that a pawn reaches its target.
     /// The periodic quest check can otherwise miss that instant after natural aging resumes.
-    /// </summary>
     public static void NotifyRegenesisTargetReached(Pawn pawn)
     {
         RoyaltyRegenesisQuestSystem system = CurrentSystem;
@@ -1592,6 +1631,8 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// Guest lodgers are not free colonists for CompShuttle.IsAllowed unless they are
     /// requiredPawns or acceptColonists is true. Enable guest embark while Send still
     /// only requires ready clients (see <see cref="UpdateShuttleRequiredPawns"/>).
+    /// Free colonists are then filtered by <see cref="MayBoardRegenPickupShuttle"/>
+    /// (active clients and non-ex DirectRelations only).
     private void ConfigureContractShuttleEmbarkRules(CompShuttle compShuttle)
     {
         if (compShuttle == null)
@@ -1600,6 +1641,8 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         }
 
         // Quest lodgers embark only if they are requiredPawns or acceptColonists is true.
+        // acceptColonists also opens the door to free colonists — Patch_CompShuttle_IsAllowed
+        // keeps unrelated colonists off regen pickups.
         compShuttle.acceptColonists = true;
         compShuttle.onlyAcceptColonists = false;
 #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
