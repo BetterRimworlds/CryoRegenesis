@@ -116,7 +116,8 @@ public static class RoyaltyRegenesisQuestFactory
             "Planetary factions will send CryoRegenesis clients by shuttle with fixed return dates. " +
             "Complete enough foreign contracts and the Empire takes notice — lower nobility, then the Stellarch, then the Emperor.\n\n" +
             "Rules:\n" +
-            "• Clients arrive and leave by shuttle.\n" +
+            "• Clients arrive by drop-off shuttle (it leaves after unload).\n" +
+            "• Pickup shuttles are called when clients finish regeneration.\n" +
             "• Never recruit them (recruitment destroys trust).\n" +
             "• If a client dies under contract, trust collapses and progress resets.\n\n" +
             "Track live stage progress below.";
@@ -140,7 +141,8 @@ public static class RoyaltyRegenesisQuestFactory
         sb.AppendLine(isPrisoner
             ? "Status: prisoners under contract (do not recruit)."
             : "Status: guests under contract (do not recruit).");
-        sb.AppendLine("Shuttle departs (parked on site until then): " + FormatGameTickDate(returnByTick));
+        sb.AppendLine("Contract deadline: " + FormatGameTickDate(returnByTick));
+        sb.AppendLine("Logistics: drop-off leaves after unload; pickups arrive when clients finish (or at the deadline).");
         sb.AppendLine();
         sb.AppendLine("Clients:");
         foreach (Pawn pawn in clients.Where(p => p != null))
@@ -151,8 +153,10 @@ public static class RoyaltyRegenesisQuestFactory
         sb.AppendLine();
         sb.AppendLine("Objectives:");
         sb.AppendLine("1. Place clients in a CryoRegenesis casket.");
-        sb.AppendLine("2. Reach their requested regression age before their shuttle departs.");
-        sb.AppendLine("3. Return them alive aboard their shuttle — death or recruitment resets the whole chain.");
+        sb.AppendLine("2. Reach their requested regression age before the contract deadline.");
+        sb.AppendLine("3. When a client is ready, a pickup shuttle is called — load finished clients and Send.");
+        sb.AppendLine("4. Another pickup comes for anyone still treating after a partial leave.");
+        sb.AppendLine("5. Death or recruitment of a client under contract resets the whole chain.");
         return sb.ToString().TrimEnd();
     }
 
