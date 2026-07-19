@@ -17,7 +17,9 @@ namespace BetterRimworlds.CryoRegenesis;
 /// with one additional cache selected at random for its contract tier.
 public partial class RoyaltyRegenesisQuestSystem
 {
-    private const int GuaranteedUranium = 50;
+    /// Uranium paid per treated client on contract completion (inclusive range).
+    private const int UraniumPerPersonMin = 250;
+    private const int UraniumPerPersonMax = 300;
     private bool completionRewardGranted;
 
     /// Party size of the current contract, recorded as clients are prepared.
@@ -49,14 +51,17 @@ public partial class RoyaltyRegenesisQuestSystem
             return;
         }
 
-        // Nobles arrive 2-10 per contract; their tier pays out per client treated.
+        // Nobles arrive 2-10 per contract; luciferium/bonus for that tier pay out per client.
+        // Uranium always scales with every treated client (250-300 each).
+        int treatedClients = Math.Max(1, this.completionRewardClientCount);
         int payoutMultiplier = contractStage == RoyaltyRegenesisStage.LowerNobility
-            ? Math.Max(1, this.completionRewardClientCount)
+            ? treatedClients
             : 1;
 
         RewardEntry bonus = tier.bonuses.RandomElement();
         int luciferiumCount = tier.luciferium * payoutMultiplier;
-        int uraniumCount = GuaranteedUranium * payoutMultiplier;
+        int uraniumPerPerson = Rand.RangeInclusive(UraniumPerPersonMin, UraniumPerPersonMax);
+        int uraniumCount = uraniumPerPerson * treatedClients;
         int bonusCount = bonus.count * payoutMultiplier;
         List<RewardEntry> rewards = new List<RewardEntry>
         {
@@ -72,8 +77,8 @@ public partial class RoyaltyRegenesisQuestSystem
         }
 
         this.completionRewardGranted = true;
-        string clientCountText = payoutMultiplier > 1
-            ? " for " + payoutMultiplier + " clients"
+        string clientCountText = treatedClients > 1
+            ? " for " + treatedClients + " clients"
             : string.Empty;
         Find.LetterStack.ReceiveLetter(
             "CryoRegenesis contract reward",
