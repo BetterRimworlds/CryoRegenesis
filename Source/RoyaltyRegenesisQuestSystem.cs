@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Text;
 using HarmonyLib;
 using RimWorld;
+using RimWorld.Planet;
 using RimWorld.QuestGen;
 using Verse;
 using Verse.AI.Group;
@@ -33,7 +34,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     private const int MajorResetMinDays = 60;
     private const int MajorResetMaxDays = 90;
     /// Vanilla hospitality pickup grace period (Script_Hospitality_Worker shuttleLeaveDelayTicks = 3*60000).
+    /// Used as a short buffer after the real deadline, not as the early-ready stay time.
     private const int ShuttleLeaveDelayDays = 3;
+
+    /// Delay before a follow-up pickup after a partial return (0 = next ship as soon as the pad is free).
+    private const int WavePickupDelayDays = 0;
+
+    /// Minimum how long a "someone is ready" pickup remains parked for manual loading.
+    private const int ReadyPickupMinStayDays = 15;
 
     private RoyaltyRegenesisStage stage = RoyaltyRegenesisStage.NotStarted;
     private RoyaltyRegenesisStage activeContractStage = RoyaltyRegenesisStage.NotStarted;
@@ -65,6 +73,9 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// TicksGame when the pickup shuttle became available for loading.
     private int pickupShuttleSpawnTick = -1;
 
+    /// TicksGame when the current pickup boarding window ends (long-stay early-ready ships).
+    private int pickupWindowEndTick = -1;
+
     /// True once every active client has reached the requested age during pickup.
     private bool pickupAllClientsReady;
 
@@ -79,6 +90,15 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// Banked when ages are met (or departure is started after ages met). Survives
     /// client despawn so a scheduled shuttle leave cannot soft-fail a finished treatment.
     private bool departureSuccessBanked;
+
+    /// TicksGame when the next multi-wave pickup shuttle should spawn (-1 = none).
+    private int nextWavePickupTick = -1;
+
+    /// Clients who left on a shuttle after reaching their target age (across all waves).
+    private int clientsSuccessfullyReturned;
+
+    /// thingIDNumber of pawns that already returned successfully — never re-board or re-spawn them.
+    private List<int> returnedClientPawnIds = new List<int>();
 
     public RoyaltyRegenesisQuestSystem(Game game)
     {
@@ -158,10 +178,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Values.Look(ref this.contractDeadlineTick, "crRoyalContractDeadlineTick", -1);
         Scribe_Values.Look(ref this.pickupShuttleSpawned, "crRoyalPickupShuttleSpawned", false);
         Scribe_Values.Look(ref this.pickupShuttleSpawnTick, "crRoyalPickupShuttleSpawnTick", -1);
+        Scribe_Values.Look(ref this.pickupWindowEndTick, "crRoyalPickupWindowEndTick", -1);
         Scribe_Values.Look(ref this.pickupAllClientsReady, "crRoyalPickupAllClientsReady", false);
         Scribe_Values.Look(ref this.contractCompletionLogged, "crRoyalContractCompletionLogged", false);
         Scribe_Values.Look(ref this.clientsHaveArrived, "crRoyalClientsHaveArrived", false);
         Scribe_Values.Look(ref this.departureSuccessBanked, "crRoyalDepartureSuccessBanked", false);
+        Scribe_Values.Look(ref this.nextWavePickupTick, "crRoyalNextWavePickupTick", -1);
+        Scribe_Values.Look(ref this.clientsSuccessfullyReturned, "crRoyalClientsSuccessfullyReturned", 0);
+        Scribe_Collections.Look(ref this.returnedClientPawnIds, "crRoyalReturnedClientPawnIds", LookMode.Value);
 #if !RIMWORLD12
         Scribe_References.Look(ref this.contractTransportShip, "crRoyalContractTransportShip");
 #endif
@@ -173,6 +197,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             if (this.activeClients == null)
             {
                 this.activeClients = new List<RoyaltyRegenesisClient>();
+            }
+
+            if (this.returnedClientPawnIds == null)
+            {
+                this.returnedClientPawnIds = new List<int>();
             }
 
             if (this.lastTrustBreakReason == null)
@@ -379,7 +408,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         string letterBody =
             $"{sender.Name} has sent prisoners for a trial CryoRegenesis contract. " +
             $"Their requested regression is six months, one year, or two years. " +
-            $"Their shuttle will stay parked on site and departs with them on {returnText}. " +
+            $"Treat them by {returnText}. A pickup shuttle is called when clients finish regeneration. " +
             "Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
@@ -437,7 +466,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             $"{leader.Name.ToStringShort} of {sender.Name}, a ruler over the age of 30, has arrived by shuttle " +
             $"for a privately negotiated CryoRegenesis stay."
             + RoyaltyRegenesisQuestPartners.CompanionArrivalText(party.Count - 1)
-            + $" Their shuttle waits on site and departs on {returnText}. " +
+            + $" Treat them by {returnText}. A pickup shuttle arrives when they finish (or at the deadline). " +
             "Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
@@ -520,7 +549,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             $"The Empire has sent {nobleCount} lower nobles by shuttle to verify your CryoRegenesis process. " +
             $"Each noble has chosen their own regression age between 21 and 40."
             + RoyaltyRegenesisQuestPartners.CompanionArrivalText(pawns.Count - nobleCount)
-            + $" Their shuttle waits on site and departs on {returnText}. Do not recruit them — death or recruitment will destroy trust and reset the chain.";
+            + $" Treat them by {returnText}. Pickup shuttles are called when clients finish regeneration. Do not recruit them — death or recruitment will destroy trust and reset the chain.";
         this.DeliverClientsByShuttle(
             map,
             pawns,
@@ -569,7 +598,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         string letterBody =
             $"The Stellarch has arrived by shuttle for CryoRegenesis and has chosen to regress to age {targetAge}."
             + RoyaltyRegenesisQuestPartners.CompanionArrivalText(party.Count - 1)
-            + $" The imperial shuttle waits on site and departs on {returnText}.";
+            + $" Treat them by {returnText}. A pickup shuttle arrives when treatment is finished.";
         this.DeliverClientsByShuttle(
             map,
             party,
@@ -617,7 +646,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         string letterBody =
             $"The Emperor has arrived by shuttle for CryoRegenesis and will regress to age 20."
             + RoyaltyRegenesisQuestPartners.CompanionArrivalText(party.Count - 1)
-            + $" The imperial shuttle waits on site and departs on {returnText}.";
+            + $" Treat them by {returnText}. A pickup shuttle arrives when treatment is finished.";
         this.DeliverClientsByShuttle(
             map,
             party,
@@ -758,10 +787,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.contractDeadlineTick = -1;
         this.pickupShuttleSpawned = false;
         this.pickupShuttleSpawnTick = -1;
+        this.pickupWindowEndTick = -1;
         this.pickupAllClientsReady = false;
         this.contractCompletionLogged = false;
         this.clientsHaveArrived = false;
         this.departureSuccessBanked = false;
+        this.nextWavePickupTick = -1;
+        this.clientsSuccessfullyReturned = 0;
+        this.returnedClientPawnIds.Clear();
         this.ResetCompletionRewardState();
     }
 
@@ -862,10 +895,8 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         return RoyaltyRegenesisQuestFactory.FormatGameTickDate(returnTick);
     }
 
-    /// Contract shuttle: GenerateShuttle → Arrive → Unload → park for the entire contract.
-    /// The same shuttle carries the clients home — <see cref="BoardAndSendShuttle"/> flips it
-    /// to leave-when-loaded when treatment completes or the deadline hits.
-    /// Faction is left unset so CompShuttle shows Autoload.
+    /// Drop-off only (Option C / vanilla hospitality): Arrive → Unload → FlyAway empty.
+    /// No ship sits on the pad during treatment. Pickups are called when clients are ready.
     private void DeliverClientsByShuttle(Map map, List<Pawn> pawns, Faction faction, string label, string text)
     {
         if (map == null || pawns == null || !pawns.Any())
@@ -874,8 +905,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         }
 
 #if RIMWORLD12
-        // No WaitForever ship job in 1.2: park far longer than any contract can last.
-        this.DeliverByLegacyShuttle(map, pawns, faction, 10 * GenDate.TicksPerYear);
+        this.DeliverByLegacyShuttle(map, pawns, faction);
 #else
         this.DeliverByTransportShip(map, pawns, faction);
 #endif
@@ -884,29 +914,30 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     }
 
 #if RIMWORLD12
-    /// RimWorld 1.2: <see cref="QuestGen_Shuttle.GenerateShuttle"/> + ShuttleIncoming.
-    /// Parks after drop-off for the whole contract with Autoload/Send for the return trip.
-    private void DeliverByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction, int stayTicks)
+    /// RimWorld 1.2: drop clients and leave — do not park for the whole stay.
+    private void DeliverByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction)
     {
-        // No owningFaction: player-facing guest controls (Autoload) require null/player faction.
         Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
             owningFaction: null,
-            requiredPawns: pawns,
-            leaveImmediatelyWhenSatisfied: false,
+            requiredPawns: null,
+            leaveImmediatelyWhenSatisfied: true,
             dropEverythingOnArrival: true,
-            stayAfterDroppedEverythingOnArrival: true,
-            hideControls: false);
+            stayAfterDroppedEverythingOnArrival: false,
+            hideControls: true);
 
         CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
         if (compShuttle != null)
         {
-            compShuttle.leaveAfterTicks = stayTicks;
+            // Short leave after unload so the pad frees for other quests / later pickups.
+            compShuttle.leaveAfterTicks = GenDate.TicksPerHour;
         }
 
         CompTransporter transporter = shuttle.TryGetComp<CompTransporter>();
         transporter?.innerContainer.TryAddRangeOrTransfer(pawns.Cast<Thing>(), true, false);
 
-        this.contractShuttle = shuttle;
+        // Do not retain as contractShuttle — this is drop-off only, not the return ship.
+        this.ClearContractShuttle();
+        this.pickupShuttleSpawned = false;
 
         IntVec3 cell = DropCellFinder.TradeDropSpot(map);
         if (!cell.IsValid)
@@ -921,17 +952,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             ThingPlaceMode.Near);
     }
 #else
-    /// RimWorld 1.3+: contract shuttle (Arrive → Unload → WaitForever with gizmos → FlyAway).
-    /// It stays parked until <see cref="BoardAndSendShuttle"/> tells it to leave with the clients.
+    /// RimWorld 1.3+: Arrive → Unload → FlyAway (empty). Pad free during treatment.
     private void DeliverByTransportShip(Map map, List<Pawn> pawns, Faction faction)
     {
-        // Match Util_TransportShip_Pickup: no owningFaction so Autoload gizmos appear.
         Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
             owningFaction: null,
-            requiredPawns: pawns,
-            hideControls: false);
+            requiredPawns: null,
+            hideControls: true);
 
-        // Never use MakeTransportShip(contents) destroyLeftover path — transfer safely.
         TransportShip ship = TransportShipMaker.MakeTransportShip(
             TransportShipDefOf.Ship_Shuttle,
             null,
@@ -943,18 +971,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         arrive.factionForArrival = faction ?? Faction.OfPlayer;
         ship.AddJob(arrive);
         ship.AddJob(ShipJobDefOf.Unload);
-
-        ShipJob_Wait wait = (ShipJob_Wait)ShipJobMaker.MakeShipJob(ShipJobDefOf.WaitForever);
-        wait.leaveImmediatelyWhenSatisfied = false; // stays parked for the whole contract
-        wait.showGizmos = true;
-        ship.AddJob(wait);
-
+        // No WaitForever — leave immediately after unload (hospitality drop-off).
         ship.AddJob(ShipJobDefOf.FlyAway);
         ship.Start();
 
-        this.contractTransportShip = ship;
-        this.contractShuttle = shuttle;
+        // Drop-off only: do not track as the return/pickup ship.
+        this.ClearContractShuttle();
         this.pickupShuttleSpawned = false;
+        this.LogRoyaltyDebug("Delivery transport started (Arrive→Unload→FlyAway, no park).");
     }
 #endif
 
@@ -999,46 +1023,10 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         // Refresh latches before any success/fail decisions (including destroy/leave).
         this.RefreshClientAgeProgress();
-
-        // Only drop truly destroyed pawns. Clients still in a skyfaller/shuttle container
-        // are not Destroyed and must not fail the contract.
-        int beforeCount = this.activeClients.Count;
-        this.activeClients.RemoveAll(client => client?.pawn == null || client.pawn.Destroyed);
-        if (beforeCount != this.activeClients.Count)
-        {
-            this.LogRoyaltyDebug(
-                "Removed " + (beforeCount - this.activeClients.Count)
-                + " destroyed/null client(s). Remaining=" + this.activeClients.Count
-                + " pickupSpawned=" + this.pickupShuttleSpawned
-                + " allReady=" + this.pickupAllClientsReady
-                + " arrived=" + this.clientsHaveArrived);
-        }
-
         this.UpdateClientsArrivedFlag();
 
-        // Contract ends when the shuttle actually leaves the map (or every client is gone
-        // with it). Being aboard a still-parked shuttle is NOT enough — that used to soft-fail
-        // successful ruler contracts that boarded on the scheduled return. Death/recruit still
-        // hard-reset trust.
-        if (!this.activeClients.Any())
-        {
-            if (this.clientsHaveArrived || this.pickupShuttleSpawned || this.IsDepartureSuccessBanked())
-            {
-                this.LogRoyaltyDebug(
-                    "All clients gone after delivery/pickup → FinishContractAfterDeparture(success="
-                    + this.IsDepartureSuccessBanked() + ")");
-                this.FinishContractAfterDeparture(this.IsDepartureSuccessBanked());
-                return;
-            }
-
-            this.ClearContractShuttle();
-            this.MajorTrustReset(
-                "CryoRegenesis clients vanished under contract. Trust is lost — the chain resets.",
-                null,
-                "Contract clients lost");
-            return;
-        }
-
+        // Death always hard-resets trust (before shuttle-leave accounting, which may
+        // destroy boarding passengers).
         if (this.activeClients.Any(client => client.pawn != null && client.pawn.Dead))
         {
             Pawn dead = this.activeClients.First(client => client.pawn != null && client.pawn.Dead).pawn;
@@ -1061,21 +1049,63 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        // Player Send, auto-leave, FlyAway, or destruction of the contract shuttle.
-        // Final success is evaluated here — not when pawns merely board a parked shuttle.
-        if (this.clientsHaveArrived && this.HasContractShuttleLeftMap())
+        // Pickup shuttle left (partial wave or final leave). Delivery ships are not tracked.
+        if (this.pickupShuttleSpawned && this.HasContractShuttleLeftMap())
+        {
+            this.HandleContractShuttleDeparture();
+            return;
+        }
+
+        // Follow-up pickup after a successful partial return wave.
+        if (this.TrySpawnScheduledWavePickup())
+        {
+            return;
+        }
+
+        // Only drop truly destroyed pawns. Clients still in a skyfaller/shuttle container
+        // are not Destroyed and must not fail the contract.
+        int beforeCount = this.activeClients.Count;
+        this.activeClients.RemoveAll(client => client?.pawn == null || client.pawn.Destroyed);
+        if (beforeCount != this.activeClients.Count)
         {
             this.LogRoyaltyDebug(
-                "Contract shuttle left the map → FinishContractAfterDeparture(success="
-                + this.IsDepartureSuccessBanked() + ")");
-            this.LogClientAgeSnapshot("pre-finish (shuttle left)");
-            this.FinishContractAfterDeparture(this.IsDepartureSuccessBanked());
+                "Removed " + (beforeCount - this.activeClients.Count)
+                + " destroyed/null client(s). Remaining=" + this.activeClients.Count
+                + " pickupSpawned=" + this.pickupShuttleSpawned
+                + " allReady=" + this.pickupAllClientsReady
+                + " arrived=" + this.clientsHaveArrived
+                + " returned=" + this.clientsSuccessfullyReturned);
+        }
+
+        // Contract ends when every client is gone (usually with the shuttle).
+        if (!this.activeClients.Any())
+        {
+            if (this.clientsHaveArrived || this.pickupShuttleSpawned || this.IsDepartureSuccessBanked()
+                || this.clientsSuccessfullyReturned > 0)
+            {
+                bool success = this.clientsSuccessfullyReturned >= Math.Max(1, this.completionRewardClientCount)
+                    || this.IsDepartureSuccessBanked();
+                this.LogRoyaltyDebug(
+                    "All clients gone after delivery/pickup → FinishContractAfterDeparture(success="
+                    + success + " returned=" + this.clientsSuccessfullyReturned
+                    + "/" + this.completionRewardClientCount + ")");
+                this.FinishContractAfterDeparture(success);
+                return;
+            }
+
+            this.ClearContractShuttle();
+            this.MajorTrustReset(
+                "CryoRegenesis clients vanished under contract. Trust is lost — the chain resets.",
+                null,
+                "Contract clients lost");
             return;
         }
 
         if (this.pickupShuttleSpawned)
         {
             this.RefreshClientAgeProgress();
+            // During boarding, only require ready clients so unfinished ones can stay for later.
+            this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
 
             if (this.PickupLoadingWindowExpired())
             {
@@ -1119,60 +1149,579 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.EnsureContractDeadline();
         this.RefreshClientAgeProgress();
 
-        bool allDone = this.pickupAllClientsReady;
-        if (this.pickupShuttleSpawned)
-        {
-            return;
-        }
+        // Option C: no ship during treatment. Call a long-stay pickup when anyone is ready
+        // or the real deadline hits. Required passengers = ready only (Send with partial party).
+        this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
 
+        bool allDone = this.pickupAllClientsReady;
         bool deadlineReached = this.IsContractDeadlineReached();
 
-        if (!allDone && !deadlineReached)
+        if (this.pickupShuttleSpawned)
+        {
+            // Long-stay pickup on the pad: only auto-leave when remaining clients are all ready
+            // or the deadline forces a last call.
+            if (allDone || deadlineReached)
+            {
+                this.TryPromoteParkedShuttleToLeaveWhenReady();
+            }
+
+            return;
+        }
+
+        // Waiting on a scheduled follow-up pickup after a partial leave.
+        if (this.nextWavePickupTick > 0)
         {
             return;
         }
 
-        // Bank success before logistics so a scheduled board/leave cannot soft-fail a finished treatment.
+        List<Pawn> mapHeld = this.GetMapHeldContractPawns();
+        bool anyReady = mapHeld.Any(p =>
+        {
+            RoyaltyRegenesisClient client = this.activeClients.FirstOrDefault(c => c?.pawn == p);
+            return client != null && client.everReachedDesiredAge;
+        });
+
+        // Call pickup when: anyone ready, everyone ready, or contract deadline.
+        if (!anyReady && !allDone && !deadlineReached)
+        {
+            return;
+        }
+
         if (allDone)
         {
-            this.BankDepartureSuccess("pre-depart (ages ready)");
+            this.BankDepartureSuccess("all remaining clients ready — calling pickup");
         }
 
         this.LogRoyaltyDebug(
-            "Sending clients to board the contract shuttle. reason="
-            + (allDone ? "all clients ready" : "deadline reached")
+            "Calling pickup shuttle. anyReady=" + anyReady
             + " allDone=" + allDone
             + " deadlineReached=" + deadlineReached
-            + " banked=" + this.departureSuccessBanked
-            + " deadlineTick=" + this.contractDeadlineTick
-            + " now=" + Find.TickManager.TicksGame
-            + " contractStart=" + this.contractStartTick);
-        this.LogClientAgeSnapshot(allDone ? "early return (ready)" : "deadline return");
+            + " mapHeld=" + mapHeld.Count);
+        this.EnsureReadyClientPickupAvailable(mapHeld);
+    }
 
-        List<Pawn> departing = this.activeClients.Select(client => client.pawn).Where(p => p != null).ToList();
-        Faction sourceFaction = this.activeClients.FirstOrDefault()?.sourceFaction;
-        Map targetMap = departing.FirstOrDefault(p => p.MapHeld != null)?.MapHeld ?? this.GetTargetMap();
-
-        if (departing.Any())
+    /// Spawn a long-stay empty pickup when clients need to leave (ready and/or deadline).
+    /// Option C: never reuses a drop-off ship — those leave after unload.
+    private void EnsureReadyClientPickupAvailable(List<Pawn> mapHeld)
+    {
+        Map map = mapHeld?.FirstOrDefault(p => p.MapHeld != null)?.MapHeld ?? this.GetTargetMap();
+        if (map == null)
         {
-            if (targetMap == null)
-            {
-                this.LogRoyaltyDebug("DepartClients aborted: targetMap is null.");
-                return;
-            }
-
-            if (!this.DepartClients(targetMap, departing, sourceFaction))
-            {
-                this.LogRoyaltyDebug("DepartClients returned false (will retry next check).");
-                return;
-            }
-
-            this.LogRoyaltyDebug(
-                "DepartClients succeeded. pickupSpawned=" + this.pickupShuttleSpawned
-                + " allReady=" + this.pickupAllClientsReady
-                + " banked=" + this.departureSuccessBanked
-                + " shuttle=" + (this.contractShuttle?.LabelCap ?? "null"));
+            return;
         }
+
+        if (this.pickupShuttleSpawned)
+        {
+            this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
+            return;
+        }
+
+        Thing parked = this.GetUsableContractShuttle(map);
+        if (parked != null)
+        {
+            // Existing pickup still on the pad — refresh manifest only.
+            if (!this.pickupShuttleSpawned)
+            {
+                this.BeginPickupWindow(longStay: true);
+            }
+
+            this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
+            this.ConfigureContractShuttleEmbarkRules(parked.TryGetComp<CompShuttle>());
+            this.LogRoyaltyDebug("Pickup already on pad; refreshed ready-only manifest.");
+            return;
+        }
+
+        List<Pawn> passengers = mapHeld ?? this.GetMapHeldContractPawns();
+        if (!passengers.Any())
+        {
+            return;
+        }
+
+        // Ready clients should be free to walk/board, not stuck in a casket.
+        List<Pawn> readyToEject = passengers
+            .Where(p =>
+            {
+                RoyaltyRegenesisClient client = this.activeClients.FirstOrDefault(c => c?.pawn == p);
+                return client != null && client.everReachedDesiredAge;
+            })
+            .ToList();
+        if (readyToEject.Any())
+        {
+            this.EjectClientsFromCaskets(map, readyToEject);
+        }
+
+        Faction faction = this.activeClients.FirstOrDefault()?.sourceFaction;
+        this.LogRoyaltyDebug(
+            "Spawning long-stay pickup for " + passengers.Count + " map client(s).");
+        this.SpawnPickupShuttle(map, passengers, faction, longStay: true);
+    }
+
+    /// When every remaining client is ready (or the deadline hits), allow the parked
+    /// long-stay shuttle to leave as soon as its required ready passengers are loaded.
+    private void TryPromoteParkedShuttleToLeaveWhenReady()
+    {
+        Map map = this.GetTargetMap();
+        Thing shuttle = map != null ? this.GetUsableContractShuttle(map) : this.GetContractShuttleThing();
+        if (shuttle == null || shuttle.Destroyed)
+        {
+            return;
+        }
+
+        this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
+
+#if !RIMWORLD12
+        if (this.contractTransportShip != null
+            && this.contractTransportShip.curJob is ShipJob_Wait waitJob)
+        {
+            waitJob.leaveImmediatelyWhenSatisfied = true;
+            waitJob.showGizmos = true;
+        }
+#endif
+
+#if RIMWORLD12
+        CompShuttle comp = shuttle.TryGetComp<CompShuttle>();
+        if (comp != null)
+        {
+            comp.leaveImmediatelyWhenSatisfied = true;
+        }
+#endif
+
+        if (this.pickupAllClientsReady || this.IsDepartureSuccessBanked())
+        {
+            this.BankDepartureSuccess("promote parked shuttle — remaining clients ready");
+        }
+
+        this.LogRoyaltyDebug("Promoted parked shuttle to leave-when-required-loaded.");
+    }
+
+    /// After the contract shuttle leaves: credit ready returnees, keep treating anyone
+    /// still on the map, and schedule a follow-up shuttle when a successful partial wave left.
+    private void HandleContractShuttleDeparture()
+    {
+        this.RefreshClientAgeProgress();
+        this.LogClientAgeSnapshot("shuttle left");
+
+        List<RoyaltyRegenesisClient> remaining = new List<RoyaltyRegenesisClient>();
+        List<RoyaltyRegenesisClient> departed = new List<RoyaltyRegenesisClient>();
+
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            if (client?.pawn == null || client.pawn.Destroyed)
+            {
+                departed.Add(client);
+                continue;
+            }
+
+            if (this.IsClientAvailableOnMap(client.pawn))
+            {
+                remaining.Add(client);
+            }
+            else
+            {
+                // Aboard the leaving shuttle, skyfaller, or other off-map transport.
+                departed.Add(client);
+            }
+        }
+
+        int readyDeparted = departed.Count(c => c != null && c.everReachedDesiredAge);
+        this.LogRoyaltyDebug(
+            "HandleContractShuttleDeparture: departed=" + departed.Count
+            + " readyDeparted=" + readyDeparted
+            + " remaining=" + remaining.Count
+            + " priorReturned=" + this.clientsSuccessfullyReturned);
+
+        if (remaining.Any())
+        {
+            if (readyDeparted >= 1)
+            {
+                this.clientsSuccessfullyReturned += readyDeparted;
+                this.FinalizeDepartedWaveClients(departed);
+                // Keep only still-present map clients; never retain returned/off-map slots.
+                this.activeClients = remaining
+                    .Where(c => c?.pawn != null
+                        && !c.pawn.Destroyed
+                        && !c.pawn.Dead
+                        && !this.WasSuccessfullyReturned(c.pawn)
+                        && this.IsClientAvailableOnMap(c.pawn))
+                    .ToList();
+                this.ClearContractShuttle();
+                this.pickupShuttleSpawned = false;
+                this.pickupShuttleSpawnTick = -1;
+                this.pickupWindowEndTick = -1;
+                this.departureSuccessBanked = false;
+                this.contractCompletionLogged = false;
+                this.RefreshClientAgeProgress();
+
+                // Option C: only call another ship if ready clients were left behind.
+                // Unfinished-only remaining → wait until someone hits target age (EnsureReady…).
+                bool readyStillHere = this.activeClients.Any(c =>
+                    c != null && c.everReachedDesiredAge && c.pawn != null
+                    && !c.pawn.Destroyed && !c.pawn.Dead
+                    && this.IsClientAvailableOnMap(c.pawn));
+
+                if (readyStillHere)
+                {
+                    this.RequestFollowUpPickupForRemaining("partial return — ready clients still on map");
+                }
+                else
+                {
+                    this.LogRoyaltyDebug(
+                        "Partial return complete; " + this.activeClients.Count
+                        + " unfinished client(s) remain — no pickup until someone is ready.");
+                    Find.LetterStack.ReceiveLetter(
+                        "Regenesis clients returned",
+                        readyDeparted + " CryoRegenesis client(s) returned after finishing treatment. "
+                        + "Continue regenerating the rest; a pickup will be called when they reach "
+                        + "their target age (or at the contract deadline).",
+                        LetterDefOf.PositiveEvent,
+                        new LookTargets(this.activeClients
+                            .Select(c => c?.pawn)
+                            .Where(p => p != null && !p.Destroyed)));
+                }
+
+                return;
+            }
+
+            // Shuttle left or was destroyed without taking any ready client.
+            // Keep the contract; free the pad and recover with a later pickup.
+            this.ClearContractShuttle();
+            this.pickupShuttleSpawned = false;
+            this.pickupShuttleSpawnTick = -1;
+            this.pickupWindowEndTick = -1;
+
+            if (remaining.Any(c => c != null && c.everReachedDesiredAge))
+            {
+                this.RequestFollowUpPickupForRemaining("shuttle left — ready clients still on map");
+            }
+            else
+            {
+                this.LogRoyaltyDebug(
+                    "Contract shuttle lost mid-treatment with no ready clients; "
+                    + "replacement will spawn when ages finish or the deadline hits.");
+            }
+
+            return;
+        }
+
+        // Nobody left on the map — finalize the contract.
+        this.clientsSuccessfullyReturned += readyDeparted;
+        bool success = this.clientsSuccessfullyReturned >= Math.Max(1, this.completionRewardClientCount)
+            || (readyDeparted > 0
+                && departed.All(c => c != null && c.everReachedDesiredAge)
+                && this.IsDepartureSuccessBanked());
+
+        this.LogRoyaltyDebug(
+            "Final wave departure: success=" + success
+            + " returned=" + this.clientsSuccessfullyReturned
+            + "/" + this.completionRewardClientCount
+            + " readyThisWave=" + readyDeparted);
+        this.FinishContractAfterDeparture(
+            success,
+            failLabel: "CryoRegenesis contract expired",
+            failText: "The shuttle departed before every contracted client finished regeneration. Another attempt may come later.");
+    }
+
+    private void FinalizeDepartedWaveClients(List<RoyaltyRegenesisClient> departed)
+    {
+        foreach (RoyaltyRegenesisClient client in departed.Where(c => c != null))
+        {
+            Pawn pawn = client.pawn;
+            if (pawn != null)
+            {
+                // Mark permanently so a later pickup never re-requires or re-imports them.
+                if (client.everReachedDesiredAge && !this.returnedClientPawnIds.Contains(pawn.thingIDNumber))
+                {
+                    this.returnedClientPawnIds.Add(pawn.thingIDNumber);
+                }
+
+                this.ReleaseFromCurrentLord(pawn);
+                this.RemoveClientFromContractQuest(pawn);
+
+                if (!pawn.Destroyed && !pawn.Dead && client.sourceFaction != null
+                    && !client.isPrisoner && pawn.Faction == Faction.OfPlayer)
+                {
+                    pawn.SetFaction(client.sourceFaction);
+                }
+            }
+
+            this.ClearContractFlags(new[] { client });
+            // Drop the reference so save/load and later waves cannot resurrect this client slot.
+            client.pawn = null;
+        }
+    }
+
+    /// Strip a pawn from quest ExtraFaction lodger lists so the active contract cannot
+    /// pull them back when a follow-up shuttle arrives.
+    private void RemoveClientFromContractQuest(Pawn pawn)
+    {
+        if (pawn == null || this.activeContractQuest == null || this.activeContractQuest.Historical)
+        {
+            return;
+        }
+
+        foreach (QuestPart_ExtraFaction part in this.activeContractQuest.PartsListForReading
+                     .OfType<QuestPart_ExtraFaction>())
+        {
+            if (part.affectedPawns != null && part.affectedPawns.Contains(pawn))
+            {
+                part.affectedPawns.Remove(pawn);
+            }
+        }
+    }
+
+    private bool WasSuccessfullyReturned(Pawn pawn)
+    {
+        return pawn != null && this.returnedClientPawnIds.Contains(pawn.thingIDNumber);
+    }
+
+    /// Living contract clients that are still map-reachable (spawned or in a casket).
+    /// Excludes returned, destroyed, world-only, and off-map shuttle passengers.
+    private List<Pawn> GetMapHeldContractPawns()
+    {
+        return this.activeClients
+            .Where(c => c?.pawn != null
+                && !c.pawn.Destroyed
+                && !c.pawn.Dead
+                && !this.WasSuccessfullyReturned(c.pawn)
+                && this.IsClientAvailableOnMap(c.pawn))
+            .Select(c => c.pawn)
+            .ToList();
+    }
+
+    private void ScheduleNextWavePickup()
+    {
+        this.nextWavePickupTick = Find.TickManager.TicksGame + WavePickupDelayDays * GenDate.TicksPerDay;
+        this.LogRoyaltyDebug(
+            "Next wave pickup scheduled at tick " + this.nextWavePickupTick
+            + " (delayDays=" + WavePickupDelayDays + "). Remaining clients=" + this.activeClients.Count
+            + " returnedIds=" + this.returnedClientPawnIds.Count);
+    }
+
+    /// After a pickup leaves with ready clients still on site, call another long-stay
+    /// pickup. Does not send a separate "returning" letter — SpawnPickupShuttle already does.
+    private void RequestFollowUpPickupForRemaining(string debugReason)
+    {
+        Map map = this.GetTargetMap();
+        List<Pawn> remaining = this.GetMapHeldContractPawns();
+        if (!remaining.Any())
+        {
+            this.LogRoyaltyDebug(
+                "RequestFollowUpPickupForRemaining (" + debugReason + "): nobody left on map.");
+            return;
+        }
+
+        // Already have a pickup (or one is due) — do not stack an extra ship.
+        if (this.pickupShuttleSpawned || this.GetUsableContractShuttle(map) != null)
+        {
+            this.LogRoyaltyDebug(
+                "RequestFollowUpPickupForRemaining (" + debugReason + "): pickup already present.");
+            this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
+            return;
+        }
+
+        if (this.nextWavePickupTick > 0 && Find.TickManager.TicksGame < this.nextWavePickupTick)
+        {
+            this.LogRoyaltyDebug(
+                "RequestFollowUpPickupForRemaining (" + debugReason + "): already scheduled.");
+            return;
+        }
+
+        if (map != null)
+        {
+            Faction faction = this.activeClients.FirstOrDefault()?.sourceFaction;
+            this.LogRoyaltyDebug(
+                "RequestFollowUpPickupForRemaining (" + debugReason + "): spawning follow-up.");
+            this.nextWavePickupTick = -1;
+            this.SpawnPickupShuttle(map, remaining, faction, longStay: true);
+            return;
+        }
+
+        this.ScheduleNextWavePickup();
+        this.LogRoyaltyDebug(
+            "RequestFollowUpPickupForRemaining (" + debugReason + "): no map yet, scheduled tick="
+            + this.nextWavePickupTick);
+    }
+
+    /// Spawns a follow-up pickup shuttle after a successful partial return wave.
+    /// Returns true when a spawn was attempted this check.
+    private bool TrySpawnScheduledWavePickup()
+    {
+        if (this.nextWavePickupTick < 0 || this.pickupShuttleSpawned)
+        {
+            return false;
+        }
+
+        if (Find.TickManager.TicksGame < this.nextWavePickupTick)
+        {
+            return false;
+        }
+
+        // Still have a usable parked ship — no need for a wave shuttle.
+        Map map = this.GetTargetMap();
+        if (map != null && this.GetUsableContractShuttle(map) != null)
+        {
+            this.nextWavePickupTick = -1;
+            return false;
+        }
+
+        // Only clients still on the map — never world pawns who already flew home.
+        List<Pawn> remaining = this.GetMapHeldContractPawns();
+        if (!remaining.Any())
+        {
+            this.nextWavePickupTick = -1;
+            return false;
+        }
+
+        map = remaining.FirstOrDefault(p => p.MapHeld != null)?.MapHeld ?? map;
+        if (map == null)
+        {
+            this.LogRoyaltyDebug("TrySpawnScheduledWavePickup: no map yet; will retry.");
+            return true;
+        }
+
+        this.nextWavePickupTick = -1;
+        Faction faction = this.activeClients.FirstOrDefault()?.sourceFaction;
+        this.LogRoyaltyDebug(
+            "Spawning scheduled wave pickup for " + remaining.Count + " remaining map client(s)."
+            + " returnedIds=" + this.returnedClientPawnIds.Count);
+        // Long stay: at least one ready is expected after a partial wave / missed boarding.
+        this.SpawnPickupShuttle(map, remaining, faction, longStay: true);
+        return true;
+    }
+
+    /// Guest lodgers are not free colonists for CompShuttle.IsAllowed unless they are
+    /// requiredPawns or acceptColonists is true. Enable guest embark while Send still
+    /// only requires ready clients (see <see cref="UpdateShuttleRequiredPawns"/>).
+    private void ConfigureContractShuttleEmbarkRules(CompShuttle compShuttle)
+    {
+        if (compShuttle == null)
+        {
+            return;
+        }
+
+        // Quest lodgers embark only if they are requiredPawns or acceptColonists is true.
+        compShuttle.acceptColonists = true;
+        compShuttle.onlyAcceptColonists = false;
+#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+        compShuttle.acceptChildren = true;
+        compShuttle.onlyAcceptHealthy = false;
+        compShuttle.acceptColonyPrisoners = true;
+#endif
+    }
+
+    /// Restricts the contract shuttle's required passengers so Send can launch with a
+    /// partial party: only clients who have reached target age (on map or already aboard).
+    /// Unfinished clients must never appear on the manifest or Send stays disabled forever.
+    /// They can still board via acceptColonists so nobody is "Not allowed".
+    private void UpdateShuttleRequiredPawns(bool readyOnlyIfAnyReady)
+    {
+        Map map = this.GetTargetMap();
+        Thing shuttle = map != null ? this.GetUsableContractShuttle(map) : this.GetContractShuttleThing();
+        if (shuttle == null || shuttle.Destroyed)
+        {
+            return;
+        }
+
+        CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
+        if (compShuttle == null)
+        {
+            return;
+        }
+
+        this.ConfigureContractShuttleEmbarkRules(compShuttle);
+
+        List<Pawn> ready = this.GetReadyContractPawnsForShuttleManifest(shuttle);
+        List<Pawn> required;
+        if (readyOnlyIfAnyReady && ready.Any())
+        {
+            // Only finished clients — Send works once they board; unfinished never block launch.
+            required = ready;
+        }
+        else
+        {
+            // Nobody ready yet: keep full map-held list so the delivery ship cannot be
+            // Sent away empty mid-contract.
+            required = this.GetMapHeldContractPawns();
+        }
+
+        // Drop stale/world/returned refs that would keep AllRequiredThingsLoaded false forever.
+        HashSet<Pawn> requiredSet = new HashSet<Pawn>(required);
+        bool changed = compShuttle.requiredPawns.Count != required.Count
+            || compShuttle.requiredPawns.Any(p => p == null || !requiredSet.Contains(p));
+
+        if (!changed)
+        {
+            return;
+        }
+
+        compShuttle.requiredPawns.Clear();
+        if (required.Any())
+        {
+            compShuttle.requiredPawns.AddRange(required);
+        }
+
+#if !RIMWORLD12 && !RIMWORLD13
+        // 1.4+: unfinished clients still on the map can otherwise stay "required" when
+        // downed and block Send even after we scrub requiredPawns.
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            Pawn pawn = client?.pawn;
+            if (pawn == null || pawn.Destroyed || requiredSet.Contains(pawn))
+            {
+                continue;
+            }
+
+            if (!compShuttle.pawnsToIgnoreIfDownedOfNotOnTheMap.Contains(pawn))
+            {
+                compShuttle.pawnsToIgnoreIfDownedOfNotOnTheMap.Add(pawn);
+            }
+        }
+#endif
+
+        this.LogRoyaltyDebug(
+            "Updated shuttle requiredPawns to " + required.Count
+            + (ready.Any() && readyOnlyIfAnyReady
+                ? " ready-only (Send once these are aboard; all contract guests may embark)."
+                : " map-held (nobody ready yet)."));
+    }
+
+    /// Ready contract clients that should count toward the shuttle manifest: still on the
+    /// map/casket, or already inside the contract shuttle. Excludes returned/world-only pawns.
+    private List<Pawn> GetReadyContractPawnsForShuttleManifest(Thing shuttle)
+    {
+        List<Pawn> ready = new List<Pawn>();
+        CompTransporter transporter = shuttle?.TryGetComp<CompTransporter>();
+
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            Pawn pawn = client?.pawn;
+            if (client == null || pawn == null || pawn.Destroyed || pawn.Dead
+                || this.WasSuccessfullyReturned(pawn))
+            {
+                continue;
+            }
+
+            // Re-latch if the casket notification was missed so ready nobles are not locked out.
+            if (!client.everReachedDesiredAge
+                && this.EvaluateAgeAgainstTarget(client, out _, out _))
+            {
+                client.everReachedDesiredAge = true;
+            }
+
+            if (!client.everReachedDesiredAge)
+            {
+                continue;
+            }
+
+            bool onMap = this.IsClientAvailableOnMap(pawn);
+            bool aboard = transporter != null && transporter.innerContainer.Contains(pawn);
+            if (onMap || aboard)
+            {
+                ready.Add(pawn);
+            }
+        }
+
+        return ready.Distinct().ToList();
     }
 
     private bool IsDepartureSuccessBanked()
@@ -1345,43 +1894,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         }
     }
 
-    private void AssignExitOnShuttleLord(Map map, Thing shuttle, List<Pawn> pawns, Faction faction)
-    {
-        // Keep guest lodgers as temporary player-faction pawns for the whole boarding
-        // sequence. Restoring home faction is deferred to FinishContractAfterDeparture /
-        // EndActiveContractQuest so they remain controllable required-shuttle passengers.
-        this.ReleaseFromCurrentLords(pawns);
-
-        // Prefer OfPlayer when any departing client is still a player lodger so the lord
-        // faction matches the pawns. Prisoners remain their source faction.
-        Faction lordFaction = faction ?? Faction.OfPlayer;
-        if (pawns != null && pawns.Any(p => p != null && !p.Destroyed && p.Faction == Faction.OfPlayer))
-        {
-            lordFaction = Faction.OfPlayer;
-        }
-
-        LordMaker.MakeNewLord(
-            lordFaction,
-            new LordJob_ExitOnShuttle(shuttle),
-            map,
-            pawns);
-    }
-
-    private void ReleaseFromCurrentLords(IEnumerable<Pawn> pawns)
-    {
-        foreach (Pawn pawn in pawns)
-        {
-            this.ReleaseFromCurrentLord(pawn);
-        }
-    }
-
     private void ReleaseFromCurrentLord(Pawn pawn)
     {
         pawn?.GetLord()?.Notify_PawnLost(pawn, PawnLostCondition.ForcedToJoinOtherLord);
     }
 
     /// Finalizes the active contract quest on shuttle departure (or equivalent leave).
-    /// Success if ages were banked/latched; otherwise soft-fails without a full chain reset.
+    /// Success if ages were banked/latched or multi-wave returns covered the full party;
+    /// otherwise soft-fails without a full chain reset.
     private void FinishContractAfterDeparture(
         bool success,
         string failLabel = null,
@@ -1400,14 +1920,35 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         // Final re-evaluation from banked flags and any clients still referenced.
         this.RefreshClientAgeProgress();
-        bool latchedSuccess = this.IsDepartureSuccessBanked()
-            || (this.activeClients.Any()
-                && this.activeClients.All(c => c != null && c.everReachedDesiredAge));
-        if (latchedSuccess != success)
+
+        // Multi-wave accounting: every original client must have returned after reaching
+        // their target. Do not let a final-wave banked latch wipe an earlier unfinished leaver.
+        bool multiWave = this.clientsSuccessfullyReturned > 0
+            || this.completionRewardClientCount > this.activeClients.Count;
+        if (multiWave)
         {
-            this.LogRoyaltyDebug(
-                "Finish success override: arg=" + success + " → latched=" + latchedSuccess);
-            success = latchedSuccess;
+            bool waveSuccess = this.clientsSuccessfullyReturned >= Math.Max(1, this.completionRewardClientCount);
+            if (waveSuccess != success)
+            {
+                this.LogRoyaltyDebug(
+                    "Finish multi-wave success: arg=" + success + " → returned="
+                    + this.clientsSuccessfullyReturned + "/" + this.completionRewardClientCount
+                    + " → " + waveSuccess);
+            }
+
+            success = waveSuccess;
+        }
+        else
+        {
+            bool latchedSuccess = this.IsDepartureSuccessBanked()
+                || (this.activeClients.Any()
+                    && this.activeClients.All(c => c != null && c.everReachedDesiredAge));
+            if (latchedSuccess != success)
+            {
+                this.LogRoyaltyDebug(
+                    "Finish success override: arg=" + success + " → latched=" + latchedSuccess);
+                success = latchedSuccess;
+            }
         }
 
         RoyaltyRegenesisStage finishedStage = this.activeContractStage;
@@ -1420,7 +1961,9 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             + " triggerRoyalAscent=" + triggerEndgame
             + " banked=" + this.departureSuccessBanked
             + " completionLatched=" + this.contractCompletionLogged
-            + " allReady=" + this.pickupAllClientsReady);
+            + " allReady=" + this.pickupAllClientsReady
+            + " returned=" + this.clientsSuccessfullyReturned
+            + "/" + this.completionRewardClientCount);
         this.LogClientAgeSnapshot("finish");
 
         // Return lodgers to their home faction while client pawn refs still exist.
@@ -1469,6 +2012,50 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     private void FailContractAfterPickupTimeout()
     {
+        // The 3-day boarding window is logistics only. Soft-fail only when the real
+        // contract deadline has passed (or nobody is left to keep treating).
+        List<RoyaltyRegenesisClient> stillHere = this.activeClients
+            .Where(c => c?.pawn != null && !c.pawn.Destroyed && !c.pawn.Dead
+                && this.IsClientAvailableOnMap(c.pawn))
+            .ToList();
+        int readyHere = stillHere.Count(c => c.everReachedDesiredAge);
+        bool deadlineReached = this.IsContractDeadlineReached();
+
+        this.LogRoyaltyDebug(
+            "Pickup window expired. stillHere=" + stillHere.Count
+            + " readyHere=" + readyHere
+            + " banked=" + this.IsDepartureSuccessBanked()
+            + " deadlineReached=" + deadlineReached
+            + " returned=" + this.clientsSuccessfullyReturned
+            + "/" + this.completionRewardClientCount);
+
+        // Ready clients missed the ship — keep the contract and call another pickup.
+        if (stillHere.Any() && (readyHere > 0 || this.IsDepartureSuccessBanked()))
+        {
+            this.EndPickupWindowKeepContract(
+                "Pickup window expired with " + readyHere + " ready client(s) still on map — "
+                + "requesting follow-up shuttle.");
+            this.RequestFollowUpPickupForRemaining("boarding window expired with ready clients");
+            return;
+        }
+
+        // Unfinished clients only, still before the real return date: dismiss the empty
+        // boarding attempt and keep regenerating. Do not soft-fail or re-arm a 3-day clock.
+        if (stillHere.Any() && !deadlineReached)
+        {
+            this.EndPickupWindowKeepContract(
+                "Pickup window expired mid-treatment before contract deadline — "
+                + "dismissing ship, continuing regeneration.");
+            Find.LetterStack.ReceiveLetter(
+                "Regenesis pickup left",
+                "The pickup shuttle left while CryoRegenesis clients were still being treated. "
+                + "The contract continues until the scheduled return date. "
+                + "Another shuttle will come when remaining clients are ready or the deadline arrives.",
+                LetterDefOf.NeutralEvent,
+                new LookTargets(stillHere.Select(c => c.pawn)));
+            return;
+        }
+
         // Ages banked → still succeed when the loading window ends without everyone aboard.
         if (this.IsDepartureSuccessBanked())
         {
@@ -1477,12 +2064,32 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        this.LogRoyaltyDebug("FailContractAfterPickupTimeout — clients not loaded in time.");
+        // Past the real deadline (or no one left on the map) without a successful return.
+        this.LogRoyaltyDebug("FailContractAfterPickupTimeout — deadline passed / clients not returned.");
         this.LogClientAgeSnapshot("pickup timeout fail");
         this.FinishContractAfterDeparture(
             false,
             "CryoRegenesis return missed",
-            "The shuttle left before every CryoRegenesis client was loaded. Another attempt may come later.");
+            "The shuttle left before every CryoRegenesis client finished treatment and returned. "
+            + "Another attempt may come later.");
+    }
+
+    /// Clears pickup-mode flags so the 3-day boarding window cannot soft-fail the contract
+    /// while treatment continues under the real deadline.
+    private void EndPickupWindowKeepContract(string debugReason)
+    {
+        this.LogRoyaltyDebug(debugReason);
+        this.ClearContractShuttle();
+        this.pickupShuttleSpawned = false;
+        this.pickupShuttleSpawnTick = -1;
+        this.pickupWindowEndTick = -1;
+        // Do not leave nextWavePickupTick set unless the caller schedules one.
+        // Clearing an in-progress pickup must not keep a stale wave timer from earlier.
+        if (this.nextWavePickupTick > 0
+            && Find.TickManager.TicksGame >= this.nextWavePickupTick)
+        {
+            this.nextWavePickupTick = -1;
+        }
     }
 
     private bool IsContractDeadlineReached()
@@ -1548,11 +2155,23 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return false;
         }
 
-        return Find.TickManager.TicksGame >= this.pickupShuttleSpawnTick + ShuttleLeaveDelayDays * GenDate.TicksPerDay;
+        int endTick = this.pickupWindowEndTick > 0
+            ? this.pickupWindowEndTick
+            : this.pickupShuttleSpawnTick + this.GetReadyPickupStayTicks();
+        return Find.TickManager.TicksGame >= endTick;
     }
 
-    /// Send clients home aboard the contract shuttle that has been parked on site the whole
-    /// stay. A replacement shuttle is spawned only if the parked one was lost (destroyed, etc.).
+    private void BeginPickupWindow(bool longStay)
+    {
+        this.pickupShuttleSpawned = true;
+        this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
+        int stayTicks = longStay
+            ? this.GetReadyPickupStayTicks()
+            : ShuttleLeaveDelayDays * GenDate.TicksPerDay;
+        this.pickupWindowEndTick = this.pickupShuttleSpawnTick + stayTicks;
+    }
+
+    /// Used for death/trust-break emergency leaves: eject and call a pickup if needed.
     private bool DepartClients(Map map, List<Pawn> pawns, Faction faction)
     {
         this.RefreshClientAgeProgress();
@@ -1571,8 +2190,6 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return false;
         }
 
-        // Prisoners are kept anesthetized during treatment; wake them so they can walk
-        // themselves aboard like any other departing guest.
         foreach (Pawn pawn in living)
         {
             Hediff anesthetic = pawn.health?.hediffSet?.GetFirstHediffOfDef(HediffDefOf.Anesthetic);
@@ -1583,19 +2200,16 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             }
         }
 
-        // Normal path: the contract shuttle has been parked on site since delivery.
-        Thing shuttle = this.GetUsableContractShuttle(map);
-        if (shuttle != null && !this.pickupShuttleSpawned)
+        // Option C: always use an explicit pickup ship (never a leftover delivery pad ship).
+        if (this.pickupShuttleSpawned && this.GetUsableContractShuttle(map) != null)
         {
-            this.LogRoyaltyDebug("Boarding the parked contract shuttle for departure: " + shuttle.LabelCap);
-            this.BoardAndSendShuttle(map, shuttle, living, faction);
-            this.LogClientAgeSnapshot("after board-and-send (parked shuttle)");
+            this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
+            this.TryPromoteParkedShuttleToLeaveWhenReady();
             return true;
         }
 
-        // Fallback: the parked shuttle was lost — spawn a replacement to carry them home.
-        this.LogRoyaltyDebug("Spawning replacement departure shuttle for " + living.Count + " client(s).");
-        bool spawned = this.SpawnPickupShuttle(map, living, faction);
+        this.LogRoyaltyDebug("Spawning pickup for " + living.Count + " client(s).");
+        bool spawned = this.SpawnPickupShuttle(map, living, faction, longStay: true);
         this.LogRoyaltyDebug("SpawnPickupShuttle result=" + spawned + " pickupSpawned=" + this.pickupShuttleSpawned);
         this.LogClientAgeSnapshot("after spawn pickup shuttle");
         return spawned;
@@ -1625,11 +2239,25 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     private void BoardAndSendShuttle(Map map, Thing shuttle, List<Pawn> living, Faction faction)
     {
+        List<Pawn> passengers = (living ?? new List<Pawn>())
+            .Where(p => p != null && !p.Destroyed && !p.Dead && !this.WasSuccessfullyReturned(p))
+            .Distinct()
+            .ToList();
+
         CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
+        // Prefer ready-only even on this path so a mixed deadline list can still Send.
+        List<Pawn> readyPassengers = passengers
+            .Where(p =>
+            {
+                RoyaltyRegenesisClient client = this.activeClients.FirstOrDefault(c => c?.pawn == p);
+                return client != null && client.everReachedDesiredAge;
+            })
+            .ToList();
+        List<Pawn> manifest = readyPassengers.Any() ? readyPassengers : passengers;
         if (compShuttle != null)
         {
             compShuttle.requiredPawns.Clear();
-            compShuttle.requiredPawns.AddRange(living);
+            compShuttle.requiredPawns.AddRange(manifest);
         }
 
 #if !RIMWORLD12
@@ -1653,10 +2281,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         }
 #endif
 
-        this.AssignExitOnShuttleLord(map, shuttle, living, faction);
-        this.pickupShuttleSpawned = true;
-        this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
+        // Do not assign ExitOnShuttle — that makes every guest rush the pad. The player
+        // loads required/ready clients with Autoload or carry, then Send / auto-leave.
+        // Short boarding window: this path is all-ready or deadline, not the early-ready long stay.
+        this.BeginPickupWindow(longStay: false);
         this.RefreshClientAgeProgress();
+        this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
         if (this.pickupAllClientsReady || this.contractCompletionLogged
             || (this.activeClients.Any()
                 && this.activeClients.All(c => c != null && c.everReachedDesiredAge)))
@@ -1666,32 +2296,71 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         this.LogRoyaltyDebug(
             "BoardAndSendShuttle: pickupSpawned=true tick=" + this.pickupShuttleSpawnTick
-            + " requiredPawns=" + living.Count
+            + " windowEnd=" + this.pickupWindowEndTick
+            + " requiredPawns=" + (compShuttle?.requiredPawns.Count ?? 0)
             + " allReady=" + this.pickupAllClientsReady
-            + " banked=" + this.departureSuccessBanked);
+            + " banked=" + this.departureSuccessBanked
+            + " autoBoard=false");
     }
 
-    private bool SpawnPickupShuttle(Map map, List<Pawn> living, Faction faction)
+    private bool SpawnPickupShuttle(Map map, List<Pawn> living, Faction faction, bool longStay = false)
     {
+        // Only map-held remaining clients. Never re-import world pawns who already returned.
+        List<Pawn> passengers = (living ?? new List<Pawn>())
+            .Where(p => p != null && !p.Destroyed && !p.Dead
+                && !this.WasSuccessfullyReturned(p)
+                && this.IsClientAvailableOnMap(p))
+            .Distinct()
+            .ToList();
+
+        if (!passengers.Any())
+        {
+            this.LogRoyaltyDebug("SpawnPickupShuttle aborted: no map-held remaining clients.");
+            return false;
+        }
+
+        // Manifest is ready-only when anyone is ready so Send is not locked on unfinished clients.
+        List<Pawn> required = passengers
+            .Where(p =>
+            {
+                RoyaltyRegenesisClient client = this.activeClients.FirstOrDefault(c => c?.pawn == p);
+                return client != null && client.everReachedDesiredAge;
+            })
+            .ToList();
+        if (!required.Any())
+        {
+            required = passengers;
+        }
+
+        int stayTicks = this.GetReadyPickupStayTicks();
+        this.LogRoyaltyDebug(
+            "SpawnPickupShuttle for " + passengers.Count + " map client(s), required="
+            + required.Count + " longStay=" + longStay
+            + " stayDays=" + (stayTicks / (float)GenDate.TicksPerDay).ToString("0.0")
+            + ": " + string.Join(", ", passengers.Select(p => p.Name?.ToStringShort ?? "?")));
+
 #if RIMWORLD12
+        // longStay: do not auto-leave when partial required load; player uses Send.
         Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
             owningFaction: null,
-            requiredPawns: living,
-            leaveImmediatelyWhenSatisfied: true,
+            requiredPawns: required,
+            leaveImmediatelyWhenSatisfied: !longStay,
             hideControls: false);
 
         CompShuttle compShuttle = shuttle?.TryGetComp<CompShuttle>();
         if (shuttle == null || compShuttle == null)
         {
             Log.Error("[CryoRegenesis] Pickup shuttle generation failed; destroying clients off-map.");
-            this.DestroyClientsOffMap(living);
+            this.DestroyClientsOffMap(passengers);
             return true;
         }
 
-        compShuttle.leaveAfterTicks = ShuttleLeaveDelayDays * GenDate.TicksPerDay;
+        this.ConfigureContractShuttleEmbarkRules(compShuttle);
+        this.SanitizePickupShuttle(shuttle, required);
+        compShuttle.leaveAfterTicks = stayTicks;
         this.contractShuttle = shuttle;
-        this.pickupShuttleSpawned = true;
-        this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
+        this.BeginPickupWindow(longStay);
+        this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
 
         IntVec3 cell = DropCellFinder.TradeDropSpot(map);
         if (!cell.IsValid)
@@ -1706,7 +2375,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                 ThingPlaceMode.Near))
         {
             Log.Warning("[CryoRegenesis] Could not place pickup shuttle; destroying clients off-map.");
-            this.DestroyClientsOffMap(living);
+            this.DestroyClientsOffMap(passengers);
             if (!shuttle.Destroyed)
             {
                 shuttle.Destroy(DestroyMode.Vanish);
@@ -1715,79 +2384,183 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return true;
         }
 
-        this.AssignExitOnShuttleLord(map, shuttle, living, faction);
-
+        // No ExitOnShuttle lord — player loads ready clients manually (Autoload / carry).
         this.RefreshClientAgeProgress();
         this.LogRoyaltyDebug(
             "Pickup shuttle (1.2) placed. leaveAfterTicks=" + compShuttle.leaveAfterTicks
-            + " allReady=" + this.pickupAllClientsReady);
+            + " longStay=" + longStay
+            + " allReady=" + this.pickupAllClientsReady
+            + " (no auto-board lord)");
 
         Find.LetterStack.ReceiveLetter(
-            "Regenesis Replacement Shuttle",
-            "A replacement shuttle has arrived to collect the CryoRegenesis clients. Load them before it leaves.",
+            "Regenesis Pickup Shuttle",
+            longStay
+                ? "A shuttle has arrived because at least one CryoRegenesis client finished treatment. "
+                  + "It will stay for many days — load ready clients when you want and Send. "
+                  + "Unfinished clients can keep regenerating."
+                : "A shuttle has arrived for finished CryoRegenesis clients. "
+                  + "Load ready clients onto it yourself (unfinished clients can stay for a later pickup).",
             LetterDefOf.NeutralEvent,
             new LookTargets(shuttle));
 #else
         Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
             owningFaction: null,
-            requiredPawns: living,
+            requiredPawns: required,
             hideControls: false);
 
         if (shuttle == null)
         {
             Log.Error("[CryoRegenesis] Pickup shuttle generation failed; destroying clients off-map.");
-            this.DestroyClientsOffMap(living);
+            this.DestroyClientsOffMap(passengers);
             return true;
         }
 
+        // Empty ship — contents must never include prior returnees.
         TransportShip ship = TransportShipMaker.MakeTransportShip(
             TransportShipDefOf.Ship_Shuttle,
             null,
             shuttle);
+        this.ConfigureContractShuttleEmbarkRules(shuttle.TryGetComp<CompShuttle>());
+        this.SanitizePickupShuttle(shuttle, required);
 
         ShipJob_Arrive arrive = (ShipJob_Arrive)ShipJobMaker.MakeShipJob(ShipJobDefOf.Arrive);
         arrive.mapParent = map.Parent;
         arrive.factionForArrival = faction ?? Faction.OfPlayer;
-        if (living[0].MapHeld == map)
+        if (passengers[0].MapHeld == map)
         {
-            arrive.mapOfPawn = living[0];
+            arrive.mapOfPawn = passengers[0];
         }
 
         ship.AddJob(arrive);
 
-        ShipJob_WaitTime wait = (ShipJob_WaitTime)ShipJobMaker.MakeShipJob(ShipJobDefOf.WaitTime);
-        wait.duration = ShuttleLeaveDelayDays * GenDate.TicksPerDay;
-        wait.leaveImmediatelyWhenSatisfied = true;
-        wait.showGizmos = true;
-        wait.sendAwayIfAllDespawned = living.Cast<Thing>().ToList();
-        ship.AddJob(wait);
+        if (longStay)
+        {
+            // Park like the delivery shuttle: days of pad time, Send when the player is ready.
+            ShipJob_Wait waitForever = (ShipJob_Wait)ShipJobMaker.MakeShipJob(ShipJobDefOf.WaitForever);
+            waitForever.leaveImmediatelyWhenSatisfied = false;
+            waitForever.showGizmos = true;
+            ship.AddJob(waitForever);
+        }
+        else
+        {
+            ShipJob_WaitTime wait = (ShipJob_WaitTime)ShipJobMaker.MakeShipJob(ShipJobDefOf.WaitTime);
+            wait.duration = stayTicks;
+            wait.leaveImmediatelyWhenSatisfied = true;
+            wait.showGizmos = true;
+            wait.sendAwayIfAllDespawned = passengers.Cast<Thing>().ToList();
+            ship.AddJob(wait);
+        }
 
-        ship.AddJob(ShipJobDefOf.FlyAway);
+        ShipJob_FlyAway flyAway = (ShipJob_FlyAway)ShipJobMaker.MakeShipJob(ShipJobDefOf.FlyAway);
+        // Never unload partial cargo back onto the map when leaving.
+        flyAway.dropMode = TransportShipDropMode.None;
+        ship.AddJob(flyAway);
         ship.Start();
 
         this.contractTransportShip = ship;
         this.contractShuttle = shuttle;
-        this.pickupShuttleSpawned = true;
-        this.pickupShuttleSpawnTick = Find.TickManager.TicksGame;
+        this.BeginPickupWindow(longStay);
 
-        this.AssignExitOnShuttleLord(map, shuttle, living, faction);
-
+        // No ExitOnShuttle lord — guests must not stampede the pad. The player chooses
+        // who boards (ready clients) via Autoload / carry-to-shuttle / Send.
         this.RefreshClientAgeProgress();
+        this.UpdateShuttleRequiredPawns(readyOnlyIfAnyReady: true);
         this.LogRoyaltyDebug(
-            "Pickup shuttle (TransportShip) started. waitDays=" + ShuttleLeaveDelayDays
-            + " leaveImmediatelyWhenSatisfied=true"
+            "Pickup shuttle (TransportShip) started. longStay=" + longStay
+            + " stayDays=" + (stayTicks / (float)GenDate.TicksPerDay).ToString("0.0")
+            + " windowEnd=" + this.pickupWindowEndTick
+            + " leaveImmediatelyWhenSatisfied=" + (!longStay)
             + " allReady=" + this.pickupAllClientsReady
+            + " passengers=" + passengers.Count
+            + " required=" + required.Count
+            + " container=" + (ship.TransporterComp?.innerContainer?.Count ?? -1)
+            + " autoBoard=false"
             + " ship=" + (ship != null)
             + " shuttleThing=" + (shuttle?.LabelCap ?? "null"));
 
         Find.LetterStack.ReceiveLetter(
-            "Regenesis Replacement Shuttle",
-            "A replacement shuttle has arrived to collect the CryoRegenesis clients. Load them before it leaves.",
+            "Regenesis Pickup Shuttle",
+            longStay
+                ? "A shuttle has arrived because at least one CryoRegenesis client finished treatment. "
+                  + "It will stay for many days — load ready clients when you want and Send. "
+                  + "Unfinished clients can keep regenerating."
+                : "A shuttle has arrived for finished CryoRegenesis clients. "
+                  + "Load ready clients onto it yourself (unfinished clients can stay for a later pickup).",
             LetterDefOf.NeutralEvent,
             new LookTargets(shuttle));
 #endif
 
         return true;
+    }
+
+    /// How long an early-ready pickup should remain available (at least two weeks, or
+    /// through the real contract deadline — whichever is longer).
+    private int GetReadyPickupStayTicks()
+    {
+        int minStay = ReadyPickupMinStayDays * GenDate.TicksPerDay;
+        if (this.contractDeadlineTick <= 0)
+        {
+            return minStay;
+        }
+
+        int untilDeadline = this.contractDeadlineTick - Find.TickManager.TicksGame;
+        // Small post-deadline buffer so a ship parked on the last day is still usable.
+        int throughDeadline = Math.Max(0, untilDeadline) + ShuttleLeaveDelayDays * GenDate.TicksPerDay;
+        return Math.Max(minStay, throughDeadline);
+    }
+
+    /// Empty container + requiredPawns limited to the allowed remaining map clients.
+    private void SanitizePickupShuttle(Thing shuttle, List<Pawn> allowedPassengers)
+    {
+        if (shuttle == null)
+        {
+            return;
+        }
+
+        HashSet<Pawn> allowed = new HashSet<Pawn>(allowedPassengers ?? Enumerable.Empty<Pawn>());
+        CompShuttle compShuttle = shuttle.TryGetComp<CompShuttle>();
+        if (compShuttle != null)
+        {
+            compShuttle.requiredPawns.RemoveAll(p => p == null || !allowed.Contains(p) || this.WasSuccessfullyReturned(p));
+            if (!compShuttle.requiredPawns.Any() && allowed.Any())
+            {
+                compShuttle.requiredPawns.AddRange(allowed);
+            }
+        }
+
+        CompTransporter transporter = shuttle.TryGetComp<CompTransporter>();
+        if (transporter?.innerContainer == null || !transporter.innerContainer.Any)
+        {
+            return;
+        }
+
+        // Brand-new pickups must arrive empty. Anything already inside is a bug — strip it.
+        List<Thing> stowaways = transporter.innerContainer.ToList();
+        foreach (Thing thing in stowaways)
+        {
+            transporter.innerContainer.Remove(thing);
+            if (thing is Pawn pawn && !pawn.Destroyed)
+            {
+                this.LogRoyaltyDebug(
+                    "Sanitized stowaway off pickup shuttle: " + (pawn.Name?.ToStringShort ?? pawn.LabelShort));
+                // Already-returned / world pawns must not reappear on the colony map.
+                if (this.WasSuccessfullyReturned(pawn) || Find.WorldPawns.Contains(pawn))
+                {
+                    continue;
+                }
+
+                // Unexpected living stowaway that is not a world pawn — discard rather than
+                // dump them onto the map as a false "returnee".
+                if (!pawn.Spawned)
+                {
+                    pawn.Destroy(DestroyMode.Vanish);
+                }
+            }
+            else if (thing != null && !thing.Destroyed)
+            {
+                thing.Destroy(DestroyMode.Vanish);
+            }
+        }
     }
 
     private void ClearContractShuttle()
@@ -2170,10 +2943,40 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             ? this.contractDeadlineTick
             : this.activeClients.Min(c => c.returnByTick);
         int ticksLeft = Math.Max(0, deadline - Find.TickManager.TicksGame);
-        sb.AppendLine(this.pickupShuttleSpawned
-            ? "Shuttle: boarding — load the clients; it leaves once all are aboard."
-            : "Shuttle departs: " + RoyaltyRegenesisQuestFactory.FormatGameTickDate(deadline)
+        if (this.pickupShuttleSpawned)
+        {
+            int windowEnd = this.pickupWindowEndTick > 0
+                ? this.pickupWindowEndTick
+                : this.pickupShuttleSpawnTick + this.GetReadyPickupStayTicks();
+            int windowLeft = Math.Max(0, windowEnd - Find.TickManager.TicksGame);
+            sb.AppendLine(
+                "Shuttle: parked for ready clients (no auto-board). Load and Send when you want. "
+                + "Boarding window ~" + windowLeft.ToStringTicksToPeriod() + ".");
+        }
+        else if (this.nextWavePickupTick > 0)
+        {
+            int waveLeft = Math.Max(0, this.nextWavePickupTick - Find.TickManager.TicksGame);
+            sb.AppendLine(
+                "Next pickup shuttle: "
+                + RoyaltyRegenesisQuestFactory.FormatGameTickDate(this.nextWavePickupTick)
+                + " (" + waveLeft.ToStringTicksToPeriod() + ")");
+        }
+        else
+        {
+            sb.AppendLine(
+                "Contract deadline: " + RoyaltyRegenesisQuestFactory.FormatGameTickDate(deadline)
                 + " (" + ticksLeft.ToStringTicksToPeriod() + " remaining)");
+            sb.AppendLine("No ship on the pad during treatment. A pickup is called when any client hits target age.");
+        }
+
+        if (this.clientsSuccessfullyReturned > 0 || this.completionRewardClientCount > 1)
+        {
+            sb.AppendLine(
+                "Returned ready: " + this.clientsSuccessfullyReturned
+                + " / " + Math.Max(this.completionRewardClientCount, this.activeClients.Count
+                    + this.clientsSuccessfullyReturned));
+        }
+
         sb.AppendLine();
 
         foreach (RoyaltyRegenesisClient client in this.activeClients)
@@ -2206,11 +3009,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         sb.AppendLine();
         sb.AppendLine(this.IsDepartureSuccessBanked() || this.activeClients.All(this.ClientReachedDesiredAge)
-            ? "All clients ready — contract succeeds when the shuttle departs."
-            : "Keep treating until each client reaches their target age before the shuttle departs.");
+            ? "All remaining clients ready — load them on the shuttle to finish the contract."
+            : "Ready clients may leave early on the shuttle; unfinished clients stay for a later pickup.");
         if (this.IsDepartureSuccessBanked())
         {
-            sb.AppendLine("Treatment success is banked. The quest finalizes when the shuttle leaves.");
+            sb.AppendLine("Treatment success is banked for remaining clients. The quest finalizes when the last shuttle leaves.");
         }
 
         return sb.ToString().TrimEnd();
