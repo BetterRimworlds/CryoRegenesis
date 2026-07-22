@@ -2879,8 +2879,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                 }
                 break;
             case RoyaltyRegenesisStage.StellarchArrival:
-                this.stage = RoyaltyRegenesisStage.EmperorNotice;
-                this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(30, 90) * GenDate.TicksPerDay;
+                // The restored Stellarch reports back the moment the shuttle departs — no waiting
+                // period before word reaches the Emperor. Only the interstellar travel itself takes time.
+                int emperorTravelYears = Rand.RangeInclusive(1, 10);
+                this.SendTravelNotice(
+                    "The Emperor is coming",
+                    $"The restored Stellarch's report has reached the Emperor. The imperial household has committed to the journey, but interstellar travel will take {emperorTravelYears} year(s).");
+                this.stage = RoyaltyRegenesisStage.EmperorArrival;
+                this.nextEventTick = Find.TickManager.TicksGame + emperorTravelYears * GenDate.TicksPerYear;
                 break;
         }
 
