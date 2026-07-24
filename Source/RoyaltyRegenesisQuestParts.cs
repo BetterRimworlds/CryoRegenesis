@@ -127,8 +127,7 @@ public static class RoyaltyRegenesisQuestFactory
         string roleSummary,
         Faction sender,
         bool isPrisoner,
-        int returnByTick,
-        IEnumerable<Pawn> clients)
+        int returnByTick)
     {
         StringBuilder sb = new StringBuilder();
         sb.AppendLine(roleSummary);
@@ -144,13 +143,6 @@ public static class RoyaltyRegenesisQuestFactory
         sb.AppendLine("Contract deadline: " + FormatGameTickDate(returnByTick));
         sb.AppendLine("Logistics: drop-off leaves after unload; pickups arrive when clients finish (or at the deadline).");
         sb.AppendLine();
-        sb.AppendLine("Clients:");
-        foreach (Pawn pawn in clients.Where(p => p != null))
-        {
-            sb.AppendLine("• " + pawn.Name.ToStringFull + " (bio age " + pawn.ageTracker.AgeBiologicalYears + ")");
-        }
-
-        sb.AppendLine();
         sb.AppendLine("Objectives:");
         sb.AppendLine("1. Place clients in a CryoRegenesis casket.");
         sb.AppendLine("2. Reach their requested regression age before the contract deadline.");
@@ -158,6 +150,129 @@ public static class RoyaltyRegenesisQuestFactory
         sb.AppendLine("4. Another pickup comes for anyone still treating after a partial leave.");
         sb.AppendLine("5. Death or recruitment of a client under contract resets the whole chain.");
         return sb.ToString().TrimEnd();
+    }
+
+    /// Player-facing client label: optional royal title prefix, then name, then
+    /// "(Title's Wife)" when the client is a wife of a titled (or role-known) spouse.
+    public static string FormatContractClientName(Pawn pawn, string role = null)
+    {
+        if (pawn == null)
+        {
+            return "Unknown";
+        }
+
+        string name = pawn.Name?.ToStringShort ?? pawn.LabelShortCap;
+        string title = TryGetRoyalTitleLabel(pawn);
+        if (!title.NullOrEmpty())
+        {
+            name = title + " " + name;
+        }
+
+        string husbandTitle = TryGetHusbandTitleForWifePostfix(pawn, role);
+        if (!husbandTitle.NullOrEmpty())
+        {
+            name += " (" + husbandTitle + "'s Wife)";
+        }
+
+        return name;
+    }
+
+    /// Highest royal title label for <paramref name="pawn"/>, or null.
+    public static string TryGetRoyalTitleLabel(Pawn pawn)
+    {
+        if (pawn?.royalty == null)
+        {
+            return null;
+        }
+
+        RoyalTitle senior = pawn.royalty.MostSeniorTitle;
+        if (senior?.def != null)
+        {
+            return senior.def.GetLabelCapFor(pawn);
+        }
+
+        RoyalTitleDef main = pawn.royalty.MainTitle();
+        return main != null ? main.GetLabelCapFor(pawn) : null;
+    }
+
+    /// When <paramref name="pawn"/> is a wife (by role or Spouse relation), returns the
+    /// husband-side title used in "(Title's Wife)" — e.g. Emperor, Stellarch, Count.
+    public static string TryGetHusbandTitleForWifePostfix(Pawn pawn, string role = null)
+    {
+        if (pawn == null)
+        {
+            return null;
+        }
+
+        // Generated Emperor-stage roles are authoritative even before relations settle.
+        if (!role.NullOrEmpty())
+        {
+            string roleLower = role.ToLowerInvariant();
+            if (roleLower.Contains("imperial wife"))
+            {
+                return "Emperor";
+            }
+
+            if (roleLower.Contains("stellarch wife"))
+            {
+                return "Stellarch";
+            }
+        }
+
+        // Only wives (Spouse), not lovers or fiancés.
+        if (pawn.relations?.DirectRelations == null)
+        {
+            return null;
+        }
+
+        foreach (DirectPawnRelation relation in pawn.relations.DirectRelations)
+        {
+            if (relation?.def != PawnRelationDefOf.Spouse || relation.otherPawn == null)
+            {
+                continue;
+            }
+
+            // Prefer the titled spouse (Emperor / Stellarch / noble husband).
+            Pawn spouse = relation.otherPawn;
+            string spouseTitle = TryGetRoyalTitleLabel(spouse);
+            if (!spouseTitle.NullOrEmpty())
+            {
+                return spouseTitle;
+            }
+
+            // Planetary rulers and other primaries often have no royal title.
+            if (spouse.Faction != null && spouse.Faction.leader == spouse)
+            {
+                return "Ruler";
+            }
+        }
+
+        // Companion roles that are wives of an untitled primary (e.g. ruler companion).
+        if (!role.NullOrEmpty()
+            && pawn.relations.GetFirstDirectRelationPawn(PawnRelationDefOf.Spouse) != null)
+        {
+            string roleLower = role.ToLowerInvariant();
+            if (roleLower.Contains("wife")
+                || (pawn.gender == Gender.Female && roleLower.Contains("companion")))
+            {
+                if (roleLower.Contains("stellarch"))
+                {
+                    return "Stellarch";
+                }
+
+                if (roleLower.Contains("ruler"))
+                {
+                    return "Ruler";
+                }
+
+                if (roleLower.Contains("noble"))
+                {
+                    return "Noble";
+                }
+            }
+        }
+
+        return null;
     }
 
     /// Formats a <see cref="TickManager.TicksGame"/> value as a calendar date.
