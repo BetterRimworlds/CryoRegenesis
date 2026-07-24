@@ -18,8 +18,8 @@ namespace BetterRimworlds.CryoRegenesis;
 public partial class RoyaltyRegenesisQuestSystem
 {
     /// Uranium paid per treated client on contract completion (inclusive range).
-    private const int UraniumPerPersonMin = 250;
-    private const int UraniumPerPersonMax = 300;
+    private const int UraniumPerPersonMin = 500;
+    private const int UraniumPerPersonMax = 600;
     private bool completionRewardGranted;
 
     /// Party size of the current contract, recorded as clients are prepared.
@@ -52,7 +52,7 @@ public partial class RoyaltyRegenesisQuestSystem
         }
 
         // Nobles arrive 2-10 per contract; luciferium/bonus for that tier pay out per client.
-        // Uranium always scales with every treated client (250-300 each).
+        // Uranium always scales with every treated client (500-600 each).
         int treatedClients = Math.Max(1, this.completionRewardClientCount);
         int payoutMultiplier = contractStage == RoyaltyRegenesisStage.LowerNobility
             ? treatedClients
