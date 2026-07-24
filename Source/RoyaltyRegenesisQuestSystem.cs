@@ -53,6 +53,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     private int trustBreaks;
     private string lastTrustBreakReason = string.Empty;
     private List<RoyaltyRegenesisClient> activeClients = new List<RoyaltyRegenesisClient>();
+
+    /// Non-regen escorts (e.g. Emperor-stage Stellic guards). Arrive/leave with the party
+    /// but never receive a CryoRegenesis contract.
+    private List<Pawn> contractEscorts = new List<Pawn>();
+
     private Quest chainQuest;
     private Quest activeContractQuest;
 
@@ -168,7 +173,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             .Where(client => client?.pawn != null && !client.pawn.Destroyed)
             .Select(client => client.pawn);
 
-        return RoyaltyRegenesisQuestPartners.IsNonExDirectRelationOfAny(pawn, clients);
+        if (RoyaltyRegenesisQuestPartners.IsNonExDirectRelationOfAny(pawn, clients))
+        {
+            return true;
+        }
+
+        // Emperor-stage Stellic guards and other non-regen escorts.
+        return system.contractEscorts != null && system.contractEscorts.Contains(pawn);
     }
 
     /// Called by a CryoRegenesis casket on the exact tick that a pawn reaches its target.
@@ -211,6 +222,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Values.Look(ref this.trustBreaks, "crRoyalTrustBreaks", 0);
         Scribe_Values.Look(ref this.lastTrustBreakReason, "crRoyalLastTrustBreakReason");
         Scribe_Collections.Look(ref this.activeClients, "crRoyalActiveClients", LookMode.Deep);
+        Scribe_Collections.Look(ref this.contractEscorts, "crRoyalContractEscorts", LookMode.Reference);
         Scribe_References.Look(ref this.chainQuest, "crRoyalChainQuest");
         Scribe_References.Look(ref this.activeContractQuest, "crRoyalActiveContractQuest");
         Scribe_Values.Look(ref this.contractStartTick, "crRoyalContractStartTick", -1);
@@ -236,6 +248,15 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             if (this.activeClients == null)
             {
                 this.activeClients = new List<RoyaltyRegenesisClient>();
+            }
+
+            if (this.contractEscorts == null)
+            {
+                this.contractEscorts = new List<Pawn>();
+            }
+            else
+            {
+                this.contractEscorts.RemoveAll(p => p == null || p.Destroyed);
             }
 
             if (this.returnedClientPawnIds == null)
@@ -666,37 +687,62 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        Pawn emperor = this.GetFactionLeader(empire, 21);
-        if (emperor == null)
+        // High Stellarch = Empire faction leader when available; Emperor + wives are
+        // always generated (they never exist as world pawns) via SpawnStoryHuman.
+        Pawn highStellarch = this.GetFactionLeader(empire, 0);
+        RoyaltyEmperor.Party party = RoyaltyEmperor.Build(empire, highStellarch);
+        if (party.emperor == null || !party.regenMembers.Any())
         {
-            this.ScheduleRetry("Emperor unavailable", "The Empire's leader is unavailable for a CryoRegenesis stay. Retrying later.");
+            this.ScheduleRetry(
+                "Emperor party unavailable",
+                "Could not assemble the High Stellarch / Emperor CryoRegenesis party. Retrying later.");
             return;
         }
 
-        List<Pawn> party = new List<Pawn> { emperor };
-        long targetTicks = 20L * GenDate.TicksPerYear;
+        this.contractEscorts.Clear();
         int contractDays = MinContractDays;
-        this.PrepareClient(emperor, targetTicks, "emperor", empire, isPrisoner: false, contractDays: contractDays, triggerRoyalAscent: true);
-        party.AddRange(this.PrepareRomanticPartners(
-            emperor,
-            empire,
-            "imperial companion",
-            isPrisoner: false,
-            contractDays: contractDays));
+
+        foreach (RoyaltyEmperor.RegenMember member in party.regenMembers)
+        {
+            if (member?.pawn == null)
+            {
+                continue;
+            }
+
+            this.PrepareClient(
+                member.pawn,
+                member.desiredAgeTicks,
+                member.role,
+                empire,
+                isPrisoner: false,
+                contractDays: contractDays,
+                triggerRoyalAscent: member.triggerRoyalAscent);
+        }
+
+        foreach (Pawn escort in party.escorts)
+        {
+            if (escort == null)
+            {
+                continue;
+            }
+
+            // Guests only — no PrepareClient / no regen tracker.
+            this.ApplyGuestOrPrisonerStatus(escort, isPrisoner: false);
+            this.LockRecruitment(escort);
+            this.contractEscorts.Add(escort);
+        }
+
         contractDays = this.CalculateContractDays();
         this.SetActiveContractDeadlineDays(contractDays);
 
         this.activeContractStage = RoyaltyRegenesisStage.EmperorArrival;
         string returnText = this.FormatReturnDeadline(contractDays);
-        string letterBody =
-            $"The Emperor has arrived by shuttle for CryoRegenesis and will regress to age 20."
-            + RoyaltyRegenesisQuestPartners.CompanionArrivalText(party.Count - 1)
-            + $" Treat them by {returnText}. A pickup shuttle arrives when treatment is finished.";
+        string letterBody = party.BuildLetterBody(returnText);
         this.DeliverClientsByShuttle(
             map,
-            party,
+            party.AllArrivalPawns,
             empire,
-            "The Emperor has arrived",
+            "The High Stellarch and the Emperor have arrived",
             letterBody);
         this.BeginContractQuest(
             "CryoRegenesis: The Emperor",
@@ -840,6 +886,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.nextWavePickupTick = -1;
         this.clientsSuccessfullyReturned = 0;
         this.returnedClientPawnIds.Clear();
+        this.contractEscorts.Clear();
         this.ResetCompletionRewardState();
     }
 
@@ -1692,13 +1739,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         if (readyOnlyIfAnyReady && ready.Any())
         {
             // Only finished clients — Send works once they board; unfinished never block launch.
-            required = ready;
+            // Living escorts (guards) leave with the ready wave when possible.
+            required = ready.Concat(this.GetMapHeldEscorts()).Distinct().ToList();
         }
         else
         {
             // Nobody ready yet: keep full map-held list so the delivery ship cannot be
             // Sent away empty mid-contract.
-            required = this.GetMapHeldContractPawns();
+            required = this.GetMapHeldContractPawns().Concat(this.GetMapHeldEscorts()).Distinct().ToList();
         }
 
         // Drop stale/world/returned refs that would keep AllRequiredThingsLoaded false forever.
@@ -1871,6 +1919,20 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         return transporter != null && transporter.innerContainer.Contains(pawn);
     }
 
+    /// Living non-regen escorts still on the map (Emperor-stage guards, etc.).
+    private List<Pawn> GetMapHeldEscorts()
+    {
+        if (this.contractEscorts == null || !this.contractEscorts.Any())
+        {
+            return new List<Pawn>();
+        }
+
+        return this.contractEscorts
+            .Where(p => p != null && !p.Destroyed && !p.Dead && this.IsClientAvailableOnMap(p))
+            .Distinct()
+            .ToList();
+    }
+
     /// Vanilla Royalty hospitality guests are temporary player-faction pawns whose
     /// original faction is retained by QuestPart_ExtraFaction. A guest tracker alone
     /// only creates an uncontrolled visitor, with no bed assignment or Operations UI.
@@ -1887,6 +1949,15 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         {
             Faction homeFaction = factionClients.Key;
             List<Pawn> pawns = factionClients.Select(client => client.pawn).Distinct().ToList();
+
+            // Escorts share the clients' home faction for this contract.
+            if (homeFaction != null)
+            {
+                pawns.AddRange(
+                    this.contractEscorts.Where(p =>
+                        p != null && !p.Destroyed && p.Faction == homeFaction));
+            }
+
             QuestPart_ExtraFaction extraFactionPart = this.activeContractQuest.PartsListForReading
                 .OfType<QuestPart_ExtraFaction>()
                 .FirstOrDefault(part =>
@@ -3520,7 +3591,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     {
         Find.LetterStack.ReceiveLetter(
             "Imperial CryoRegenesis complete",
-            "The Emperor has been restored to age 20. Royal Ascent endgame protocols are now being activated.",
+            "The Emperor has been restored to age 30. Royal Ascent endgame protocols are now being activated.",
             LetterDefOf.PositiveEvent);
 
         QuestScriptDef questDef = DefDatabase<QuestScriptDef>.GetNamedSilentFail("EndGame_RoyalAscent");
