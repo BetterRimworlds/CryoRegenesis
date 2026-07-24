@@ -2759,9 +2759,10 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
                 if (p != null && !p.Destroyed)
                 {
+                    string clientLabel = RoyaltyRegenesisQuestFactory.FormatContractClientName(p, client.role);
                     Find.LetterStack.ReceiveLetter(
                         "Regenesis client ready",
-                        p.Name.ToStringShort + " has reached the contracted target age of "
+                        clientLabel + " has reached the contracted target age of "
                         + ((float)client.desiredAgeTicks / GenDate.TicksPerYear).ToString("0.#")
                         + ". Their part of the contract is fulfilled.",
                         LetterDefOf.PositiveEvent,
@@ -3138,7 +3139,8 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                 ? " (" + tracker.GetContractProgressPercent().ToString("0") + "% there)"
                 : string.Empty;
 
-            sb.AppendLine("• " + pawn.Name.ToStringShort
+            sb.AppendLine(
+                "• " + RoyaltyRegenesisQuestFactory.FormatContractClientName(pawn, client.role)
                 + " — bio " + currentYears.ToString("0.00") + " → " + targetYears.ToString("0.00")
                 + percent
                 + (done ? " [ready]" : " [treating]")
@@ -3202,8 +3204,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             roleSummary,
             sender,
             isPrisoner,
-            returnByTick,
-            this.activeClients.Select(c => c.pawn));
+            returnByTick);
 
         this.activeContractQuest = RoyaltyRegenesisQuestFactory.MakeContractQuest(
             title,
