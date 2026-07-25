@@ -18,8 +18,8 @@ namespace BetterRimworlds.CryoRegenesis;
 /// let unrelated colonists leave with the nobility. Restrict free colonists to
 /// non-ex DirectRelations of active regen clients (and the clients themselves).
 /// During the Emperor contract any number of colonists may leave, but only while the
-/// Imperial shuttle is open to them — the Emperor alive and aboard and the rest of the
-/// party finished.
+/// Imperial shuttle is open to them — the Emperor alive and aboard (or sealed in a
+/// powered-off casket) and the rest of the party finished.
 [HarmonyPatch(typeof(CompShuttle), nameof(CompShuttle.IsAllowed))]
 internal static class Patch_CompShuttle_IsAllowed
 {
