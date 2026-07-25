@@ -16,9 +16,10 @@ namespace BetterRimworlds.CryoRegenesis;
 /// Regen pickup shuttles set acceptColonists so temporary player-faction guest
 /// clients can embark. That also lets every free colonist board — which would
 /// let unrelated colonists leave with the nobility. Restrict free colonists to
-/// non-ex DirectRelations of active regen clients (and the clients themselves),
-/// except during the Emperor contract where any free colonist may leave with him
-/// (Imperial Court endgame).
+/// non-ex DirectRelations of active regen clients (and the clients themselves).
+/// During the Emperor contract any number of colonists may leave, but only while the
+/// Imperial shuttle is open to them — the Emperor alive and aboard (or sealed in a
+/// powered-off casket) and the rest of the party finished.
 [HarmonyPatch(typeof(CompShuttle), nameof(CompShuttle.IsAllowed))]
 internal static class Patch_CompShuttle_IsAllowed
 {
