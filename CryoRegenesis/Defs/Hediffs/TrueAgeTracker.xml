@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+    <HediffDef>
+        <defName>TrueAgeTracker</defName>
+        <hediffClass>BetterRimworlds.CryoRegenesis.TrueAgeTracker</hediffClass>
+        <label>true age tracker</label>
+        <description>Hidden CryoRegenesis bookkeeping for tracking a pawn's true lived age.</description>
+        <displayWound>false</displayWound>
+        <isBad>false</isBad>
+        <lethalSeverity>-1</lethalSeverity>
+        <makesSickThought>false</makesSickThought>
+    </HediffDef>
+</Defs>

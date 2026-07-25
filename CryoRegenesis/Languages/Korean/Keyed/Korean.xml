@@ -20,4 +20,7 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>몇 년 젊어진 기분이다.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
 
     <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>실제 나이</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
+    <BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>사용 가능한 크라이오레제네시스 관이 없음</BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>
+    <CarryToCryoRegenesisCasket>크라이오레제네시스 관으로 옮기기</CarryToCryoRegenesisCasket>
+    <NoReachableCryoRegenesis>도달 가능한 크라이오레제네시스 관이 없음</NoReachableCryoRegenesis>
 </LanguageData>

@@ -1,3 +1,4 @@
+// ==== Source/RegenesisCycle.cs ====
 /*
  * This file is part of CryoRegenesis, a Better Rimworlds Project.
  *
@@ -127,9 +128,20 @@ public class RegenesisCycle
 
         Hediff hediff = this.hediffsToHeal[0];
         string hediffName = hediff.def.label;
+        BodyPartRecord inferiorProstheticPart = GetInferiorAddedPart(pawn, hediff.Part);
+        if (inferiorProstheticPart != null && !CryoRegenesis.Settings.healSimpleProsthetics)
+        {
+            this.DetermineCurableInjuries(pawn);
+            return false;
+        }
 
+        // Always remove only this hediff. RestorePart() would recursively clear the
+        // whole limb tree (hand, fingers, etc.) in one tick. Inferior prosthetics
+        // leave MissingBodyPart hediffs on their children when installed; those are
+        // healed one-by-one on later cycles after the prosthetic is removed.
         refuelable.ConsumeFuel(Math.Max(refuelable.FuelPercentOfMax * 0.10f, 10));
         pawn.health.RemoveHediff(hediff);
+
         this.hediffsToHeal.RemoveAt(0);
 
         this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
@@ -146,6 +158,22 @@ public class RegenesisCycle
         // Re-scan because removing one hediff can expose new curable injuries.
         this.DetermineCurableInjuries(pawn);
         return true;
+    }
+
+    private static BodyPartRecord GetInferiorAddedPart(Pawn pawn, BodyPartRecord bodyPart)
+    {
+        for (BodyPartRecord currentPart = bodyPart; currentPart != null; currentPart = currentPart.parent)
+        {
+            Hediff addedPart = pawn.health.hediffSet.hediffs.FirstOrDefault(
+                h => h.Part == currentPart
+                     && IsInferiorAddedPart(h));
+            if (addedPart != null)
+            {
+                return currentPart;
+            }
+        }
+
+        return null;
     }
 
     public bool ShouldEjectAfterHealing(Pawn pawn)
@@ -180,34 +208,14 @@ public class RegenesisCycle
         return this.hediffsToHeal.Count - this.AgeHediffs();
     }
 
-    public static bool HasBionicParent(Pawn pawn, BodyPartRecord bodyPart)
+    public static bool HasBetterThanNaturalParent(Pawn pawn, BodyPartRecord bodyPart)
     {
-        List<BodyPartRecord> allParents = new List<BodyPartRecord>();
-
-        if (bodyPart.IsCorePart)
+        for (BodyPartRecord currentPart = bodyPart.parent; currentPart != null; currentPart = currentPart.parent)
         {
-            return false;
-        }
-
-        BodyPartRecord recursiveBodyPart = bodyPart.parent;
-        while (!recursiveBodyPart.IsCorePart)
-        {
-            allParents.Add(recursiveBodyPart);
-            recursiveBodyPart = recursiveBodyPart.parent;
-        }
-
-        if (allParents.NullOrEmpty())
-        {
-            return false;
-        }
-
-        foreach (BodyPartRecord currentParent in allParents)
-        {
-            IEnumerable<Hediff> matchingHediffs = pawn.health.hediffSet.hediffs.Where(
-                h => h.Part == currentParent
-                     && h.def.countsAsAddedPartOrImplant
-                     && (h.def.label.Contains("bionic") || h.def.label.Contains("archotech")));
-            if (!matchingHediffs.EnumerableNullOrEmpty())
+            if (pawn.health.hediffSet.hediffs.Any(
+                    h => h.Part == currentPart
+                         && h.def.countsAsAddedPartOrImplant
+                         && h.def.addedPartProps?.betterThanNatural == true))
             {
                 return true;
             }
@@ -225,6 +233,7 @@ public class RegenesisCycle
             "luciferium",
             "penoxycyline",
             "cryptosleep sickness",
+            "CryoRegenesis sedation",
         };
         this.hediffsToHeal = new List<Hediff>();
 
@@ -236,6 +245,23 @@ public class RegenesisCycle
         foreach (Hediff hediff in pawn.health.hediffSet.GetHediffs<Hediff>().ToList())
         #endif
         {
+            BodyPartRecord inferiorProstheticPart = GetInferiorAddedPart(pawn, hediff.Part);
+            if (inferiorProstheticPart != null)
+            {
+                if (!CryoRegenesis.Settings.healSimpleProsthetics)
+                {
+                    continue;
+                }
+
+                // Only the prosthetic itself is eligible this scan. Child missing
+                // parts under it stay until the prosthetic is gone; otherwise a
+                // single heal would wipe or race the whole limb tree.
+                if (!IsInferiorAddedPart(hediff) || hediff.Part != inferiorProstheticPart)
+                {
+                    continue;
+                }
+            }
+
             if (hediffsToIgnore.Contains(hediff.def.label))
             {
                 continue;
@@ -266,17 +292,20 @@ public class RegenesisCycle
                 continue;
             }
 
-            if (hediff.def.label.Contains("bionic") || hediff.def.label.Contains("archotech"))
+            bool repairableProsthetic =
+                CryoRegenesis.Settings.healSimpleProsthetics && IsInferiorAddedPart(hediff);
+            if (hediff.def.addedPartProps?.betterThanNatural == true)
             {
                 continue;
             }
 
-            if (hediff.def.label == "missing body part" && HasBionicParent(pawn, hediff.Part))
+            if (hediff.def.label == "missing body part" && HasBetterThanNaturalParent(pawn, hediff.Part))
             {
                 continue;
             }
 
-            if (!CryoRegenesis.Settings.healNotBad && !hediff.def.isBad)
+            // Skip non-bad hediffs like the GateTraveler implant.
+            if (!hediff.def.isBad && !repairableProsthetic)
             {
                 continue;
             }
@@ -291,10 +320,17 @@ public class RegenesisCycle
         return this.hediffsToHeal.Count;
     }
 
+    private static bool IsInferiorAddedPart(Hediff hediff)
+    {
+        return hediff is Hediff_AddedPart
+               && hediff.def.countsAsAddedPartOrImplant
+               && hediff.def.addedPartProps != null
+               && !hediff.def.addedPartProps.betterThanNatural;
+    }
+
     private int CalculateHealingTime(Pawn pawn)
     {
         int pawnAge = (int)(pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear);
-
         if (pawnAge <= (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25))
         {
             return GenDate.TicksPerYear / this.rnd.Next(1, 4);
@@ -321,7 +357,30 @@ public class RegenesisCycle
 
     private void ConfigureTargetAge(Pawn pawn)
     {
-        if (pawn.def.defName == "Human")
+        if (CryoRegenesis.Settings.debugMode)
+        {
+            Log.Message("Pawn name: " + pawn.def.defName);
+            Log.Message("Race label: " + pawn.def.label); // human-readable race name
+            Log.Message("Humanlike: " + pawn.RaceProps.Humanlike);
+            Log.Message("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
+            #if !RIMWORLD12 && !RIMWORLD13
+            Log.Message("Xenotype: " + (pawn.genes?.Xenotype?.defName ?? "none"));
+            #endif
+            Log.Message("Kind: " + pawn.kindDef?.defName); // e.g. Empire_Fighter, Refugee
+            Log.Message("Faction: " + (pawn.Faction?.Name ?? "none"));
+        }
+
+        // All humanlikes — baseline humans, xenotypes, and modded humanlike
+        // races alike — honor the user's configured target age. Only true
+        // animals fall back to a fraction of their species lifespan.
+        //
+        // Previously this gated on `pawn.def.defName == "Human"`, which
+        // silently routed every non-"Human" humanlike (Empire pawns, modded
+        // races, some xenotype defs) into lifespan-based targeting. For a
+        // long-lived race, 0.25 * lifeExpectancy could exceed the pawn's
+        // current age, making IsTargetAge() true on the first tick and
+        // ejecting them instantly with no regression.
+        if (pawn.RaceProps.Humanlike)
         {
             this.targetAge = CryoRegenesis.Settings.targetAge;
         }
@@ -330,8 +389,11 @@ public class RegenesisCycle
             this.targetAge = (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25);
         }
 
-        Log.Message("Pawn name: " + pawn.def.defName);
-        Log.Message("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
-        Log.Message("Target age: " + this.targetAge);
+        if (CryoRegenesis.Settings.debugMode)
+        {
+            Log.Message("Pawn name: " + pawn.def.defName);
+            Log.Message("Life expectancy: " + pawn.RaceProps.lifeExpectancy);
+            Log.Message("Target age: " + this.targetAge);
+        }
     }
 }

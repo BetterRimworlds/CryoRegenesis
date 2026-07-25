@@ -19,4 +19,9 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>I feel a few years younger.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
 
     <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>True Age</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
+
+    <BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>No available CryoRegenesis casket.</BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>
+
+    <CarryToCryoRegenesisCasket>Carry to CryoRegenesis casket</CarryToCryoRegenesisCasket>
+    <NoReachableCryoRegenesis>No available CryoRegenesis casket</NoReachableCryoRegenesis>
 </LanguageData>

@@ -8,6 +8,40 @@
  *   https://github.com/BetterRimworlds/CryoRegenesis
  *
  * This file is licensed under the MIT License.
+ *
+ * =============================================================================
+ * HARMONY PATCH LOADING — DO NOT REGRESS
+ * =============================================================================
+ *
+ * Problem (RimWorld 1.2, 2026-07):
+ *   "Carry to CryoRegenesis casket" never appeared for unconscious / Downed
+ *   prisoners. Eligibility and float-menu code looked correct; the real failure
+ *   was that *no* Harmony patches in this assembly applied at all.
+ *
+ * Root cause:
+ *   Mod construction used a single `harmony.PatchAll(Assembly)`. One unrelated
+ *   patch (Patch_DoRecruit_RegenContract) resolved TargetMethod() against the
+ *   *1.3+* InteractionWorker_RecruitAttempt.DoRecruit signature. On 1.2 that
+ *   method still takes `float recruitChance`, so AccessTools returned null,
+ *   PatchAll threw, and the catch block only logged:
+ *     "Failed to load harmony patches: ..."
+ *   Every other patch — including FloatMenuMakerMap.AddHumanlikeOrders for the
+ *   carry option — died with it. Symptom looked like a carry-eligibility bug.
+ *
+ * How not to repeat this:
+ *   1. Never rely on one PatchAll for the whole assembly when any TargetMethod
+ *      is version-sensitive. Apply each [HarmonyPatch] type with
+ *      CreateClassProcessor(type).Patch() inside its own try/catch (see ctor).
+ *   2. When resolving vanilla methods by signature, probe *every* supported
+ *      RimWorld version (1.2 often differs). Prefer ordered AccessTools.Method
+ *      fallbacks; never assume 1.3+ is the only shape.
+ *   3. If a float-menu / job feature "does nothing" on one game version only,
+ *      check the player log first for Harmony load failures before rewriting
+ *      gameplay conditions (Downed, Moving %, beds, etc.).
+ *   4. After changing any TargetMethod / patch attribute, boot *each* target
+ *      version (or at least 1.2 and latest) and confirm no
+ *      "[CryoRegenesis] Harmony patch failed" lines at startup.
+ * =============================================================================
  */
 
 using RimWorld;
@@ -28,13 +62,21 @@ public class CryoRegenesis: Mod
         Settings = GetSettings<Settings>() ?? new Settings();
 
         var harmony = new Harmony("FrontierDevelopments.DeadCryptosleep");
-        try
+
+        foreach (Type type in Assembly.GetExecutingAssembly().GetTypes())
         {
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Failed to load harmony patches: {e.Message}\n{e.StackTrace}");
+            try
+            {
+                if (!type.IsDefined(typeof(HarmonyPatch), inherit: true))
+                    continue;
+
+                harmony.CreateClassProcessor(type).Patch();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(
+                    $"[CryoRegenesis] Harmony patch failed on {type.FullName}: {ex}");
+            }
         }
     }
 
@@ -270,6 +312,17 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
         Pawn pawn = ContainedThing as Pawn;
         pawn.health.AddHediff(cryosickness);
 
+        // True Age ledger must update before body-positivity thoughts, which
+        // read lifetime years erased from the tracker.
+        int sessionYearsRemoved = 0;
+        if (pawn.ageTracker != null)
+        {
+            int currentAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
+            sessionYearsRemoved = this.regenesisCycle.OriginalAge - currentAge;
+        }
+
+        this.ApplyTrueAgeOnEject(pawn);
+
         if ((pawn.IsPrisoner == true || pawn.IsColonist) && pawn.NonHumanlikeOrWildMan() == false)
         {
             // Remove negative and now-irrelevant thoughts:
@@ -291,10 +344,8 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
             cosmetics.PossiblyChangeHairColor(pawn);
 
-            // Give them a positive thought.
-            int currentAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
-
-            RegenesisThoughts.AddBodyPositivityThought(pawn, this.regenesisCycle.OriginalAge, currentAge);
+            // Stackable regen mood; stage/duration from lifetime True Age removed.
+            RegenesisThoughts.AddBodyPositivityThought(pawn, sessionYearsRemoved);
         }
 
         pawn.needs.rest.SetInitialLevel();
@@ -305,7 +356,6 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             power.PowerOutput = 0;
         }
 
-        this.ApplyTrueAgeOnEject(pawn);
         base.EjectContents();
 
         this.ResetTrueAgeTracking();
@@ -439,5 +489,19 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             }
         }
         else return base.GetInspectString();
+    }
+}
+
+
+[DefOf]
+public static class CryoRegenesisDefOf
+{
+    public static HediffDef CryoRegenesisSedation;
+    public static JobDef CR_CarryToCryoRegenesis;
+    public static RecipeDef CR_AdministerCryoRegenesisSedation;
+
+    static CryoRegenesisDefOf()
+    {
+        DefOfHelper.EnsureInitializedInCtor(typeof(CryoRegenesisDefOf));
     }
 }

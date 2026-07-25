@@ -20,4 +20,7 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>أشعر بأنني أصغر ببضع سنوات.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
 
     <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>العمر الحقيقي</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
+    <BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>لا يوجد تابوت كريو ريجينيسيس متاح.</BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>
+    <CarryToCryoRegenesisCasket>احمل إلى تابوت كريو ريجينيسيس</CarryToCryoRegenesisCasket>
+    <NoReachableCryoRegenesis>لا يوجد تابوت كريو ريجينيسيس يمكن الوصول إليه</NoReachableCryoRegenesis>
 </LanguageData>

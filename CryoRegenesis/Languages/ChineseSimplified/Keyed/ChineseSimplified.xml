@@ -20,4 +20,7 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>我感觉年轻了几岁。</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
 
     <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>真实年龄</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
+    <BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>没有可用的 CryoRegenesis 冷冻舱。</BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>
+    <CarryToCryoRegenesisCasket>搬到 CryoRegenesis 冷冻舱</CarryToCryoRegenesisCasket>
+    <NoReachableCryoRegenesis>没有可到达的 CryoRegenesis 冷冻舱</NoReachableCryoRegenesis>
 </LanguageData>

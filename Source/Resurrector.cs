@@ -36,9 +36,7 @@ public class Resurrector
     private Action onRejected;
     private Action<Pawn> onResurrected;
 
-    /// <summary>
     /// Wire up building components and ejection callbacks. Must be called from SpawnSetup.
-    /// </summary>
     public void Initialize(
         CompRefuelable refuelable,
         CompProperties_Refuelable fuelprops,
@@ -62,17 +60,15 @@ public class Resurrector
         ResurrectionProgress = 0f;
     }
 
-    /// <summary>Full reset when a new corpse is accepted.</summary>
+    /// Full reset when a new corpse is accepted.
     public void ResetForNewCorpse()
     {
         ResurrectionProgress = 0f;
         ResurrectionFuelReqs = new int[3] { REQ_URANIUM, REQ_GOLD, REQ_LUCIFERIUM };
     }
 
-    /// <summary>
     /// Drive the resurrection state machine for one tick cycle.
     /// Calls onRejected or onResurrected when the state resolves.
-    /// </summary>
     public void Process(Corpse corpse)
     {
         // Make sure that they have a brain. Everything else is optional.

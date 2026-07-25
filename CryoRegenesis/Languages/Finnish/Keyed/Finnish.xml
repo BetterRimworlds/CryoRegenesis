@@ -20,4 +20,7 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Tunnen oloni muutaman vuoden nuoremmaksi.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
 
     <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>Todellinen ikä</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
+    <BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>Ei saatavilla olevaa CryoRegenesis-arkkua</BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>
+    <CarryToCryoRegenesisCasket>Kannetaan CryoRegenesis-arkkuun</CarryToCryoRegenesisCasket>
+    <NoReachableCryoRegenesis>Ei saavutettavaa CryoRegenesis-arkkua</NoReachableCryoRegenesis>
 </LanguageData>

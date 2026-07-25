@@ -20,4 +20,7 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>数年若くなった気分だ。</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
 
     <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>実年齢</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
+    <BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>利用可能なCryoRegenesisカスケットがない</BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>
+    <CarryToCryoRegenesisCasket>CryoRegenesisカスケットへ運ぶ</CarryToCryoRegenesisCasket>
+    <NoReachableCryoRegenesis>到達可能なCryoRegenesisカスケットがない</NoReachableCryoRegenesis>
 </LanguageData>

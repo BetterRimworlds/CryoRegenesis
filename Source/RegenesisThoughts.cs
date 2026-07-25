@@ -10,7 +10,9 @@
  * This file is licensed under the MIT License.
  */
 
+using System;
 using RimWorld;
+using UnityEngine;
 using Verse;
 // ReSharper disable All
 
@@ -18,30 +20,80 @@ namespace BetterRimworlds.CryoRegenesis;
 
 public static class RegenesisThoughts
 {
-    public static void AddBodyPositivityThought(Pawn pawn, int origAge, int newAge)
+    private const int YearsPerStack = 15;
+
+    /// <summary>
+    /// Grant stackable body-positivity memories after a CryoRegenesis eject that
+    /// actually de-aged the pawn. Stage, description years, and duration use
+    /// lifetime years erased from the True Age tracker (must be updated first).
+    /// Stack count scales with how many years this session removed.
+    /// </summary>
+    /// <param name="sessionYearsRemoved">Whole years of bio-age removed this eject (gate + multi-stack).</param>
+    public static void AddBodyPositivityThought(Pawn pawn, int sessionYearsRemoved)
     {
-        int yearsRegressed = origAge - newAge;
-        if (yearsRegressed <= 0) return;
+        if (pawn?.needs?.mood?.thoughts?.memories == null)
+        {
+            return;
+        }
 
-        // Get the def
-        var thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_BodyPositivity");
+        if (sessionYearsRemoved <= 0)
+        {
+            return;
+        }
 
-        // Create the thought instance manually so we can initialize it
-        var thought = ThoughtMaker.MakeThought(thoughtDef) as Thought_RegenesisBodyPositivity;
-        if (thought == null) return;
+        TrueAgeTracker tracker = pawn.health?.hediffSet?
+            .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+        if (tracker == null)
+        {
+            return;
+        }
 
-        // Set the years BEFORE adding it to the pawn
-        thought.SetYearsReversed(yearsRegressed);
+        int totalYearsErased = Mathf.RoundToInt(tracker.GetCryoRegenesisRemovedAgeYears());
+        if (totalYearsErased <= 0)
+        {
+            return;
+        }
 
-        // Add the initialized thought instance (not the def)
-        pawn.needs.mood?.thoughts.memories.TryGainMemory(thought);
+        ThoughtDef thoughtDef = DefDatabase<ThoughtDef>.GetNamed("CryoRegenesis_BodyPositivity");
+        if (thoughtDef == null)
+        {
+            return;
+        }
+
+        int stacksToAdd = Math.Max(1, (int)Math.Ceiling(sessionYearsRemoved / (double)YearsPerStack));
+        if (thoughtDef.stackLimit > 0)
+        {
+            stacksToAdd = Math.Min(stacksToAdd, thoughtDef.stackLimit);
+        }
+
+        Thought_RegenesisBodyPositivity lastThought = null;
+        for (int i = 0; i < stacksToAdd; i++)
+        {
+            // Set years before Init so CalculateDuration sees the True Age total.
+            var thought = (Thought_RegenesisBodyPositivity)Activator.CreateInstance(thoughtDef.thoughtClass);
+            thought.def = thoughtDef;
+            thought.SetYearsReversed(totalYearsErased);
+            thought.Init();
+
+            pawn.needs.mood.thoughts.memories.TryGainMemory(thought);
+            lastThought = thought;
+        }
 
         if (CryoRegenesis.Settings.debugMode)
-            Log.Warning($"Old age {origAge} | New age: {newAge} | Years reversed: {yearsRegressed} | Stage: {thought.CurStageIndex}");
+        {
+            Log.Warning(
+                $"Body positivity: session {sessionYearsRemoved}y | lifetime erased {totalYearsErased}y | " +
+                $"stacks +{stacksToAdd} | stage {lastThought?.CurStageIndex}");
+        }
+
+        if (lastThought == null)
+        {
+            return;
+        }
 
         // Use the thought's actual stage for the prisoner check
         #if !RIMWORLD12 && !RIMWORLD13
-        if (thought.CurStageIndex >= 2)
+        if (lastThought.CurStageIndex >= 2)
         {
             if (pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
             {

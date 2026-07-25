@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <HediffDef>
+    <defName>CryoRegenesisSedation</defName>
+    <label>CryoRegenesis sedation</label>
+    <description>
+      A short-acting neuromuscular suppression state used to safely prepare a pawn for CryoRegenesis casket insertion.
+    </description>
+
+    <hediffClass>HediffWithComps</hediffClass>
+    <initialSeverity>1.0</initialSeverity>
+    <isBad>true</isBad>
+
+    <stages>
+      <li>
+        <label>sedated</label>
+        <capMods>
+          <li>
+            <capacity>Moving</capacity>
+            <!-- Force zero movement even when bionic/archotech parts add capacity. -->
+            <offset>-10.0</offset>
+          </li>
+        </capMods>
+      </li>
+    </stages>
+
+    <comps>
+      <li Class="HediffCompProperties_Disappears">
+        <disappearsAfterTicks>4000</disappearsAfterTicks>
+        <showRemainingTime>true</showRemainingTime>
+      </li>
+    </comps>
+  </HediffDef>
+
+</Defs>

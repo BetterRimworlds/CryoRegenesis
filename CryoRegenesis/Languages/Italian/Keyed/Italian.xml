@@ -20,4 +20,7 @@
     <BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>Mi sento qualche anno più giovane.</BetterRimworlds.CryoRegenesis.BodyPositivity.Desc.Some>
 
     <BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>Età reale</BetterRimworlds.CryoRegenesis.CharacterCard.TrueAge>
+    <BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>Nessun sarcofago CryoRegenesis disponibile</BetterRimworlds.CryoRegenesis.Sedation.NoAvailableCasket>
+    <CarryToCryoRegenesisCasket>Porta al sarcofago di CryoRegenesis</CarryToCryoRegenesisCasket>
+    <NoReachableCryoRegenesis>Nessun sarcofago CryoRegenesis raggiungibile</NoReachableCryoRegenesis>
 </LanguageData>
