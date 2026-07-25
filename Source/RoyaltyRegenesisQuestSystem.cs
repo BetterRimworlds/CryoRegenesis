@@ -123,6 +123,9 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     private Pawn emperorCourtHonoree;
     private string emperorCourtHonoreeLabel = string.Empty;
 
+    /// Planetkiller duration after the Emperor is murdered under contract (2 days).
+    private const int EmperorDeathPlanetkillerTicks = 60_000 * 2;
+
     /// Last logged state of the Imperial shuttle's colonist door (log-only, not saved).
     private bool? emperorColonistBoardingOpen;
 
@@ -1350,7 +1353,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.UpdateClientsArrivedFlag();
 
         // Death always hard-resets trust (before shuttle-leave accounting, which may
-        // destroy boarding passengers).
+        // destroy boarding passengers) — except Emperor murder, which arms a Planetkiller.
         if (this.activeClients.Any(client => client.pawn != null && client.pawn.Dead))
         {
             RoyaltyRegenesisClient deadClient = this.activeClients
@@ -1358,6 +1361,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             Pawn dead = deadClient.pawn;
             Faction sender = this.activeClients.FirstOrDefault()?.sourceFaction
                 ?? deadClient.sourceFaction;
+
+            if (this.activeContractStage == RoyaltyRegenesisStage.EmperorArrival
+                && deadClient?.pawn == this.emperor)
+            {
+                this.HandleEmperorDeathEndgame(dead, sender);
+                return;
+            }
 
             List<Pawn> survivors = this.activeClients
                 .Where(client => client.pawn != null && !client.pawn.Dead)
@@ -2847,6 +2857,155 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             + "The Empire recognizes a new Emperor among your Counts.",
             LetterDefOf.PositiveEvent,
             emperorPawn != null ? new LookTargets(emperorPawn) : null);
+    }
+
+    /// Branch 2: the Emperor died under contract — survivors evacuate immediately and a
+    /// Planetkiller is armed for two days. Trust is destroyed.
+    private void HandleEmperorDeathEndgame(Pawn emperor, Faction empire)
+    {
+        if (this.emperorColonistEndgameTriggered)
+        {
+            return;
+        }
+
+        this.emperorColonistEndgameTriggered = true;
+        this.LogRoyaltyDebug(
+            "Emperor death endgame: " + (emperor?.Name?.ToStringShort ?? "?")
+            + " — arming Planetkiller and evacuating survivors.");
+
+        List<Pawn> survivors = this.activeClients
+            .Where(c => c?.pawn != null && !c.pawn.Dead && !c.pawn.Destroyed)
+            .Select(c => c.pawn)
+            .Concat(this.contractEscorts.Where(p => p != null && !p.Dead && !p.Destroyed))
+            .Distinct()
+            .ToList();
+
+        Map map = survivors.FirstOrDefault(p => p.MapHeld != null)?.MapHeld
+            ?? this.GetTargetMap()
+            ?? emperor?.MapHeld;
+
+        if (map != null && survivors.Any())
+        {
+            // Eject anyone still in caskets and force an immediate imperial evacuation.
+            this.ForceImmediateImperialEvacuation(map, survivors, empire ?? this.EmpireFaction());
+        }
+
+        this.SchedulePlanetkiller(EmperorDeathPlanetkillerTicks);
+
+        string emperorName = emperor?.Name?.ToStringShort ?? "The Emperor";
+        this.MajorTrustReset(
+            emperorName + " has been killed under a CryoRegenesis contract. "
+            + "The Imperial party flees at once. The Empire's answer is final: "
+            + "a Planetkiller has been armed — this world ends in two days.\n\n"
+            + "Trust is shattered. The Imperial Rejuvenation chain restarts from the beginning.",
+            empire ?? this.EmpireFaction(),
+            "Emperor killed under contract");
+    }
+
+    /// Board surviving contract guests and force the pickup to leave as soon as possible.
+    private void ForceImmediateImperialEvacuation(Map map, List<Pawn> survivors, Faction faction)
+    {
+        if (map == null || survivors == null || !survivors.Any())
+        {
+            return;
+        }
+
+        List<Pawn> living = survivors
+            .Where(p => p != null && !p.Destroyed && !p.Dead)
+            .Distinct()
+            .ToList();
+        if (!living.Any())
+        {
+            return;
+        }
+
+        this.EjectClientsFromCaskets(map, living);
+
+        // Spawn / reuse a short-stay pickup and require every survivor.
+        if (!this.pickupShuttleSpawned || this.GetUsableContractShuttle(map) == null)
+        {
+            this.SpawnPickupShuttle(map, living, faction, longStay: false);
+        }
+
+        Thing shuttle = this.GetUsableContractShuttle(map) ?? this.GetContractShuttleThing();
+        CompShuttle comp = shuttle?.TryGetComp<CompShuttle>();
+        CompTransporter transporter = shuttle?.TryGetComp<CompTransporter>();
+        if (comp != null)
+        {
+            comp.requiredPawns.Clear();
+            comp.requiredPawns.AddRange(living);
+            this.ConfigureContractShuttleEmbarkRules(comp);
+#if RIMWORLD12
+            comp.leaveImmediatelyWhenSatisfied = true;
+            comp.leaveAfterTicks = GenDate.TicksPerHour;
+#endif
+        }
+
+#if !RIMWORLD12
+        if (this.contractTransportShip != null
+            && this.contractTransportShip.curJob is ShipJob_Wait waitJob)
+        {
+            waitJob.leaveImmediatelyWhenSatisfied = true;
+            waitJob.showGizmos = true;
+        }
+#endif
+
+        // Stuff survivors into the ship immediately so leave-when-satisfied can fire.
+        if (transporter != null)
+        {
+            foreach (Pawn pawn in living)
+            {
+                if (transporter.innerContainer.Contains(pawn))
+                {
+                    continue;
+                }
+
+                if (pawn.Spawned)
+                {
+                    pawn.DeSpawn();
+                }
+
+                if (!pawn.Destroyed && !transporter.innerContainer.Contains(pawn))
+                {
+                    transporter.innerContainer.TryAddOrTransfer(pawn, false);
+                }
+            }
+        }
+
+        this.TryPromoteParkedShuttleToLeaveWhenReady();
+        this.LogRoyaltyDebug(
+            "Forced immediate imperial evacuation for " + living.Count + " survivor(s).");
+    }
+
+    private void SchedulePlanetkiller(int durationTicks)
+    {
+        GameConditionDef planetKillerDef = DefDatabase<GameConditionDef>.GetNamedSilentFail("Planetkiller");
+        if (planetKillerDef == null)
+        {
+            Log.Warning("[CryoRegenesis] Planetkiller GameConditionDef not found.");
+            return;
+        }
+
+        // Avoid stacking multiple Planetkillers if one is already running.
+        if (Find.World?.GameConditionManager != null
+            && Find.World.GameConditionManager.ConditionIsActive(planetKillerDef))
+        {
+            this.LogRoyaltyDebug("Planetkiller already active — not re-registering.");
+            return;
+        }
+
+        GameCondition planetKillerCondition = GameConditionMaker.MakeCondition(
+            planetKillerDef,
+            durationTicks);
+        Find.World.GameConditionManager.RegisterCondition(planetKillerCondition);
+        this.LogRoyaltyDebug("Planetkiller registered for " + durationTicks + " ticks.");
+
+        Find.LetterStack.ReceiveLetter(
+            "Planetkiller armed",
+            "Imperial retaliation has armed a Planetkiller. This world will be destroyed in "
+            + (durationTicks / (float)GenDate.TicksPerDay).ToString("0.#")
+            + " day(s). Evacuate if you can.",
+            LetterDefOf.ThreatBig);
     }
 
     /// Branch 3: free colonists left on the Emperor pickup *with* the Emperor → Imperial Court.
