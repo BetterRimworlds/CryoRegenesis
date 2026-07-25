@@ -110,8 +110,32 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// container contents) can still fire the Imperial Court endgame.
     private List<string> emperorShuttleColonistEscapeeLabels = new List<string>();
 
-    /// True once the Imperial Court endgame countdown has been started for this run.
+    /// True once any Emperor-stage victory/defeat endgame has been started for this run.
     private bool emperorColonistEndgameTriggered;
+
+    /// Best Count/Countess candidate snapshotted while the Emperor pickup is parked
+    /// (may leave on the shuttle — keep label for credits even if the pawn is destroyed).
+    private Pawn emperorUsurpationCountCandidate;
+    private string emperorUsurpationCountLabel = string.Empty;
+
+    /// Colonist elevated to Special Consul when the party leaves with the Emperor: the
+    /// highest-ranked passenger, and among equal ranks the one holding the most Honor.
+    private Pawn emperorCourtHonoree;
+    private string emperorCourtHonoreeLabel = string.Empty;
+
+    /// Planetkiller duration after the Emperor is murdered under contract (2 days).
+    private const int EmperorDeathPlanetkillerTicks = 60_000 * 2;
+
+    /// Last logged state of the Imperial shuttle's colonist door (log-only, not saved).
+    private bool? emperorColonistBoardingOpen;
+
+    /// True once this pickup has told the player which archons must board.
+    private bool emperorNobleRequirementAnnounced;
+
+    private Pawn emperor;
+
+    /// The number of the Emperor's wives.
+    private int wifeCount = 0;
 
     public RoyaltyRegenesisQuestSystem(Game game)
     {
@@ -158,8 +182,9 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     /// Whether a pawn may board a regen pickup shuttle under colony control.
     /// Active contract clients always may. Free colonists may board when they have a
-    /// non-ex DirectRelation to a client — or freely during the Emperor contract, where
-    /// departing with the Emperor can trigger the Imperial Court endgame.
+    /// non-ex DirectRelation to a client — or, during the Emperor contract, when the
+    /// Imperial shuttle is open to colonists (see
+    /// <see cref="MayColonistsBoardImperialShuttle"/>).
     public static bool MayBoardRegenPickupShuttle(Pawn pawn)
     {
         if (pawn == null || pawn.Destroyed || pawn.Dead)
@@ -178,10 +203,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return false;
         }
 
-        // Emperor pickup: any free colony colonist may leave with the Emperor.
+        // Emperor pickup: free colony colonists may leave with the Imperial shuttle, but only
+        // while the Emperor is secured and the rest of the party is done. This is the only rule
+        // for colonists during the Emperor stage — relatives of a client get no side door.
         if (system.IsEmperorRegenContractActive() && system.IsFreeColonyColonistForEmperorEndgame(pawn))
         {
-            return true;
+            return system.MayColonistsBoardImperialShuttle(out _);
         }
 
         IEnumerable<Pawn> clients = system.activeClients
@@ -231,6 +258,122 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         // Free colonists only — prisoners / slaves do not count as choosing to leave.
         return pawn.IsFreeColonist;
+    }
+
+    /// Whether the Emperor's Imperial shuttle is currently open to free colony colonists.
+    /// Any number of them (none through all of them) may leave, but only while both
+    /// conditions hold:
+    ///   1. The Emperor is alive and either already inside the shuttle or sealed in a
+    ///      powered-off CryoRegenesis casket.
+    ///   2. Every other contracted guest is already offworld, or inside the shuttle after
+    ///      reaching their target age.
+    /// Checked live on every embark test, so the door opens the moment the last guest is
+    /// aboard and closes again if the Emperor is powered back up or a guest steps out.
+    /// Escorting Stellic guards are not contracted guests and do not hold the door shut.
+    public bool MayColonistsBoardImperialShuttle(out string blockReason)
+    {
+        blockReason = null;
+        if (!this.IsEmperorRegenContractActive())
+        {
+            blockReason = "the Emperor contract is not active";
+            return false;
+        }
+
+        Pawn emperorPawn = this.GetEmperorClient()?.pawn;
+        if (emperorPawn == null || emperorPawn.Dead || emperorPawn.Destroyed)
+        {
+            blockReason = "the Emperor is not alive";
+            return false;
+        }
+
+        if (!this.IsClientAboardContractShuttle(emperorPawn) && !this.IsEmperorInUnpoweredCryoCasket())
+        {
+            blockReason = emperorPawn.LabelShort
+                + " is neither aboard the shuttle nor sealed in a powered-off CryoRegenesis casket";
+            return false;
+        }
+
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            if (client == null || client?.pawn == this.emperor)
+            {
+                continue;
+            }
+
+            Pawn guest = client.pawn;
+            if (guest == null || guest.Destroyed)
+            {
+                // Left with an earlier wave — the shuttle destroys its cargo on leave.
+                continue;
+            }
+
+            if (guest.Dead)
+            {
+                blockReason = guest.LabelShort + " is dead";
+                return false;
+            }
+
+            if (this.IsClientAboardContractShuttle(guest))
+            {
+                if (!client.everReachedDesiredAge)
+                {
+                    blockReason = guest.LabelShort + " is aboard but has not reached their target age";
+                    return false;
+                }
+
+                continue;
+            }
+
+            // Already offworld: returned with an earlier wave, or otherwise no longer map-held.
+            if (this.WasSuccessfullyReturned(guest) || !this.IsClientAvailableOnMap(guest))
+            {
+                continue;
+            }
+
+            blockReason = guest.LabelShort + " is still on the map";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// Tells the player once per pickup which archons the Imperial shuttle will not leave
+    /// without, so a locked Send is never a mystery.
+    private void AnnounceImperialNobleRequirement(List<Pawn> nobles)
+    {
+        if (this.emperorNobleRequirementAnnounced || nobles == null || !nobles.Any())
+        {
+            return;
+        }
+
+        this.emperorNobleRequirementAnnounced = true;
+        string names = string.Join(", ", nobles.Select(p => p.LabelShort));
+        this.LogRoyaltyDebug("Imperial shuttle now requires colony archon(s): " + names + ".");
+
+        Find.LetterStack.ReceiveLetter(
+            "The throne must travel",
+            "The Emperor's fate is settled, and the Empire will not leave its own nobility on a "
+            + "rimworld. The Imperial shuttle will not launch until " + names + " "
+            + (nobles.Count == 1 ? "is" : "are") + " aboard.\n\n"
+            + "Whoever is not on that shuttle when it goes is left behind for good.",
+            LetterDefOf.NeutralEvent,
+            new LookTargets(nobles[0]));
+    }
+
+    /// Logs only when the Imperial shuttle opens or closes to colonists, so the reason a
+    /// colonist is turned away at the ramp is visible without a per-tick flood.
+    private void LogImperialShuttleBoardingChanges()
+    {
+        bool open = this.MayColonistsBoardImperialShuttle(out string blockReason);
+        if (this.emperorColonistBoardingOpen == open)
+        {
+            return;
+        }
+
+        this.emperorColonistBoardingOpen = open;
+        this.LogRoyaltyDebug(open
+            ? "Imperial shuttle is now open to colonists (Emperor secured, party done)."
+            : "Imperial shuttle is closed to colonists — " + blockReason + ".");
     }
 
     /// Called by a CryoRegenesis casket on the exact tick that a pawn reaches its target.
@@ -290,6 +433,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Collections.Look(ref this.returnedClientPawnIds, "crRoyalReturnedClientPawnIds", LookMode.Value);
         Scribe_Collections.Look(ref this.emperorShuttleColonistEscapeeLabels, "crRoyalEmperorShuttleColonistEscapees", LookMode.Value);
         Scribe_Values.Look(ref this.emperorColonistEndgameTriggered, "crRoyalEmperorColonistEndgameTriggered", false);
+        Scribe_Values.Look(ref this.emperorNobleRequirementAnnounced, "crRoyalEmperorNobleRequirementAnnounced", false);
+        Scribe_References.Look(ref this.emperor, "crRoyalEmperor");
+        Scribe_References.Look(ref this.emperorUsurpationCountCandidate, "crRoyalEmperorUsurpationCount");
+        Scribe_Values.Look(ref this.emperorUsurpationCountLabel, "crRoyalEmperorUsurpationCountLabel");
+        Scribe_References.Look(ref this.emperorCourtHonoree, "crRoyalEmperorCourtHonoree");
+        Scribe_Values.Look(ref this.emperorCourtHonoreeLabel, "crRoyalEmperorCourtHonoreeLabel");
 #if !RIMWORLD12
         Scribe_References.Look(ref this.contractTransportShip, "crRoyalContractTransportShip");
 #endif
@@ -322,10 +471,23 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                 this.emperorShuttleColonistEscapeeLabels = new List<string>();
             }
 
+            if (this.emperorUsurpationCountLabel == null)
+            {
+                this.emperorUsurpationCountLabel = string.Empty;
+            }
+
+            if (this.emperorCourtHonoreeLabel == null)
+            {
+                this.emperorCourtHonoreeLabel = string.Empty;
+            }
+
             if (this.lastTrustBreakReason == null)
             {
                 this.lastTrustBreakReason = string.Empty;
             }
+
+            // Older saves do not persist the Emperor cache. Resolve it once after loading.
+            this.CacheEmperorClient();
 
             if (this.activeClients.Any())
             {
@@ -354,6 +516,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         if (this.pickupShuttleSpawned && this.IsEmperorRegenContractActive())
         {
             this.RefreshEmperorShuttleColonistSnapshot();
+            this.LogImperialShuttleBoardingChanges();
         }
 
         if (Find.TickManager.TicksGame % CheckIntervalTicks != 0)
@@ -758,6 +921,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
+        this.emperor = party.emperor;
         this.contractEscorts.Clear();
         int contractDays = MinContractDays;
 
@@ -944,6 +1108,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.departureSuccessBanked = false;
         this.nextWavePickupTick = -1;
         this.clientsSuccessfullyReturned = 0;
+        this.emperorNobleRequirementAnnounced = false;
         this.returnedClientPawnIds.Clear();
         this.contractEscorts.Clear();
         // Keep escapee labels / endgame flag across Clear during finish so a late
@@ -1184,11 +1349,22 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.UpdateClientsArrivedFlag();
 
         // Death always hard-resets trust (before shuttle-leave accounting, which may
-        // destroy boarding passengers).
+        // destroy boarding passengers) — except Emperor murder, which arms a Planetkiller.
         if (this.activeClients.Any(client => client.pawn != null && client.pawn.Dead))
         {
-            Pawn dead = this.activeClients.First(client => client.pawn != null && client.pawn.Dead).pawn;
-            Faction sender = this.activeClients.FirstOrDefault()?.sourceFaction;
+            RoyaltyRegenesisClient deadClient = this.activeClients
+                .First(client => client.pawn != null && client.pawn.Dead);
+            Pawn dead = deadClient.pawn;
+            Faction sender = this.activeClients.FirstOrDefault()?.sourceFaction
+                ?? deadClient.sourceFaction;
+
+            if (this.activeContractStage == RoyaltyRegenesisStage.EmperorArrival
+                && deadClient?.pawn == this.emperor)
+            {
+                this.HandleEmperorDeathEndgame(dead, sender);
+                return;
+            }
+
             List<Pawn> survivors = this.activeClients
                 .Where(client => client.pawn != null && !client.pawn.Dead)
                 .Select(client => client.pawn)
@@ -1317,8 +1493,10 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         if (this.pickupShuttleSpawned)
         {
             // Long-stay pickup on the pad: only auto-leave when remaining clients are all ready
-            // or the deadline forces a last call.
-            if (allDone || deadlineReached)
+            // or the deadline forces a last call. The Emperor pickup is the exception — colonists
+            // may only board once he is aboard, so auto-leaving the instant he loads would slam
+            // the door on them. The player presses Send there; the deadline is still the backstop.
+            if (deadlineReached || (allDone && !this.IsEmperorRegenContractActive()))
             {
                 this.TryPromoteParkedShuttleToLeaveWhenReady();
             }
@@ -1459,10 +1637,6 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.RefreshClientAgeProgress();
         this.LogClientAgeSnapshot("shuttle left");
 
-        // Emperor pickup with any free colonist aboard → Imperial Court victory ending.
-        // Snapshot was taken while the ship was still loaded; do this before clearing state.
-        this.TryTriggerEmperorColonistEndgameFromSnapshot("shuttle left");
-
         List<RoyaltyRegenesisClient> remaining = new List<RoyaltyRegenesisClient>();
         List<RoyaltyRegenesisClient> departed = new List<RoyaltyRegenesisClient>();
 
@@ -1482,6 +1656,30 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             {
                 // Aboard the leaving shuttle, skyfaller, or other off-map transport.
                 departed.Add(client);
+            }
+        }
+
+        // Emperor-stage branched endings (before partial-wave bookkeeping can soft-continue).
+        if (this.activeContractStage == RoyaltyRegenesisStage.EmperorArrival
+            && !this.emperorColonistEndgameTriggered)
+        {
+            // Branch 1: sealed the living Emperor in an unpowered pod while the party fled.
+            if (this.TryTriggerYouKeepWhatYouKillEndgame(remaining, departed, "shuttle left"))
+            {
+                return;
+            }
+
+            // Branch 3: free colonists left *with* the Emperor (he must have departed too).
+            if (departed.Any(client => client?.pawn == this.emperor))
+            {
+                this.TryTriggerEmperorColonistEndgameFromSnapshot("shuttle left with Emperor");
+            }
+            else if (this.emperorShuttleColonistEscapeeLabels != null
+                     && this.emperorShuttleColonistEscapeeLabels.Any())
+            {
+                this.LogRoyaltyDebug(
+                    "Free colonists left without the Emperor and without unpowered-casket usurpation — "
+                    + "no Imperial Court victory.");
             }
         }
 
@@ -1811,6 +2009,17 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             required = this.GetMapHeldContractPawns().Concat(this.GetMapHeldEscorts()).Distinct().ToList();
         }
 
+        // Once the Emperor is regenerated or sealed away, every archon on this map must leave on
+        // the Imperial shuttle — as his guest or as his successor. They are ejected from caskets
+        // so they can actually board; nobody off this map is fetched.
+        List<Pawn> nobles = this.GetRequiredImperialNobleColonists(shuttle);
+        if (nobles.Any())
+        {
+            this.EjectClientsFromCaskets(shuttle.MapHeld ?? map, nobles);
+            required = required.Concat(nobles).Distinct().ToList();
+            this.AnnounceImperialNobleRequirement(nobles);
+        }
+
         // Drop stale/world/returned refs that would keep AllRequiredThingsLoaded false forever.
         HashSet<Pawn> requiredSet = new HashSet<Pawn>(required);
         bool changed = compShuttle.requiredPawns.Count != required.Count
@@ -1849,7 +2058,8 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             "Updated shuttle requiredPawns to " + required.Count
             + (ready.Any() && readyOnlyIfAnyReady
                 ? " ready-only (Send once these are aboard; all contract guests may embark)."
-                : " map-held (nobody ready yet)."));
+                : " map-held (nobody ready yet).")
+            + (nobles.Any() ? " Required archon(s): " + string.Join(", ", nobles.Select(p => p.LabelShort)) + "." : string.Empty));
     }
 
     /// Ready contract clients that should count toward the shuttle manifest: still on the
@@ -1876,6 +2086,17 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             }
 
             if (!client.everReachedDesiredAge)
+            {
+                continue;
+            }
+
+            // A living Emperor sealed in a powered-off casket is being left behind on purpose, so
+            // he must not sit on the manifest and lock Send. But only an archon can take a throne:
+            // with nobody eligible to usurp him he stays required, and the shuttle cannot leave
+            // without him.
+            if (client?.pawn == this.emperor
+                && this.IsEmperorInUnpoweredCryoCasket()
+                && this.GetImperialNobleColonists(shuttle).Any())
             {
                 continue;
             }
@@ -1995,7 +2216,75 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        this.CaptureFreeColonistsFromTransporter(shuttleComp.Transporter);
+        CompTransporter transporter = shuttleComp.Transporter;
+
+        // Boarding conditions can be undone after colonists board — the Emperor's casket
+        // powered back up, a guest carried back out. They must never fly off (and be destroyed
+        // with the cargo) without the ending they boarded for.
+        if (!this.MayColonistsBoardImperialShuttle(out string blockReason))
+        {
+            this.PutColonistsBackOnMapBeforeLaunch(transporter, blockReason);
+        }
+
+        this.CaptureFreeColonistsFromTransporter(transporter);
+        this.RefreshEmperorEndgameCandidates(transporter);
+    }
+
+    /// Unloads free colony colonists from the Imperial shuttle just before it launches when
+    /// the boarding conditions no longer hold. Contract guests and escorts still leave.
+    private void PutColonistsBackOnMapBeforeLaunch(CompTransporter transporter, string blockReason)
+    {
+        Thing shuttle = transporter?.parent;
+        if (transporter?.innerContainer == null || shuttle == null)
+        {
+            return;
+        }
+
+        Map map = shuttle.MapHeld ?? this.GetTargetMap();
+        if (map == null)
+        {
+            return;
+        }
+
+        List<Pawn> colonists = transporter.innerContainer
+            .OfType<Pawn>()
+            .Where(this.IsFreeColonyColonistForEmperorEndgame)
+            .ToList();
+        if (!colonists.Any())
+        {
+            return;
+        }
+
+        IntVec3 dropCell = shuttle.PositionHeld;
+        List<Pawn> unloaded = new List<Pawn>();
+        foreach (Pawn colonist in colonists)
+        {
+            if (transporter.innerContainer.TryDrop(
+                    colonist,
+                    dropCell,
+                    map,
+                    ThingPlaceMode.Near,
+                    out Thing _))
+            {
+                unloaded.Add(colonist);
+            }
+        }
+
+        if (!unloaded.Any())
+        {
+            return;
+        }
+
+        this.LogRoyaltyDebug(
+            "Unloaded " + unloaded.Count + " colonist(s) before Imperial shuttle launch — "
+            + blockReason + ": " + string.Join(", ", unloaded.Select(p => p.LabelShort)));
+
+        Find.LetterStack.ReceiveLetter(
+            "Turned away at the ramp",
+            "The Imperial shuttle refused to carry your colonists because " + blockReason
+            + ". They were put off the ship before it launched.",
+            LetterDefOf.NegativeEvent,
+            new LookTargets(unloaded[0]));
     }
 
     /// While the Emperor pickup is parked, record free colony colonists currently aboard.
@@ -2013,7 +2302,15 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        this.CaptureFreeColonistsFromTransporter(shuttle.TryGetComp<CompTransporter>());
+        CompTransporter transporter = shuttle.TryGetComp<CompTransporter>();
+        this.CaptureFreeColonistsFromTransporter(transporter);
+
+        // Picking the heir scans the map, so do it once a second rather than every tick.
+        // The launch prefix refreshes it again, which covers same-tick board-and-launch.
+        if (Find.TickManager.TicksGame % 60 == 0)
+        {
+            this.RefreshEmperorEndgameCandidates(transporter);
+        }
     }
 
     private void CaptureFreeColonistsFromTransporter(CompTransporter transporter)
@@ -2039,7 +2336,664 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         }
     }
 
-    /// If any free colonist left on the Emperor pickup, start the Imperial Court endgame.
+    /// Resolves the Emperor once and caches his pawn for all later identity checks.
+    private void CacheEmperorClient()
+    {
+        if (this.emperor != null || this.activeClients == null)
+        {
+            return;
+        }
+
+        RoyaltyRegenesisClient emperorClient = this.activeClients.FirstOrDefault(client =>
+            client != null
+            && (client.triggerRoyalAscent
+                || (!client.role.NullOrEmpty()
+                    && string.Equals(client.role, "emperor", StringComparison.OrdinalIgnoreCase))));
+
+        this.emperor = emperorClient?.pawn;
+    }
+
+    private RoyaltyRegenesisClient GetEmperorClient()
+    {
+        return this.emperor == null
+            ? null
+            : this.activeClients?.FirstOrDefault(client => client?.pawn == this.emperor);
+    }
+
+    private bool IsEmperorWifeClient(RoyaltyRegenesisClient client)
+    {
+        if (client?.role == null)
+        {
+            return false;
+        }
+
+        return client.role.IndexOf("wife", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    /// Living Emperor sealed in a flicked-off / unpowered CryoRegenesis pod (normal cryptosleep mode).
+    private bool IsEmperorInUnpoweredCryoCasket()
+    {
+        RoyaltyRegenesisClient emperor = this.GetEmperorClient();
+        Pawn pawn = emperor?.pawn;
+        if (pawn == null || pawn.Destroyed || pawn.Dead)
+        {
+            return false;
+        }
+
+        Building_CryoRegenesis casket = pawn.ParentHolder as Building_CryoRegenesis;
+        return casket != null && casket.IsUnpoweredCryptosleepMode;
+    }
+
+    /// True when the living Emperor is still map-reachable (spawned or in a casket).
+    private bool IsEmperorStillAvailableOnMap()
+    {
+        RoyaltyRegenesisClient emperor = this.GetEmperorClient();
+        return emperor?.pawn != null && this.IsClientAvailableOnMap(emperor.pawn);
+    }
+
+    /// The Empire's archon rank. The defName is "Count" in every supported version; only the
+    /// display label changed — "count"/"countess" before 1.6, "archon" from 1.6 on.
+    private static RoyalTitleDef ArchonTitleDef()
+    {
+        return DefDatabase<RoyalTitleDef>.GetNamedSilentFail("Count");
+    }
+
+    /// A colonist who could take the Imperial throne: one of our own free colonists holding at
+    /// least the archon rank. More senior colony titles (dominus, consul) qualify as well.
+    private bool IsImperialNobleColonist(Pawn pawn)
+    {
+        if (pawn == null || pawn.Dead || pawn.Destroyed || pawn.royalty == null)
+        {
+            return false;
+        }
+
+        if (!this.IsFreeColonyColonistForEmperorEndgame(pawn))
+        {
+            return false;
+        }
+
+        Faction empire = this.EmpireFaction();
+        RoyalTitleDef archon = ArchonTitleDef();
+        if (empire == null || archon == null)
+        {
+            return false;
+        }
+
+        RoyalTitleDef title = pawn.royalty.GetCurrentTitle(empire);
+        return title != null && title.seniority >= archon.seniority;
+    }
+
+    /// Every throne-eligible colonist on the shuttle's map: walking around, inside a casket, or
+    /// already aboard. Nobody off this map is counted — like any ship launch, whoever is not on
+    /// the shuttle when it goes is left behind.
+    private List<Pawn> GetImperialNobleColonists(Thing shuttle)
+    {
+        List<Pawn> nobles = new List<Pawn>();
+        Map map = shuttle?.MapHeld ?? this.GetTargetMap();
+        if (map != null)
+        {
+            foreach (Pawn pawn in map.mapPawns.AllPawns)
+            {
+                if (this.IsImperialNobleColonist(pawn))
+                {
+                    nobles.Add(pawn);
+                }
+            }
+
+            // Casket contents are not always listed among map pawns.
+            foreach (Building_CryoRegenesis casket in
+                map.listerBuildings.AllBuildingsColonistOfClass<Building_CryoRegenesis>())
+            {
+                if (casket.ContainedThing is Pawn contained && this.IsImperialNobleColonist(contained))
+                {
+                    nobles.Add(contained);
+                }
+            }
+        }
+
+        CompTransporter transporter = shuttle?.TryGetComp<CompTransporter>();
+        if (transporter?.innerContainer != null)
+        {
+            foreach (Thing thing in transporter.innerContainer)
+            {
+                if (thing is Pawn aboard && this.IsImperialNobleColonist(aboard))
+                {
+                    nobles.Add(aboard);
+                }
+            }
+        }
+
+        return nobles.Distinct().ToList();
+    }
+
+    /// Throne-eligible colonists who must be aboard before the Imperial shuttle may launch.
+    /// Empty until the Emperor's fate is settled — earlier waves must not drag nobility along.
+    private List<Pawn> GetRequiredImperialNobleColonists(Thing shuttle)
+    {
+        if (!this.IsEmperorRegenContractActive() || !this.IsEmperorRegeneratedOrSealed())
+        {
+            return new List<Pawn>();
+        }
+
+        return this.GetImperialNobleColonists(shuttle);
+    }
+
+    /// True once the Emperor's fate is settled either way: he is alive and either fully
+    /// regenerated or shut inside a powered-off casket. From that moment the colony's archons
+    /// leave on the Imperial shuttle — at his side, or over his sleeping body.
+    private bool IsEmperorRegeneratedOrSealed()
+    {
+        RoyaltyRegenesisClient emperor = this.GetEmperorClient();
+        Pawn pawn = emperor?.pawn;
+        if (pawn == null || pawn.Dead || pawn.Destroyed)
+        {
+            return false;
+        }
+
+        return emperor.everReachedDesiredAge || this.IsEmperorInUnpoweredCryoCasket();
+    }
+
+    /// Empire rank of a colonist for endgame selection; 0 when untitled.
+    private int ImperialSeniorityOf(Pawn pawn, Faction empire)
+    {
+        RoyalTitleDef title = pawn?.royalty?.GetCurrentTitle(empire);
+        return title?.seniority ?? 0;
+    }
+
+    /// Honor the colonist holds with the Empire — the tie-breaker between equal ranks.
+    private int ImperialHonorOf(Pawn pawn, Faction empire)
+    {
+        if (pawn?.royalty == null || empire == null)
+        {
+            return 0;
+        }
+
+        return pawn.royalty.GetFavor(empire);
+    }
+
+    private static IEnumerable<Pawn> PawnsAboard(CompTransporter transporter)
+    {
+        if (transporter?.innerContainer == null)
+        {
+            yield break;
+        }
+
+        foreach (Thing thing in transporter.innerContainer)
+        {
+            if (thing is Pawn pawn)
+            {
+                yield return pawn;
+            }
+        }
+    }
+
+    /// Colonist who could take the throne: aboard the shuttle first — the usurper named in the
+    /// credits has to be someone who actually leaves — then the highest rank, and where ranks
+    /// tie, the one holding the most Honor.
+    private Pawn FindColonyArchon(CompTransporter alsoSearch = null)
+    {
+        Faction empire = this.EmpireFaction();
+        if (empire == null || ArchonTitleDef() == null)
+        {
+            return null;
+        }
+
+        HashSet<Pawn> aboard = new HashSet<Pawn>(
+            PawnsAboard(alsoSearch).Where(this.IsImperialNobleColonist));
+
+        return this.GetImperialNobleColonists(this.GetContractShuttleThing())
+            .Concat(aboard)
+            .Distinct()
+            .OrderByDescending(p => aboard.Contains(p))
+            .ThenByDescending(p => this.ImperialSeniorityOf(p, empire))
+            .ThenByDescending(p => this.ImperialHonorOf(p, empire))
+            .FirstOrDefault();
+    }
+
+    /// The colonist the Empire elevates at the Imperial Court ending: the highest-ranked one
+    /// aboard the shuttle, and where several share that rank, the one with the most Honor.
+    private Pawn FindImperialCourtHonoree(CompTransporter transporter)
+    {
+        Faction empire = this.EmpireFaction();
+        if (empire == null)
+        {
+            return null;
+        }
+
+        return PawnsAboard(transporter)
+            .Where(this.IsFreeColonyColonistForEmperorEndgame)
+            .OrderByDescending(p => this.ImperialSeniorityOf(p, empire))
+            .ThenByDescending(p => this.ImperialHonorOf(p, empire))
+            .FirstOrDefault();
+    }
+
+    /// Both endgame honours are chosen while the shuttle is still parked, because launching it
+    /// destroys the cargo the choice is made from.
+    private void RefreshEmperorEndgameCandidates(CompTransporter transporter = null)
+    {
+        Pawn archon = this.FindColonyArchon(transporter);
+        if (archon != null)
+        {
+            this.emperorUsurpationCountCandidate = archon;
+            this.emperorUsurpationCountLabel = archon.Name?.ToStringShort ?? archon.LabelShort;
+        }
+
+        // The honoree must be aboard, so this tracks the manifest both ways — someone stepping
+        // back off the ship gives up the title.
+        Pawn honoree = this.FindImperialCourtHonoree(transporter);
+        if (honoree == this.emperorCourtHonoree)
+        {
+            return;
+        }
+
+        this.emperorCourtHonoree = honoree;
+        this.emperorCourtHonoreeLabel = honoree != null
+            ? honoree.Name?.ToStringShort ?? honoree.LabelShort
+            : string.Empty;
+
+        if (honoree != null)
+        {
+            Faction empire = this.EmpireFaction();
+            this.LogRoyaltyDebug(
+                "Imperial Court honoree is " + this.emperorCourtHonoreeLabel
+                + " (seniority=" + this.ImperialSeniorityOf(honoree, empire)
+                + " honor=" + this.ImperialHonorOf(honoree, empire) + ").");
+        }
+    }
+
+    /// Name of the colonist elevated at the Imperial Court ending. Falls back to the snapshotted
+    /// label because the launching shuttle destroys its passengers.
+    private string ResolveCourtHonoreeLabel()
+    {
+        if (this.emperorCourtHonoree != null && !this.emperorCourtHonoree.Destroyed)
+        {
+            return this.emperorCourtHonoree.Name?.ToStringShort ?? this.emperorCourtHonoree.LabelShort;
+        }
+
+        return this.emperorCourtHonoreeLabel;
+    }
+
+    private Pawn ResolveUsurpationCount()
+    {
+        if (this.emperorUsurpationCountCandidate != null
+            && !this.emperorUsurpationCountCandidate.Destroyed
+            && !this.emperorUsurpationCountCandidate.Dead)
+        {
+            return this.emperorUsurpationCountCandidate;
+        }
+
+        return this.FindColonyArchon();
+    }
+
+    private List<string> GetEmperorWifeLabels(IEnumerable<RoyaltyRegenesisClient> clients = null)
+    {
+        IEnumerable<RoyaltyRegenesisClient> source = clients ?? this.activeClients;
+        List<string> labels = new List<string>();
+        foreach (RoyaltyRegenesisClient client in source.Where(this.IsEmperorWifeClient))
+        {
+            Pawn pawn = client?.pawn;
+            string label = pawn != null && !pawn.Destroyed
+                ? pawn.LabelShort
+                : (client.role ?? "imperial wife");
+            if (!label.NullOrEmpty() && !labels.Contains(label))
+            {
+                labels.Add(label);
+            }
+        }
+
+        return labels;
+    }
+
+    /// Branch 1: shuttle left while the living Emperor is sealed in an unpowered CryoRegenesis
+    /// casket, and the colony has a Count/Countess → "You Keep What You Kill" victory.
+    private bool TryTriggerYouKeepWhatYouKillEndgame(
+        List<RoyaltyRegenesisClient> remaining,
+        List<RoyaltyRegenesisClient> departed,
+        string reason)
+    {
+        if (this.emperorColonistEndgameTriggered
+            || this.activeContractStage != RoyaltyRegenesisStage.EmperorArrival)
+        {
+            return false;
+        }
+
+        if (!this.IsEmperorInUnpoweredCryoCasket())
+        {
+            return false;
+        }
+
+        // Emperor must still be among remaining map clients (sealed, not aboard).
+        if (!remaining.Any(client => client?.pawn == this.emperor))
+        {
+            return false;
+        }
+
+        Pawn count = this.ResolveUsurpationCount();
+        bool hasCount = count != null
+            || !this.emperorUsurpationCountLabel.NullOrEmpty();
+        if (!hasCount)
+        {
+            this.LogRoyaltyDebug(
+                "Emperor sealed in unpowered casket but colony has no Count/Countess — no usurpation ending.");
+            return false;
+        }
+
+        List<RoyaltyRegenesisClient> allKnown = remaining
+            .Concat(departed ?? Enumerable.Empty<RoyaltyRegenesisClient>())
+            .Where(c => c != null)
+            .ToList();
+        this.TriggerYouKeepWhatYouKillEndgame(count, allKnown, reason);
+        this.FinishEmperorUsurpationContract(departed);
+        return true;
+    }
+
+    private static int CountLivingWives(Pawn human)
+    {
+        if (human?.relations == null)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        foreach (DirectPawnRelation rel in human.relations.DirectRelations)
+        {
+            if (rel.def == PawnRelationDefOf.Spouse
+                && rel.otherPawn != null
+                && rel.otherPawn.gender == Gender.Female
+                && !rel.otherPawn.Dead)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// Victory: Count forges an alliance with the Emperor's wives and is recognized as Emperor.
+    private void TriggerYouKeepWhatYouKillEndgame(
+        Pawn count,
+        List<RoyaltyRegenesisClient> knownClients,
+        string reason)
+    {
+        if (this.emperorColonistEndgameTriggered)
+        {
+            return;
+        }
+
+        if (ShipCountdown.CountingDown)
+        {
+            return;
+        }
+
+        this.emperorColonistEndgameTriggered = true;
+        List<string> wifeLabels = this.GetEmperorWifeLabels(knownClients);
+        string countName = count != null && !count.Destroyed
+            ? (count.Name?.ToStringShort ?? count.LabelShort)
+            : (this.emperorUsurpationCountLabel.NullOrEmpty()
+                ? "your Count"
+                : this.emperorUsurpationCountLabel);
+        string wivesText = wifeLabels.Any()
+            ? string.Join(", ", wifeLabels)
+            : "the Emperor's wives";
+
+        this.LogRoyaltyDebug(
+            "You Keep What You Kill endgame: Count " + countName
+            + " / wives=[" + wivesText + "] (" + reason + ").");
+
+        Faction empire = this.EmpireFaction();
+        if (empire != null && count != null && !count.Destroyed && !count.Dead)
+        {
+            // Crown the usurper before the credits.
+            SpawnStoryHuman.TrySetRoyalTitle(count, empire, "Emperor");
+            // Reflection fallback for older title-set paths.
+            this.TrySetRoyalTitle(count, empire, "Emperor");
+        }
+
+        wifeCount = CountLivingWives(emperor);
+
+        #if RIMWORLD16
+        string title = "Archon";
+        #else
+        string title = "Count";
+        #endif
+
+        string intro = "You Keep What You Kill.\n\n";
+        string ending =
+            $"{title} {countName} forged an alliance with the Emperor's {(wifeCount == 1 ? "wife" : "wives")}. "
+            + "In the proud tradition of The Empire: \"You Keep What You Kill\": "
+            + $"Now {countName} is seen across The Empire as its latest Emperor.\n\n"
+            + "The desposed emperor sleeps in a dark cryptosleep casket in a secret base "
+            + "long abandoned. No rescue will ever come.\n\n"
+            + "The choice — and the throne — is yours.";
+
+        // Escapee line: the Count (and any free colonists who left with the wives).
+        StringBuilder escapees = new StringBuilder();
+        if (count != null && !count.Destroyed)
+        {
+            escapees.AppendLine("   " + count.LabelCap);
+        }
+        else if (!this.emperorUsurpationCountLabel.NullOrEmpty())
+        {
+            escapees.AppendLine("   " + this.emperorUsurpationCountLabel);
+        }
+
+        if (this.emperorShuttleColonistEscapeeLabels != null)
+        {
+            foreach (string label in this.emperorShuttleColonistEscapeeLabels)
+            {
+                if (!label.NullOrEmpty()
+                    && !string.Equals(label, countName, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(label, count?.LabelCap, StringComparison.OrdinalIgnoreCase))
+                {
+                    escapees.AppendLine("   " + label);
+                }
+            }
+        }
+
+        if (Find.StoryWatcher?.statsRecord != null)
+        {
+            int launched = 1 + (this.emperorShuttleColonistEscapeeLabels?.Count ?? 0);
+            Find.StoryWatcher.statsRecord.colonistsLaunched += Math.Max(1, launched);
+        }
+
+        string credits = GameVictoryUtility.MakeEndCredits(intro, ending, escapees.ToString());
+        ShipCountdown.InitiateCountdown(credits);
+
+        this.stage = RoyaltyRegenesisStage.Completed;
+        this.royalAscentTriggered = true;
+        this.CompleteChainQuest();
+    }
+
+    /// After usurpation: wives (and other departed) are gone; seal the Emperor out of the
+    /// contract so trust does not break; finish the Emperor visit as a dark success.
+    private void FinishEmperorUsurpationContract(List<RoyaltyRegenesisClient> departed)
+    {
+        RoyaltyRegenesisClient emperor = this.GetEmperorClient();
+        Pawn emperorPawn = emperor?.pawn;
+
+        // Credit the departing wave (wives / stellarch / escorts) without requiring the Emperor.
+        int readyDeparted = departed?.Count(c => c != null && c.everReachedDesiredAge) ?? 0;
+        this.clientsSuccessfullyReturned += readyDeparted;
+        if (departed != null)
+        {
+            this.FinalizeDepartedWaveClients(departed);
+        }
+
+        // Emperor remains sealed — drop contract flags so death/leave logic stops tracking him.
+        if (emperorPawn != null)
+        {
+            this.ClearContractFlags(new[] { emperor });
+            this.RemoveClientFromContractQuest(emperorPawn);
+            // Leave him in the dark casket; do not eject.
+        }
+
+        this.GrantCompletionRewardIfEligible(RoyaltyRegenesisStage.EmperorArrival);
+        this.EndActiveContractQuest(QuestEndOutcome.Success, sendLetter: false);
+        this.activeClients.Clear();
+        this.ClearContractShuttle();
+        this.ClearContractTiming();
+        this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
+        this.stage = RoyaltyRegenesisStage.Completed;
+
+        Find.LetterStack.ReceiveLetter(
+            "You Keep What You Kill",
+            "The Imperial shuttle has fled without the Emperor. He remains sealed in an unpowered "
+            + "CryoRegenesis casket — a secret tomb no one will ever find.\n\n"
+            + "The Empire recognizes a new Emperor among your Counts.",
+            LetterDefOf.PositiveEvent,
+            emperorPawn != null ? new LookTargets(emperorPawn) : null);
+    }
+
+    /// Branch 2: the Emperor died under contract — survivors evacuate immediately and a
+    /// Planetkiller is armed for two days. Trust is destroyed.
+    private void HandleEmperorDeathEndgame(Pawn emperor, Faction empire)
+    {
+        if (this.emperorColonistEndgameTriggered)
+        {
+            return;
+        }
+
+        this.emperorColonistEndgameTriggered = true;
+        this.LogRoyaltyDebug(
+            "Emperor death endgame: " + (emperor?.Name?.ToStringShort ?? "?")
+            + " — arming Planetkiller and evacuating survivors.");
+
+        List<Pawn> survivors = this.activeClients
+            .Where(c => c?.pawn != null && !c.pawn.Dead && !c.pawn.Destroyed)
+            .Select(c => c.pawn)
+            .Concat(this.contractEscorts.Where(p => p != null && !p.Dead && !p.Destroyed))
+            .Distinct()
+            .ToList();
+
+        Map map = survivors.FirstOrDefault(p => p.MapHeld != null)?.MapHeld
+            ?? this.GetTargetMap()
+            ?? emperor?.MapHeld;
+
+        if (map != null && survivors.Any())
+        {
+            // Eject anyone still in caskets and force an immediate imperial evacuation.
+            this.ForceImmediateImperialEvacuation(map, survivors, empire ?? this.EmpireFaction());
+        }
+
+        this.SchedulePlanetkiller(EmperorDeathPlanetkillerTicks);
+
+        string emperorName = emperor?.Name?.ToStringShort ?? "The Emperor";
+        this.MajorTrustReset(
+            emperorName + " has been killed under a CryoRegenesis contract. "
+            + "The Imperial party flees at once. The Empire's answer is final: "
+            + "a Planetkiller has been armed — this world ends in two days.\n\n"
+            + "Trust is shattered. The Imperial Rejuvenation chain restarts from the beginning.",
+            empire ?? this.EmpireFaction(),
+            "Emperor killed under contract");
+    }
+
+    /// Board surviving contract guests and force the pickup to leave as soon as possible.
+    private void ForceImmediateImperialEvacuation(Map map, List<Pawn> survivors, Faction faction)
+    {
+        if (map == null || survivors == null || !survivors.Any())
+        {
+            return;
+        }
+
+        List<Pawn> living = survivors
+            .Where(p => p != null && !p.Destroyed && !p.Dead)
+            .Distinct()
+            .ToList();
+        if (!living.Any())
+        {
+            return;
+        }
+
+        this.EjectClientsFromCaskets(map, living);
+
+        // Spawn / reuse a short-stay pickup and require every survivor.
+        if (!this.pickupShuttleSpawned || this.GetUsableContractShuttle(map) == null)
+        {
+            this.SpawnPickupShuttle(map, living, faction, longStay: false);
+        }
+
+        Thing shuttle = this.GetUsableContractShuttle(map) ?? this.GetContractShuttleThing();
+        CompShuttle comp = shuttle?.TryGetComp<CompShuttle>();
+        CompTransporter transporter = shuttle?.TryGetComp<CompTransporter>();
+        if (comp != null)
+        {
+            comp.requiredPawns.Clear();
+            comp.requiredPawns.AddRange(living);
+            this.ConfigureContractShuttleEmbarkRules(comp);
+#if RIMWORLD12
+            comp.leaveImmediatelyWhenSatisfied = true;
+            comp.leaveAfterTicks = GenDate.TicksPerHour;
+#endif
+        }
+
+#if !RIMWORLD12
+        if (this.contractTransportShip != null
+            && this.contractTransportShip.curJob is ShipJob_Wait waitJob)
+        {
+            waitJob.leaveImmediatelyWhenSatisfied = true;
+            waitJob.showGizmos = true;
+        }
+#endif
+
+        // Stuff survivors into the ship immediately so leave-when-satisfied can fire.
+        if (transporter != null)
+        {
+            foreach (Pawn pawn in living)
+            {
+                if (transporter.innerContainer.Contains(pawn))
+                {
+                    continue;
+                }
+
+                if (pawn.Spawned)
+                {
+                    pawn.DeSpawn();
+                }
+
+                if (!pawn.Destroyed && !transporter.innerContainer.Contains(pawn))
+                {
+                    transporter.innerContainer.TryAddOrTransfer(pawn, false);
+                }
+            }
+        }
+
+        this.TryPromoteParkedShuttleToLeaveWhenReady();
+        this.LogRoyaltyDebug(
+            "Forced immediate imperial evacuation for " + living.Count + " survivor(s).");
+    }
+
+    private void SchedulePlanetkiller(int durationTicks)
+    {
+        GameConditionDef planetKillerDef = DefDatabase<GameConditionDef>.GetNamedSilentFail("Planetkiller");
+        if (planetKillerDef == null)
+        {
+            Log.Warning("[CryoRegenesis] Planetkiller GameConditionDef not found.");
+            return;
+        }
+
+        // Avoid stacking multiple Planetkillers if one is already running.
+        if (Find.World?.GameConditionManager != null
+            && Find.World.GameConditionManager.ConditionIsActive(planetKillerDef))
+        {
+            this.LogRoyaltyDebug("Planetkiller already active — not re-registering.");
+            return;
+        }
+
+        GameCondition planetKillerCondition = GameConditionMaker.MakeCondition(
+            planetKillerDef,
+            durationTicks);
+        Find.World.GameConditionManager.RegisterCondition(planetKillerCondition);
+        this.LogRoyaltyDebug("Planetkiller registered for " + durationTicks + " ticks.");
+
+        Find.LetterStack.ReceiveLetter(
+            "Planetkiller armed",
+            "Imperial retaliation has armed a Planetkiller. This world will be destroyed in "
+            + (durationTicks / (float)GenDate.TicksPerDay).ToString("0.#")
+            + " day(s). Evacuate if you can.",
+            LetterDefOf.ThreatBig);
+    }
+
+    /// Branch 3: free colonists left on the Emperor pickup *with* the Emperor → Imperial Court.
     private void TryTriggerEmperorColonistEndgameFromSnapshot(string reason)
     {
         if (this.emperorColonistEndgameTriggered)
@@ -2062,7 +3016,8 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.TriggerEmperorColonistEndgame(this.emperorShuttleColonistEscapeeLabels, reason);
     }
 
-    /// Victory ending: one or more free colonists left on the Emperor's regen pickup shuttle.
+    /// Victory ending: one or more free colonists left on the Emperor's regen pickup shuttle
+    /// while the Emperor himself also departed.
     private void TriggerEmperorColonistEndgame(List<string> escapeeLabels, string reason)
     {
         if (this.emperorColonistEndgameTriggered || escapeeLabels == null || !escapeeLabels.Any())
@@ -2096,13 +3051,25 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         string intro =
             "You've departed with the Emperor on the Imperial shuttle!";
-        string ending =
-            "The rejuvenated Emperor welcomes your colonists into the Imperial court as honored guests of the throne.\n\n"
-            + "You may remain among the Imperial flotilla, claim titles and privileges earned by your gift of CryoRegenesis, "
-            + "or purchase a ship and set a course for home.\n\n"
-            + "The choice is yours.";
+        StringBuilder ending = new StringBuilder();
+        ending.Append(
+            "The rejuvenated Emperor welcomes your colonists into the Imperial court as honored envoys of the throne.\n\n");
 
-        string credits = GameVictoryUtility.MakeEndCredits(intro, ending, escapees.ToString());
+        string honoree = this.ResolveCourtHonoreeLabel();
+        if (!honoree.NullOrEmpty())
+        {
+            ending.Append(
+                "For the gift of CryoRegenesis, the most honored of your number is raised above the rest: "
+                + honoree + " is granted the special title of Special Consul, and with it Imperial "
+                + "leadership over any rimworld they ever set foot on hereafter.\n\n");
+        }
+
+        ending.Append(
+            "You may remain among the Imperial flotilla, claim titles and privileges earned by your gift of CryoRegenesis, "
+            + "or purchase a ship and set a course for home.\n\n");
+        ending.Append("The choice is yours.");
+
+        string credits = GameVictoryUtility.MakeEndCredits(intro, ending.ToString(), escapees.ToString());
         ShipCountdown.InitiateCountdown(credits);
 
         // Completing the Emperor visit this way also finishes the Imperial Rejuvenation chain.
@@ -2277,11 +3244,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         RoyaltyRegenesisStage finishedStage = this.activeContractStage;
         bool triggerEndgame = this.activeClients.Any(client => client != null && client.triggerRoyalAscent);
 
-        // Safety net: if the Emperor pickup left with free colonists and we have not
-        // already started the Imperial Court ending, do so before clearing contract state.
-        if (finishedStage == RoyaltyRegenesisStage.EmperorArrival)
+        // Safety net for Branch 3 only when the Emperor himself is no longer on the map
+        // (he left with the shuttle). Never fire Imperial Court for an abandoned Emperor.
+        if (finishedStage == RoyaltyRegenesisStage.EmperorArrival
+            && !this.emperorColonistEndgameTriggered
+            && !this.IsEmperorInUnpoweredCryoCasket()
+            && !this.IsEmperorStillAvailableOnMap())
         {
-            this.TryTriggerEmperorColonistEndgameFromSnapshot("finish contract");
+            this.TryTriggerEmperorColonistEndgameFromSnapshot("finish contract with Emperor gone");
         }
 
         this.LogRoyaltyDebug(
@@ -2509,6 +3479,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             ? this.GetReadyPickupStayTicks()
             : ShuttleLeaveDelayDays * GenDate.TicksPerDay;
         this.pickupWindowEndTick = this.pickupShuttleSpawnTick + stayTicks;
+        this.emperorNobleRequirementAnnounced = false;
         // New boarding window — previous wave's empty/full snapshot must not carry over.
         if (!this.emperorColonistEndgameTriggered)
         {
@@ -2528,8 +3499,15 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         if (this.IsEmperorRegenContractActive())
         {
-            body += "\n\nAny colonist may board this shuttle with the Emperor. "
-                + "If even one colonist leaves with him, your story ends in victory as guests of the Imperial court.";
+            body += "\n\nAny number of your colonists may board this shuttle, but only once the "
+                + "Emperor is alive and either aboard it himself or sealed in a powered-off "
+                + "CryoRegenesis casket, and every other guest is offworld or aboard at their "
+                + "target age. Until then colonists are turned away at the ramp.\n\n"
+                + "Once the Emperor is regenerated or sealed away, every archon of your colony "
+                + "must be aboard before the shuttle will launch — and it will not leave the "
+                + "Emperor behind unless one of them is there to take his throne.\n\n"
+                + "If even one colonist leaves with the Emperor, your story ends in victory as "
+                + "guests of the Imperial court.";
         }
 
         return body;
@@ -2930,6 +3908,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     private void ClearEmperorShuttleColonistSnapshot()
     {
         this.emperorShuttleColonistEscapeeLabels?.Clear();
+        if (!this.emperorColonistEndgameTriggered)
+        {
+            this.emperorUsurpationCountCandidate = null;
+            this.emperorUsurpationCountLabel = string.Empty;
+            this.emperorCourtHonoree = null;
+            this.emperorCourtHonoreeLabel = string.Empty;
+        }
     }
 
     private void ClearContractFlags(IEnumerable<RoyaltyRegenesisClient> clients)

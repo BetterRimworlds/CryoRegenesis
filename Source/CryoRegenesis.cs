@@ -113,6 +113,10 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
     private bool IsDisconnectedFromPowerGrid => power?.PowerNet == null;
     private bool IsPowerUnavailable => power == null || !power.PowerOn || IsDisconnectedFromPowerGrid;
 
+    /// True when the pod is acting as a normal cryptosleep casket (flicked off, unpowered,
+    /// or disconnected) rather than an active CryoRegenesis chamber.
+    public bool IsUnpoweredCryptosleepMode => this.IsPowerUnavailable;
+
     public override void SpawnSetup(Map map, bool respawningAfterLoad)
     {
         base.SpawnSetup(map, respawningAfterLoad);
