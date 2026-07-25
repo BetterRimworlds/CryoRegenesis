@@ -55,6 +55,7 @@ public static class RoyaltyEmperor
         public Pawn highStellarch;
         public Pawn emperor;
         public int wifeCount;
+        public int wifeCountEmperor;
         public int guardCount;
 
         /// Every pawn that arrives on the delivery shuttle (regen + escorts).
@@ -83,7 +84,7 @@ public static class RoyaltyEmperor
             sb.Append($"Both will regress to age {LeaderTargetAgeYears}. ");
             if (this.wifeCount > 0)
             {
-                sb.Append($"They brought {this.wifeCount} wife/wives, each to regress to age {WifeTargetAgeYears}. ");
+                sb.Append($"They brought {this.wifeCount} {(this.wifeCount == 1 ? "wife" : "wives")} for CryoRegenesis, too. ");
             }
 
             if (this.guardCount > 0)
@@ -93,8 +94,11 @@ public static class RoyaltyEmperor
 
             sb.Append($"Treat the contracted guests by {returnDeadlineText}. ");
             sb.Append("A pickup shuttle arrives when treatment is finished. ");
-            sb.Append("Any colonist may board that shuttle with the Emperor — ");
-            sb.Append("if even one colonist leaves with him, your story ends in victory as guests of the Imperial court.");
+            sb.Append("Any number of your colonists may board that shuttle once the Emperor is alive and aboard it ");
+            sb.Append("himself (or sealed in a powered-off CryoRegenesis casket) and every other guest is offworld or ");
+            sb.Append("aboard at their target age. ");
+            sb.Append("If even one colonist leaves with the Emperor, your story ends in victory as guests of the ");
+            sb.Append("Imperial court.");
             return sb.ToString();
         }
     }
@@ -154,8 +158,9 @@ public static class RoyaltyEmperor
         });
 
         // --- Wives (1–4 each for Stellarch and Emperor) ---
-        party.wifeCount += AddWives(party, stellarch, empire, "stellarch wife");
-        party.wifeCount += AddWives(party, emperor, empire, "imperial wife");
+        party.wifeCountEmperor = AddWives(party, stellarch, empire, "imperial wife");
+        party.wifeCount += party.wifeCountEmperor;
+        party.wifeCount += AddWives(party, emperor, empire, "stellarch wife");
 
         // --- Security guards (no regen contracts) ---
         AddGuards(party, empire);

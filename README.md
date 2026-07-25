@@ -2,11 +2,10 @@
 
 ![CryoRegenesis: Live forever!](https://raw.githubusercontent.com/BetterRimworlds/CryoRegenesis/master/CryoRegenesis/About/Preview.png)
 
-With this Glittertech, all of your colonists (and pets, and even enemies, if you're so
-inclined!) can live forever young!
+With this Glittertech, all of your colonists (and pets, and even enemies, if you're so inclined!) can live forever young!
 
-CryoRegenesis sarcophagi not only restore your pawns to their youthful vigor, they also
-cure all age-related infirmities as well as every physical injury!
+CryoRegenesis sarcophagi not only restore your pawns to their youthful vigor, they also cure all age-related infirmities as
+well as every physical injury!
 
  * No more aging. Everyone can be in their 20s!
  * Heals bad backs, permanent scars, even dementia, Alzheimer's and bullets to the brain!
@@ -17,20 +16,24 @@ cure all age-related infirmities as well as every physical injury!
 
 ## Inspiration: The Goa'uld Sarcophagus
 
-CryoRegenesis is a RimWorld port of the **Goa'uld sarcophagus** from *Stargate* (the motion picture) and *Stargate SG-1*. In the show, those devices rapidly heal injuries, reverse aging, extend life, and can even resurrect the recently dead — at a steep psychological and addictive cost. The Tok'ra refuse to use them for that reason.
+CryoRegenesis is a RimWorld port of the **Goa'uld sarcophagus** from *Stargate* (the motion picture) and *Stargate SG-1*. In
+the show, those devices rapidly heal injuries, reverse aging, extend life, and can even resurrect the recently dead — at a
+steep psychological and addictive cost. The Tok'ra refuse to use them for that reason.
 
-This mod maps that artifact onto RimWorld's systems: cryptosleep chassis, glittertech nanites, and **Luciferium** as the Faustian price of coming back from the dead (the body only keeps working if the mechanites keep flowing).
+This mod maps that artifact onto RimWorld's systems: cryptosleep chassis, glittertech nanites, and **Luciferium** as the
+Faustian price of coming back from the dead (the body only keeps working if the mechanites keep flowing).
 
 | Goa'uld sarcophagus | CryoRegenesis |
 |---|---|
 | Heals injury and disease | Heals hediffs, old-age failures, and wounds |
 | Extends life / reverses aging | De-ages pawns (and animals) to youthful prime |
-| Resurrects the recently dead | Resurrects if the brain is intact and the corpse has been unrefrigerated for less than 1 day |
+| Resurrects the recently dead | Brain intact; corpse unrefrigerated under 1 day |
 | Narcotic / addictive side effects | Permanent Luciferium addiction on resurrection |
 | Tok'ra refuse it because it "takes the soul" | Expensive glittertech with a lasting cost, not free immortality |
 | Body restored, mind altered | Mood highs and "Grateful to be alive!" after revival |
 
-Part of the [Better Rimworlds](https://github.com/BetterRimworlds) collection — Stargate-inspired tech for multi-century hub-world colonies.
+Part of the [Better Rimworlds](https://github.com/BetterRimworlds) collection — Stargate-inspired tech for multi-century
+hub-world colonies.
 
 ## Supported RimWorld Versions
 
@@ -49,8 +52,8 @@ Stock up on Uranium. You'll need a whole lot of it!
 
 ![Cargo](https://github.com/BetterRimworlds/CryoRegenesis/assets/1125541/e76d8ca0-2616-44d6-9f7e-f89fa014a633)
 
-Here's our illustrious pup, Cargo! He's been with the colonists 101 years and is 107 years old! He's lived
-on more Rimworlds than most humans!
+Here's our illustrious pup, Cargo! He's been with the colonists 101 years and is 107 years old! He's lived on more Rimworlds
+than most humans!
 
 ## Resurrection Costs and Consequences
 
@@ -61,7 +64,8 @@ Bringing someone back from the dead requires significant resources:
 - **50 Luciferium** - The mechanites are required to jumpstart cellular regeneration
 
 **The Price of Resurrection:**
-- All resurrected pawns will gain a **permanent Luciferium addiction**. Death is not without consequence - the mechanites that bring them back require continued doses to maintain cellular cohesion.
+- All resurrected pawns will gain a **permanent Luciferium addiction**. Death is not without consequence - the mechanites
+  that bring them back require continued doses to maintain cellular cohesion.
 - This addiction cannot be cured by the sarcophagus (as noted in features above).
 
 ## New Mood Effects
@@ -88,7 +92,32 @@ Bringing someone back from the dead requires significant resources:
 - Strong rejuvenation can make some prisoners recruitable again
 
 ### Balance Notes
-The combination of resource costs and permanent Luciferium addiction ensures resurrection remains a serious decision rather than a casual convenience. Plan accordingly and maintain a steady Luciferium supply for your immortal colonists!
+The combination of resource costs and permanent Luciferium addiction ensures resurrection remains a serious decision rather
+than a casual convenience. Plan accordingly and maintain a steady Luciferium supply for your immortal colonists!
+
+## Imperial Regeneration Quests (Royalty)
+
+With the Royalty DLC, word of your CryoRegenesis quickly spreads as rumor across the galaxy! Planetary rulers and, in time,
+the Empire itself may send clients by shuttle under fixed return contracts: regress them to the contracted age, keep them
+breathing, and **do not recruit them**.
+
+Load finished clients onto pickup shuttles when they hit target age and send them home. Complete enough contracts and the
+chain escalates — lower nobility, the Stellarch, and eventually the highest seats of Imperial power.
+
+Death or recruitment under contract shatters trust: progress resets, and patrons will stay away for a long time. Honor the
+bargain and the Empire may eventually open paths that most colonies never see.
+
+### Endings
+
+Fulfilling the Imperial chain can unlock a true endgame path off this planet — the Empire does not forget those who keep its
+elite Forever Young. How (and whether) that ending plays out depends on the choices you make when the shuttles arrive and
+leave.
+
+This entire quest system will take years and years; decades, even. The nobles will have to travel at relativistic speeds
+that reach into years, for instance.
+
+There are also… other ways the story can close. We will not spoil them here. RimWorld rewards curiosity, ambition, and the
+occasional terrible idea. The caskets keep secrets. So do we.
 
 ## Changelog
 
