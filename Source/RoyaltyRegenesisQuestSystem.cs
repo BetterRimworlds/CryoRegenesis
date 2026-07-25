@@ -105,6 +105,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// thingIDNumber of pawns that already returned successfully — never re-board or re-spawn them.
     private List<int> returnedClientPawnIds = new List<int>();
 
+    /// Labels of free colony colonists last seen aboard the Emperor-stage pickup shuttle.
+    /// Snapshotted every tick while the ship is parked so departure (which destroys
+    /// container contents) can still fire the Imperial Court endgame.
+    private List<string> emperorShuttleColonistEscapeeLabels = new List<string>();
+
+    /// True once the Imperial Court endgame countdown has been started for this run.
+    private bool emperorColonistEndgameTriggered;
+
     public RoyaltyRegenesisQuestSystem(Game game)
     {
     }
@@ -149,8 +157,9 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     }
 
     /// Whether a pawn may board a regen pickup shuttle under colony control.
-    /// Active contract clients always may; free colonists only when they have a
-    /// non-ex DirectRelation to one of those clients (family / current partners).
+    /// Active contract clients always may. Free colonists may board when they have a
+    /// non-ex DirectRelation to a client — or freely during the Emperor contract, where
+    /// departing with the Emperor can trigger the Imperial Court endgame.
     public static bool MayBoardRegenPickupShuttle(Pawn pawn)
     {
         if (pawn == null || pawn.Destroyed || pawn.Dead)
@@ -169,6 +178,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return false;
         }
 
+        // Emperor pickup: any free colony colonist may leave with the Emperor.
+        if (system.IsEmperorRegenContractActive() && system.IsFreeColonyColonistForEmperorEndgame(pawn))
+        {
+            return true;
+        }
+
         IEnumerable<Pawn> clients = system.activeClients
             .Where(client => client?.pawn != null && !client.pawn.Destroyed)
             .Select(client => client.pawn);
@@ -180,6 +195,42 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         // Emperor-stage Stellic guards and other non-regen escorts.
         return system.contractEscorts != null && system.contractEscorts.Contains(pawn);
+    }
+
+    /// True while the Emperor / High Stellarch regen contract is the active visit.
+    public bool IsEmperorRegenContractActive()
+    {
+        return this.activeContractStage == RoyaltyRegenesisStage.EmperorArrival
+            && this.activeClients != null
+            && this.activeClients.Any();
+    }
+
+    /// A real player colonist (not a temporary quest-lodger client/escort) eligible to
+    /// board the Emperor pickup and trigger the Imperial Court victory ending.
+    public bool IsFreeColonyColonistForEmperorEndgame(Pawn pawn)
+    {
+        if (pawn == null || pawn.Destroyed || pawn.Dead)
+        {
+            return false;
+        }
+
+        if (!pawn.IsColonist || pawn.IsQuestLodger())
+        {
+            return false;
+        }
+
+        if (IsActiveRegenContractPawn(pawn))
+        {
+            return false;
+        }
+
+        if (this.contractEscorts != null && this.contractEscorts.Contains(pawn))
+        {
+            return false;
+        }
+
+        // Free colonists only — prisoners / slaves do not count as choosing to leave.
+        return pawn.IsFreeColonist;
     }
 
     /// Called by a CryoRegenesis casket on the exact tick that a pawn reaches its target.
@@ -237,6 +288,8 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Values.Look(ref this.nextWavePickupTick, "crRoyalNextWavePickupTick", -1);
         Scribe_Values.Look(ref this.clientsSuccessfullyReturned, "crRoyalClientsSuccessfullyReturned", 0);
         Scribe_Collections.Look(ref this.returnedClientPawnIds, "crRoyalReturnedClientPawnIds", LookMode.Value);
+        Scribe_Collections.Look(ref this.emperorShuttleColonistEscapeeLabels, "crRoyalEmperorShuttleColonistEscapees", LookMode.Value);
+        Scribe_Values.Look(ref this.emperorColonistEndgameTriggered, "crRoyalEmperorColonistEndgameTriggered", false);
 #if !RIMWORLD12
         Scribe_References.Look(ref this.contractTransportShip, "crRoyalContractTransportShip");
 #endif
@@ -264,6 +317,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                 this.returnedClientPawnIds = new List<int>();
             }
 
+            if (this.emperorShuttleColonistEscapeeLabels == null)
+            {
+                this.emperorShuttleColonistEscapeeLabels = new List<string>();
+            }
+
             if (this.lastTrustBreakReason == null)
             {
                 this.lastTrustBreakReason = string.Empty;
@@ -289,6 +347,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         if (!ModsConfig.RoyaltyActive)
         {
             return;
+        }
+
+        // Every tick while the Emperor pickup is parked: remember free colonists aboard
+        // so the endgame still fires after the shuttle destroys its cargo on leave.
+        if (this.pickupShuttleSpawned && this.IsEmperorRegenContractActive())
+        {
+            this.RefreshEmperorShuttleColonistSnapshot();
         }
 
         if (Find.TickManager.TicksGame % CheckIntervalTicks != 0)
@@ -881,6 +946,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.clientsSuccessfullyReturned = 0;
         this.returnedClientPawnIds.Clear();
         this.contractEscorts.Clear();
+        // Keep escapee labels / endgame flag across Clear during finish so a late
+        // TryTrigger still sees them; wipe when a brand-new contract begins.
+        if (!this.emperorColonistEndgameTriggered)
+        {
+            this.ClearEmperorShuttleColonistSnapshot();
+        }
+
         this.ResetCompletionRewardState();
     }
 
@@ -1387,6 +1459,10 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         this.RefreshClientAgeProgress();
         this.LogClientAgeSnapshot("shuttle left");
 
+        // Emperor pickup with any free colonist aboard → Imperial Court victory ending.
+        // Snapshot was taken while the ship was still loaded; do this before clearing state.
+        this.TryTriggerEmperorColonistEndgameFromSnapshot("shuttle left");
+
         List<RoyaltyRegenesisClient> remaining = new List<RoyaltyRegenesisClient>();
         List<RoyaltyRegenesisClient> departed = new List<RoyaltyRegenesisClient>();
 
@@ -1679,7 +1755,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// requiredPawns or acceptColonists is true. Enable guest embark while Send still
     /// only requires ready clients (see <see cref="UpdateShuttleRequiredPawns"/>).
     /// Free colonists are then filtered by <see cref="MayBoardRegenPickupShuttle"/>
-    /// (active clients and non-ex DirectRelations only).
+    /// (clients, non-ex DirectRelations, or any free colonist during the Emperor stage).
     private void ConfigureContractShuttleEmbarkRules(CompShuttle compShuttle)
     {
         if (compShuttle == null)
@@ -1689,7 +1765,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         // Quest lodgers embark only if they are requiredPawns or acceptColonists is true.
         // acceptColonists also opens the door to free colonists — Patch_CompShuttle_IsAllowed
-        // keeps unrelated colonists off regen pickups.
+        // keeps unrelated colonists off non-Emperor regen pickups.
         compShuttle.acceptColonists = true;
         compShuttle.onlyAcceptColonists = false;
 #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
@@ -1905,6 +1981,139 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         return transporter != null && transporter.innerContainer.Contains(pawn);
     }
 
+    /// Called from CompShuttle.SendLaunchedSignals just before cargo is destroyed.
+    /// Ensures same-tick board-and-launch still records free colonists for the endgame.
+    public void NotifyEmperorPickupLaunching(CompShuttle shuttleComp)
+    {
+        if (shuttleComp?.parent == null || this.emperorColonistEndgameTriggered)
+        {
+            return;
+        }
+
+        if (!this.IsRegenPickupShuttle(shuttleComp.parent) || !this.IsEmperorRegenContractActive())
+        {
+            return;
+        }
+
+        this.CaptureFreeColonistsFromTransporter(shuttleComp.Transporter);
+    }
+
+    /// While the Emperor pickup is parked, record free colony colonists currently aboard.
+    /// Labels are stored because the shuttle destroys container contents on launch.
+    private void RefreshEmperorShuttleColonistSnapshot()
+    {
+        if (this.emperorColonistEndgameTriggered)
+        {
+            return;
+        }
+
+        Thing shuttle = this.GetContractShuttleThing();
+        if (shuttle == null || shuttle.Destroyed)
+        {
+            return;
+        }
+
+        this.CaptureFreeColonistsFromTransporter(shuttle.TryGetComp<CompTransporter>());
+    }
+
+    private void CaptureFreeColonistsFromTransporter(CompTransporter transporter)
+    {
+        if (transporter?.innerContainer == null)
+        {
+            return;
+        }
+
+        if (this.emperorShuttleColonistEscapeeLabels == null)
+        {
+            this.emperorShuttleColonistEscapeeLabels = new List<string>();
+        }
+
+        this.emperorShuttleColonistEscapeeLabels.Clear();
+        foreach (Thing thing in transporter.innerContainer)
+        {
+            Pawn pawn = thing as Pawn;
+            if (pawn != null && this.IsFreeColonyColonistForEmperorEndgame(pawn))
+            {
+                this.emperorShuttleColonistEscapeeLabels.Add(pawn.LabelCap);
+            }
+        }
+    }
+
+    /// If any free colonist left on the Emperor pickup, start the Imperial Court endgame.
+    private void TryTriggerEmperorColonistEndgameFromSnapshot(string reason)
+    {
+        if (this.emperorColonistEndgameTriggered)
+        {
+            return;
+        }
+
+        // Only the Emperor-stage contract may fire this ending.
+        if (this.activeContractStage != RoyaltyRegenesisStage.EmperorArrival)
+        {
+            return;
+        }
+
+        if (this.emperorShuttleColonistEscapeeLabels == null
+            || !this.emperorShuttleColonistEscapeeLabels.Any())
+        {
+            return;
+        }
+
+        this.TriggerEmperorColonistEndgame(this.emperorShuttleColonistEscapeeLabels, reason);
+    }
+
+    /// Victory ending: one or more free colonists left on the Emperor's regen pickup shuttle.
+    private void TriggerEmperorColonistEndgame(List<string> escapeeLabels, string reason)
+    {
+        if (this.emperorColonistEndgameTriggered || escapeeLabels == null || !escapeeLabels.Any())
+        {
+            return;
+        }
+
+        if (ShipCountdown.CountingDown)
+        {
+            return;
+        }
+
+        this.emperorColonistEndgameTriggered = true;
+        this.LogRoyaltyDebug(
+            "Imperial Court endgame: " + escapeeLabels.Count
+            + " colonist(s) left with the Emperor (" + reason + ").");
+
+        StringBuilder escapees = new StringBuilder();
+        foreach (string label in escapeeLabels)
+        {
+            if (!label.NullOrEmpty())
+            {
+                escapees.AppendLine("   " + label);
+            }
+        }
+
+        if (Find.StoryWatcher?.statsRecord != null)
+        {
+            Find.StoryWatcher.statsRecord.colonistsLaunched += escapeeLabels.Count;
+        }
+
+        string intro =
+            "You've departed with the Emperor on the Imperial shuttle!";
+        string ending =
+            "The rejuvenated Emperor welcomes your colonists into the Imperial court as honored guests of the throne.\n\n"
+            + "You may remain among the Imperial flotilla, claim titles and privileges earned by your gift of CryoRegenesis, "
+            + "or purchase a ship and set a course for home.\n\n"
+            + "The choice is yours.";
+
+        string credits = GameVictoryUtility.MakeEndCredits(intro, ending, escapees.ToString());
+        ShipCountdown.InitiateCountdown(credits);
+
+        // Completing the Emperor visit this way also finishes the Imperial Rejuvenation chain.
+        if (this.stage != RoyaltyRegenesisStage.Completed)
+        {
+            this.stage = RoyaltyRegenesisStage.Completed;
+            this.royalAscentTriggered = true;
+            this.CompleteChainQuest();
+        }
+    }
+
     /// Living non-regen escorts still on the map (Emperor-stage guards, etc.).
     private List<Pawn> GetMapHeldEscorts()
     {
@@ -2068,11 +2277,19 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         RoyaltyRegenesisStage finishedStage = this.activeContractStage;
         bool triggerEndgame = this.activeClients.Any(client => client != null && client.triggerRoyalAscent);
 
+        // Safety net: if the Emperor pickup left with free colonists and we have not
+        // already started the Imperial Court ending, do so before clearing contract state.
+        if (finishedStage == RoyaltyRegenesisStage.EmperorArrival)
+        {
+            this.TryTriggerEmperorColonistEndgameFromSnapshot("finish contract");
+        }
+
         this.LogRoyaltyDebug(
             "FinishContractAfterDeparture success=" + success
             + " stage=" + finishedStage
             + " clients=" + this.activeClients.Count
             + " triggerRoyalAscent=" + triggerEndgame
+            + " emperorColonistEndgame=" + this.emperorColonistEndgameTriggered
             + " banked=" + this.departureSuccessBanked
             + " completionLatched=" + this.contractCompletionLogged
             + " allReady=" + this.pickupAllClientsReady
@@ -2092,7 +2309,10 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         if (triggerEndgame && success)
         {
-            this.LogRoyaltyDebug("Outcome: SUCCESS + Royal Ascent endgame (shuttle departed).");
+            this.LogRoyaltyDebug(
+                this.emperorColonistEndgameTriggered
+                    ? "Outcome: SUCCESS + Imperial Court colonist endgame (shuttle departed)."
+                    : "Outcome: SUCCESS + Royal Ascent endgame (shuttle departed).");
             this.activeContractStage = finishedStage;
             this.GrantCompletionRewardIfEligible(finishedStage);
             this.EndActiveContractQuest(QuestEndOutcome.Success);
@@ -2100,7 +2320,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             this.royalAscentTriggered = true;
             this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
             this.CompleteChainQuest();
-            this.TryMakeRoyalAscentAvailable();
+            // Colonists who left with the Emperor already got the victory ending —
+            // do not also open the vanilla Royal Ascent visit quest.
+            if (!this.emperorColonistEndgameTriggered)
+            {
+                this.TryMakeRoyalAscentAvailable();
+            }
+
             return;
         }
 
@@ -2283,6 +2509,30 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             ? this.GetReadyPickupStayTicks()
             : ShuttleLeaveDelayDays * GenDate.TicksPerDay;
         this.pickupWindowEndTick = this.pickupShuttleSpawnTick + stayTicks;
+        // New boarding window — previous wave's empty/full snapshot must not carry over.
+        if (!this.emperorColonistEndgameTriggered)
+        {
+            this.ClearEmperorShuttleColonistSnapshot();
+        }
+    }
+
+    /// Pickup letter body; Emperor stage invites free colonists to board for the ending.
+    private string BuildPickupShuttleLetterText(bool longStay)
+    {
+        string body = longStay
+            ? "A shuttle has arrived because at least one CryoRegenesis client finished treatment. "
+              + "It will stay for many days — load ready clients when you want and Send. "
+              + "Unfinished clients can keep regenerating."
+            : "A shuttle has arrived for finished CryoRegenesis clients. "
+              + "Load ready clients onto it yourself (unfinished clients can stay for a later pickup).";
+
+        if (this.IsEmperorRegenContractActive())
+        {
+            body += "\n\nAny colonist may board this shuttle with the Emperor. "
+                + "If even one colonist leaves with him, your story ends in victory as guests of the Imperial court.";
+        }
+
+        return body;
     }
 
     /// Used for death/trust-break emergency leaves: eject and call a pickup if needed.
@@ -2508,12 +2758,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         Find.LetterStack.ReceiveLetter(
             "Regenesis Pickup Shuttle",
-            longStay
-                ? "A shuttle has arrived because at least one CryoRegenesis client finished treatment. "
-                  + "It will stay for many days — load ready clients when you want and Send. "
-                  + "Unfinished clients can keep regenerating."
-                : "A shuttle has arrived for finished CryoRegenesis clients. "
-                  + "Load ready clients onto it yourself (unfinished clients can stay for a later pickup).",
+            this.BuildPickupShuttleLetterText(longStay),
             LetterDefOf.NeutralEvent,
             new LookTargets(shuttle));
 #else
@@ -2594,12 +2839,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         Find.LetterStack.ReceiveLetter(
             "Regenesis Pickup Shuttle",
-            longStay
-                ? "A shuttle has arrived because at least one CryoRegenesis client finished treatment. "
-                  + "It will stay for many days — load ready clients when you want and Send. "
-                  + "Unfinished clients can keep regenerating."
-                : "A shuttle has arrived for finished CryoRegenesis clients. "
-                  + "Load ready clients onto it yourself (unfinished clients can stay for a later pickup).",
+            this.BuildPickupShuttleLetterText(longStay),
             LetterDefOf.NeutralEvent,
             new LookTargets(shuttle));
 #endif
@@ -2683,6 +2923,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 #if !RIMWORLD12
         this.contractTransportShip = null;
 #endif
+        // Do not clear emperorShuttleColonistEscapeeLabels here — FinishContractAfterDeparture
+        // may still need them after HandleContractShuttleDeparture already nulls the ship ref.
+    }
+
+    private void ClearEmperorShuttleColonistSnapshot()
+    {
+        this.emperorShuttleColonistEscapeeLabels?.Clear();
     }
 
     private void ClearContractFlags(IEnumerable<RoyaltyRegenesisClient> clients)
@@ -3073,6 +3320,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             sb.AppendLine(
                 "Shuttle: parked for ready clients (no auto-board). Load and Send when you want. "
                 + "Boarding window ~" + windowLeft.ToStringTicksToPeriod() + ".");
+            if (this.IsEmperorRegenContractActive())
+            {
+                sb.AppendLine(
+                    "Emperor pickup: any free colonist may board. One colonist leaving with him ends the game "
+                    + "as guests of the Imperial court.");
+            }
         }
         else if (this.nextWavePickupTick > 0)
         {
