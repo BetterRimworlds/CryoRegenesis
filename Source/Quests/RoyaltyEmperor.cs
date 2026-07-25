@@ -92,7 +92,9 @@ public static class RoyaltyEmperor
             }
 
             sb.Append($"Treat the contracted guests by {returnDeadlineText}. ");
-            sb.Append("A pickup shuttle arrives when treatment is finished.");
+            sb.Append("A pickup shuttle arrives when treatment is finished. ");
+            sb.Append("Any colonist may board that shuttle with the Emperor — ");
+            sb.Append("if even one colonist leaves with him, your story ends in victory as guests of the Imperial court.");
             return sb.ToString();
         }
     }
