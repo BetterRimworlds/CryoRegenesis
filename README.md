@@ -92,103 +92,68 @@ The combination of resource costs and permanent Luciferium addiction ensures res
 
 ## Changelog
 
-**Version 1.0: 2020-08-11**
-* **[2020-08-10 22:11:40 CDT]** All of the core functionality.
-* **[2020-08-11 09:11:17 CDT]** Added support for Rimworld v1.2.
+Last 365 days. For more, see [CHANGELOG.md](CHANGELOG.md).
 
-**Version 1.1: 2021-06-17**
-* **[2021-06-17 23:38:02 CDT]** Ignore "missing body parts" for more efficient handling of bionics.
-* **[2021-06-17 23:39:56 CDT]** Reset the pawn's rest, joy and comfort levels on reawakening.
+## v7.0.0
 
-**Version 2.0: 2021-10-28**
-* **[2021-10-28 00:35:43 CDT]** Added Linux build support.
-* **[2021-10-28 01:00:32 CDT]** [m] Don't copy over all of the assemblies.
-* **[2021-10-28 02:52:26 CDT]** Don't heal over bionics, but do heal peg legs, etc.
-* **[2021-10-28 06:26:09 CDT]** Added support for compiling for both Rimworld v1.2 and v1.3.
-* **[2021-10-28 06:57:34 CDT]** [m] Added a deploy script.
-* **[2021-10-28 07:59:53 CDT]** Added the "Time To Heal" to the casket display.
-* **[2021-10-28 08:31:10 CDT]** Show the Contents tab with the pawn inside.
+* **[2026-07-23 11:33:33 EEST]** Fixed simple prosthetics remaining after regeneration.
+* **[2026-07-19 09:12:20 CDT]** Repositioned the True Age to the right.
+* **[2026-07-18 14:11:59 CDT]** Body positivity thoughts now stack and scale duration from lifetime True Age years erased.
+* **[2026-07-12 21:11:16 CDT]** Marked the CryoRegenesis casket as player-ejectable.
+* **[2026-07-12 20:21:20 CDT]** Fixed Carry-to-CryoRegenesis never appearing or working for downed, sedated, and guest pawns.
+* **[2026-07-10 22:12:38 COT]** [m] Removed the watch for building as it is no longer useful in The Age of AI.
+* **[2026-07-09 09:16:13 COT]** Updated the README with Stargate references.
+* **[2026-07-09 02:46:37 COT]** Fixed a regression where pawns with Bionic or Archotech legs could not be properly downed.
+* **[2026-07-09 02:39:04 COT]** Pawns now cannot be attempted to be carried to a CryoRegenesis casket if none are available.
+* **[2026-07-09 02:36:32 COT]** Removed the Heal Not Bad HeDiffs mechanism completely.
+* **[2026-07-08 09:40:26 COT]** Fixed the instant ejection of non-Human humanlikes (xenotypes, Empire pawns, modded races) from CryoRegenesis.
+* **[2026-07-07 19:17:47 COT]** Added animal support for CryoRegenesis carry.
+* **[2026-07-07 19:17:17 COT]** All downed humanlikes can now be carried to CryoRegenesis caskets.
+* **[2026-07-07 19:10:52 COT]** Added a sedate-and-carry pipeline for placing pawns into CryoRegenesis caskets via the Operations tab.
+* **[2026-07-07 19:10:03 COT]** Added the missing True Age def.
+* **[2026-07-02 12:46:22 COT]** Added support for taking Royalty guests and prisoners to the CryoRegenesis casket.
 
-**Version 2.5: 2022-01-29**
-* **[2021-10-29 02:51:52 CDT]** FIXED: Age is shown when there are no injuries. origin/v2.0
-* **[2022-01-28 17:10:00 CDT]** Heal the pawn no matter what.
-* **[2022-01-28 17:11:00 CDT]** Eject the pawn when there are no more injuries.
-* **[2022-01-29 11:51:07 CDT]** Increased the cost to build by 250 Gold.
-* **[2022-01-29 11:59:46 CDT]** Reverse age any pawn that enters healthy.
-* **[2022-01-29 12:00:53 CDT]** Completely ignore missing body parts due to bionics.
-* **[2022-01-29 12:01:15 CDT]** Properly count Old Age disabilities.
-* **[2022-01-29 12:02:11 CDT]** Properly determine healing frequency for species with lower life expenctancies.
-* **[2022-01-29 12:10:02 CDT]** Now the chamber reanalyzes for new injuries after each healing.
+## v6.0.0
 
-**Version 2.6: 2023-01-13**
-* **[2022-05-26 06:13:10 CDT]** Reverse the age of animals completely.
-* **[2023-01-13 05:12:40 CDT]** Moved the Defs into the standard location.
-* **[2023-01-13 05:15:43 CDT]** Automatically package all of the supported versions DLLs into the v1.2 Mod directory.
-* **[2023-01-13 05:16:45 CDT]** Upgraded to Rimworld v1.4.3580.
-
-**Version 3.0: 2023-05-22**
-* **[2023-03-26 06:41:29 CDT]** Re-added more hair colors.
-* **[2023-05-21 10:41:18 CDT]** [m] Update README.md: Added info about Cargo.
-* **[2023-05-22 00:30:13 CDT]** [m] Added a proper Mod class.
-* **[2023-05-22 00:32:17 CDT]** Added Mod Settings.
-* **[2023-05-22 00:38:56 CDT]** [m] Rearranged the SpawnSetup method.
-* **[2023-05-22 00:42:55 CDT]** Enabled the new optional debug messaging system.
-* **[2023-05-22 00:43:34 CDT]** Added a new option to only regen until the pawn is healed.
-* **[2023-05-22 00:44:19 CDT]** Added a new option for the target age of Human pawns.
-* **[2023-05-22 00:47:24 CDT]** Added an option to not try to heal anything that isn't tendable.
-* **[2023-05-22 00:47:45 CDT]** Added functionality to never heal implants.
-* **[2023-05-22 01:31:53 CDT]** Block non-colonist humans from being placed in the casket to avoid CryoRegenesis Quantum Anomaly (Bug #6).
-
-**Version 3.0.1: 2023-07-28**
-* **[2023-07-28 16:43:18 CDT]** Fixed a bug that prohibited animals from being put in the cryocasket.
-
-**Version 3.1.0: 2024-03-15**
-* **[2024-03-15 01:44:12 CDT]** [m] Majorly refactored the deploy script.
-* **[2024-03-15 01:44:32 CDT]** Upgraded to Rimworld v1.5.
-* **[2024-03-15 01:46:43 CDT]** Made the CryoRegenesis flickable (turns it into a normal cryocasket).
-* **[2024-03-15 01:47:43 CDT]** Added optional code (enabled by default) to not heal any hediffs that are not marked as "bad".
-* **[2024-03-15 02:16:24 CDT]** Cured the CyroRegenesis Quantum Anomaly that broke when guests were put in.
-
-**Version 4.0.0: 2024-05-13**
-* **[2024-05-12 13:53:08 CDT]** Implemented the resurrection of corpses.
-
-**Version 4.1.0: 2025-03-15**
-* **[2025-03-06 06:27:19 CDT]** Ported to .NET v9.0 and C# v10.0.
-* **[2025-03-14 15:52:36 CDT]** Rearchitected the files to the BetterRimworlds standard layout.
-* **[2025-03-15 03:11:00 CDT]** [m] Tiny code cleanups.
-
-**Version 5.0.0: 2025-07-22**
-* **[2025-07-11 18:01:11 CDT]** Migrated to a modern dotnet SDK project.
-* **[2025-07-11 18:25:25 CDT]** Added support for Rimworld v1.6.
-* **[2025-07-14 07:00:11 CDT]** Fixed the requirements gathering for resurrection.
-* **[2025-07-22 03:45:45 CDT]** Fixed the resurrection system.
-* **[2025-07-22 03:58:41 CDT]** Store the pawn's original age for use later.
-* **[2025-07-22 04:05:47 CDT]** Cause resurrected pawns to be under anesthetic on revival.
-* **[2025-07-22 04:28:00 CDT]** Added Luciferium addiction to resurrected pawns.
-* **[2025-07-22 04:45:26 CDT]** Added a "Grateful to be a alive!" thought when pawns are resurrected.
-* **[2025-07-22 21:47:41 CDT]** Added happy thoughts about being regenerated.
-
-**Version 5.1.0: 2026-04-29**
-* **[2026-04-29 06:52:14 CDT]** Added BetterRandom utility class for deterministic random number generation
-* **[2026-04-29 06:55:59 CDT]** Fixed Ejection to properly handle prisoners
-* **[2026-04-29 07:00:49 CDT]** Now freezes the corpse's rotting state preservation during resurrection.
-* **[2026-04-29 07:04:03 CDT]** Fixed the thought stage calculation for the age regression mood boost.
-* **[2026-04-29 07:57:17 CDT]** Added a Grateful To Be Alive extended Thought upon resurrection.
-* **[2026-04-29 21:03:02 CDT]** Greatly enhanced the Regenesis High.
-
-**Version 6.0.0: 2026-05-25**
-* **[2026-05-25 09:08:39 COT]** Refactored out Cosmetics, Resurrection, and Happy Thoughts from the CryoRegenesis god class.
-* **[2026-05-25 09:27:53 COT]** Added a True Age mechanism for tracking total Living Time.
-* **[2026-05-25 10:12:55 COT]** Split the actual regenesis code out of the CroRegenesis god class.
-* **[2026-05-25 10:16:42 COT]** An idle cryoregenesis casket no longer needs power.
-* **[2026-05-25 10:28:48 COT]** Falls back to normal cryptosleep casket when power fails.
-* **[2026-05-25 12:39:21 COT]** Increased the research cost.
-* **[2026-05-25 12:43:28 COT]** Completely reimplemented the True Age display to not use global UI widgets.
-
-**Version 6.1.0: 2026-05-28**
-* **[2026-05-28 18:09:22 COT]** Fixed Colonist despawning / lost forever when entering an unpowered CryoRegen pod.
-* **[2026-05-28 22:26:31 COT]** Added cryosleep counter as well to the new True Age popup.
-
-**Version 6.2.0: 2026-06-28**
-* **[2026-06-28 17:13:38 COT]** Greatly simplified the csproj.
+* **[2026-06-29 05:24:28 COT]** [m] Simple README and About.xml improvements.
 * **[2026-06-28 19:40:41 COT]** Moved the True Age below the Royalty indicator.
+* **[2026-06-28 17:13:38 COT]** Greatly simplified the csproj.
+
+## v6.1.0
+
+* **[2026-05-28 22:26:31 COT]** Added cryosleep counter as well to the new True Age popup.
+* **[2026-05-28 18:09:22 COT]** Fixed Colonist despawning / lost forever when entering an unpowered CryoRegen pod.
+
+## v6.0.0
+
+* **[2026-05-25 18:42:17 COT]** Updated the README for v6.0.0.
+* **[2026-05-25 12:43:28 COT]** Completely reimplemented the True Age display to not use global UI widgets.
+* **[2026-05-25 12:39:21 COT]** Increased the research cost.
+* **[2026-05-25 10:28:48 COT]** Falls back to normal cryptosleep casket when power fails.
+* **[2026-05-25 10:16:42 COT]** An idle cryoregenesis casket no longer needs power.
+* **[2026-05-25 10:12:55 COT]** Split the actual regenesis code out of the CroRegenesis god class.
+* **[2026-05-25 09:27:53 COT]** Added a True Age mechanism for tracking total Living Time.
+* **[2026-05-25 09:08:39 COT]** Refactored out Cosmetics, Resurrection, and Happy Thoughts from the CryoRegenesis god class.
+
+## v5.1.0
+
+* **[2026-05-05 11:04:27 COT]** Translated into many different languages.
+* **[2026-04-29 21:03:02 CDT]** Greatly enhanced the Regenesis High.
+* **[2026-04-29 07:57:17 CDT]** Added a Grateful To Be Alive extended Thought upon resurrection.
+* **[2026-04-29 07:04:03 CDT]** Fixed the thought stage calculation for the age regression mood boost.
+* **[2026-04-29 07:00:49 CDT]** Now freezes the corpse's rotting state preservation during resurrection.
+* **[2026-04-29 06:55:59 CDT]** Fixed Ejection to properly handle prisoners
+* **[2026-04-29 06:52:14 CDT]** Added BetterRandom utility class for deterministic random number generation
+
+## v5.0.0: Resurrection Improvements
+
+* **[2026-04-29 05:06:26 CDT]** Fail the build if any of the Rimworld versions fail to compile.
+* **[2025-07-22 23:47:41 ART]** Added happy thoughts about being regenerated.
+* **[2025-07-22 06:45:26 ART]** Added a "Grateful to be alive!" thought when pawns are resurrected.
+* **[2025-07-22 06:28:00 ART]** Added Luciferium addiction to resurrected pawns.
+* **[2025-07-22 06:05:47 ART]** Cause resurrected pawns to be under anesthetic on revival.
+* **[2025-07-22 05:58:41 ART]** Store the pawn's original age for use later.
+* **[2025-07-22 05:45:45 ART]** Fixed the resurrection system.
+* **[2025-07-14 09:00:11 ART]** Fixed the requirements gathering for resurrection.
+* **[2025-07-11 20:25:25 ART]** Added support for Rimworld v1.6.
+* **[2025-07-11 20:01:11 ART]** Migrated to a modern dotnet SDK project.
