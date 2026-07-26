@@ -33,10 +33,8 @@ public class Thought_RegenesisBodyPositivity : Thought_DurationBased
         base.Init();
     }
 
-    /// <summary>
     /// Always add a new stack; MemoryThoughtHandler drops the oldest past stackLimit.
     /// Default Thought_Memory merge only Renew()s the oldest and discards new years/duration.
-    /// </summary>
     public override bool TryMergeWithExistingMemory(out bool showBubble)
     {
         showBubble = true;

@@ -26,6 +26,7 @@ public class RegenesisCycle
     private bool enteredHealthy;
     private long restoreCoolDown = NoRegenesisInProgress;
     private int targetAge;
+    private long targetAgeTicks;
     private string ttlToHeal;
     private int origAge;
 
@@ -33,6 +34,7 @@ public class RegenesisCycle
     public bool HasCurableInjuries => this.hediffsToHeal.Any();
     public int OriginalAge => this.origAge;
     public int TargetAge => this.targetAge;
+    public long TargetAgeTicks => this.targetAgeTicks;
     public string TtlToHeal => this.ttlToHeal;
 
     public void ExposeData()
@@ -57,16 +59,17 @@ public class RegenesisCycle
     public void MarkTargetAgeReached(Pawn pawn)
     {
         this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks;
+        RoyaltyRegenesisQuestSystem.NotifyRegenesisTargetReached(pawn);
     }
 
-    public bool IsTargetAge(Pawn pawn, int rate)
+    public bool IsTargetAge(Pawn pawn)
     {
-        return pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * this.targetAge) + rate);
+        return pawn.ageTracker.AgeBiologicalTicks <= this.targetAgeTicks;
     }
 
     public void UpdateHealingEta(Pawn pawn, int rate)
     {
-        if (!this.HasCurableInjuries || this.IsTargetAge(pawn, rate) || this.restoreCoolDown == NoRegenesisInProgress)
+        if (!this.HasCurableInjuries || this.IsTargetAge(pawn) || this.restoreCoolDown == NoRegenesisInProgress)
         {
             return;
         }
@@ -178,6 +181,11 @@ public class RegenesisCycle
 
     public bool ShouldEjectAfterHealing(Pawn pawn)
     {
+        if (RoyaltyRegenesisQuestSystem.IsActiveRegenContractPawn(pawn))
+        {
+            return false;
+        }
+
         return CryoRegenesis.Settings.regenUntilHealed
             && !this.enteredHealthy
             && pawn.RaceProps.Humanlike
@@ -383,10 +391,21 @@ public class RegenesisCycle
         if (pawn.RaceProps.Humanlike)
         {
             this.targetAge = CryoRegenesis.Settings.targetAge;
+            this.targetAgeTicks = GenDate.TicksPerYear * (long)this.targetAge;
         }
         else
         {
             this.targetAge = (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25);
+            this.targetAgeTicks = GenDate.TicksPerYear * (long)this.targetAge;
+        }
+
+        TrueAgeTracker tracker =
+            pawn.health?.hediffSet?.GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+
+        if (tracker?.desiredAgeTicks > 0)
+        {
+            this.targetAgeTicks = tracker.desiredAgeTicks;
+            this.targetAge = (int)Math.Ceiling((double)this.targetAgeTicks / GenDate.TicksPerYear);
         }
 
         if (CryoRegenesis.Settings.debugMode)
