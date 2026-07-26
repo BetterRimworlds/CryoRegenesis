@@ -233,7 +233,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
             if (power.PowerOn)
             {
-                // Latch contract completion before the healthy-at-target branch ejects
+                // Record contract completion before the healthy-at-target branch ejects
                 // the pawn and returns. Natural Guest departure otherwise bypasses
                 // MarkTargetAgeReached entirely.
                 if (isTargetAge)
