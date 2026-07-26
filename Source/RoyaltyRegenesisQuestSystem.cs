@@ -205,14 +205,20 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        if (!this.CanRunCampaign())
+        // Always process existing clients/contracts even if the last casket
+        // has been destroyed or uninstalled. Deadlines, deaths, and cleanup
+        // must still run.
+        this.CheckActiveClients();
+
+        if (this.activeClients.Any())
         {
             return;
         }
 
-        this.CheckActiveClients();
-
-        if (this.activeClients.Any())
+        // Casket (and other campaign prerequisites) only gate *starting*
+        // or advancing new campaign stages, not the processing of an
+        // already-active contract.
+        if (!this.CanRunCampaign())
         {
             return;
         }
@@ -728,18 +734,26 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 #endif
     }
 
-    /// Allows enough time for the slowest requested regression at the casket's
-    /// normal rate, with a day for loading, unloading, and treatment setup.
+    /// Budgets wall-clock time for every active client to finish regression at
+    /// a single casket's normal rate. The empire only knows the colony has a
+    /// CryoRegenesis facility — not how many caskets the player built — so
+    /// multi-client contracts are always scheduled sequentially. One day is
+    /// added for loading, unloading, and treatment setup.
     private int CalculateContractDays()
     {
-        long longestRegressionTicks = this.activeClients
+        long wallClockRegressionTicks = this.activeClients
             .Where(client => client?.pawn?.ageTracker != null)
             .Select(client => Math.Max(0L, client.pawn.ageTracker.AgeBiologicalTicks - client.desiredAgeTicks))
-            .DefaultIfEmpty(0L)
-            .Max();
+            .Where(ticks => ticks > 0)
+            .Sum();
+
+        if (wallClockRegressionTicks <= 0)
+        {
+            return MinContractDays;
+        }
 
         int regressionDays = (int)Math.Ceiling(
-            (double)longestRegressionTicks
+            (double)wallClockRegressionTicks
             / RegressionTicksPerGameTick
             / GenDate.TicksPerDay);
 
@@ -1383,11 +1397,15 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     private void FailContractAfterPickupTimeout()
     {
-        // Ages banked → still succeed when the loading window ends without everyone aboard.
+        // Ages banked means treatment finished, not that the contract is done. Finalization
+        // only happens when the shuttle actually leaves (HasContractShuttleLeftMap) or every
+        // client is gone with it. Do not succeed here — clients may still be stranded on the
+        // map (blocked path, inaccessible shuttle), and finishing would clear the contract /
+        // unlock Royal Ascent while they remain.
         if (this.IsDepartureSuccessBanked())
         {
-            this.LogRoyaltyDebug("Pickup window expired after success was banked — success on departure.");
-            this.FinishContractAfterDeparture(true);
+            this.LogRoyaltyDebug(
+                "Pickup window expired after success was banked — waiting for real shuttle departure.");
             return;
         }
 
