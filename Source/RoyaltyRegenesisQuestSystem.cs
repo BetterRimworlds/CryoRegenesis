@@ -2587,76 +2587,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             LetterDefOf.PositiveEvent);
 
         QuestScriptDef questDef = DefDatabase<QuestScriptDef>.GetNamedSilentFail("EndGame_RoyalAscent");
-        object questManager = Find.QuestManager;
-
-        if (questDef == null || questManager == null)
+        if (questDef == null)
         {
-            Log.Warning("[CryoRegenesis] Could not activate Royal Ascent: EndGame_RoyalAscent or QuestManager was unavailable.");
+            Log.Warning("[CryoRegenesis] Could not activate Royal Ascent: EndGame_RoyalAscent was unavailable.");
             return;
         }
 
-        foreach (MethodInfo method in questManager.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-        {
-            if (method.Name != "GenerateAndAddQuest" && method.Name != "GenerateQuestAndMakeAvailable")
-            {
-                continue;
-            }
-
-            object[] args = this.BuildQuestManagerArgs(method, questDef);
-            if (args == null)
-            {
-                continue;
-            }
-
-            try
-            {
-                method.Invoke(questManager, args);
-                return;
-            }
-            catch (Exception ex)
-            {
-                Log.Warning($"[CryoRegenesis] Royal Ascent activation via {method.Name} failed: {ex.Message}");
-            }
-        }
-
-        Log.Warning("[CryoRegenesis] Could not find a compatible Royal Ascent quest generation method.");
-    }
-
-    private object[] BuildQuestManagerArgs(MethodInfo method, QuestScriptDef questDef)
-    {
-        ParameterInfo[] parameters = method.GetParameters();
-        object[] args = new object[parameters.Length];
-
-        for (int i = 0; i < parameters.Length; i++)
-        {
-            Type parameterType = parameters[i].ParameterType;
-            if (parameterType == typeof(QuestScriptDef))
-            {
-                args[i] = questDef;
-            }
-            else if (!parameterType.IsValueType)
-            {
-                args[i] = null;
-            }
-            else if (parameterType == typeof(int))
-            {
-                args[i] = 0;
-            }
-            else if (parameterType == typeof(float))
-            {
-                args[i] = 0f;
-            }
-            else if (parameterType == typeof(bool))
-            {
-                args[i] = false;
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        return args.Any(arg => arg == questDef) ? args : null;
+        QuestUtility.GenerateQuestAndMakeAvailable(questDef, new Slate());
     }
 }
 
