@@ -26,6 +26,7 @@ public static class RegenesisThoughts
     /// actually de-aged the pawn. Stage, description years, and duration use
     /// lifetime years erased from the True Age tracker (must be updated first).
     /// Stack count scales with how many years this session removed.
+    /// <param name="pawn">The target HumanLike.</param>
     /// <param name="sessionYearsRemoved">Whole years of bio-age removed this eject (gate + multi-stack).</param>
     public static void AddBodyPositivityThought(Pawn pawn, int sessionYearsRemoved)
     {
@@ -94,8 +95,6 @@ public static class RegenesisThoughts
         if (lastThought.CurStageIndex >= 2)
         {
             // Regen-quest contract clients must never become voluntarily recruitable.
-            TrueAgeTracker tracker = pawn.health?.hediffSet?
-                .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
             bool underContract = (tracker != null && tracker.underRegenContract)
                 || RoyaltyRegenesisQuestSystem.IsActiveRegenContractPawn(pawn);
 
