@@ -81,10 +81,10 @@ public partial class RoyaltyRegenesisQuestSystem
         {
             Thing stack = ThingMaker.MakeThing(reward.def);
             stack.stackCount = Math.Min(remaining, reward.def.stackLimit);
-            remaining -= stack.stackCount;
 
             if (GenPlace.TryPlaceThing(stack, dropCell, map, ThingPlaceMode.Near))
             {
+                remaining -= stack.stackCount;
                 delivered.Add(stack);
             }
         }
