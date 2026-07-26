@@ -205,14 +205,20 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        if (!this.CanRunCampaign())
+        // Always process existing clients/contracts even if the last casket
+        // has been destroyed or uninstalled. Deadlines, deaths, and cleanup
+        // must still run.
+        this.CheckActiveClients();
+
+        if (this.activeClients.Any())
         {
             return;
         }
 
-        this.CheckActiveClients();
-
-        if (this.activeClients.Any())
+        // Casket (and other campaign prerequisites) only gate *starting*
+        // or advancing new campaign stages, not the processing of an
+        // already-active contract.
+        if (!this.CanRunCampaign())
         {
             return;
         }
@@ -728,22 +734,98 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 #endif
     }
 
-    /// Allows enough time for the slowest requested regression at the casket's
-    /// normal rate, with a day for loading, unloading, and treatment setup.
+    /// Budgets wall-clock time for every active client to finish regression at
+    /// the casket's normal rate. With fewer caskets than clients, treatment is
+    /// sequential (or batched by capacity), so the deadline uses the parallel
+    /// makespan rather than only the longest single regression. One day is
+    /// added for loading, unloading, and treatment setup.
     private int CalculateContractDays()
     {
-        long longestRegressionTicks = this.activeClients
+        List<long> regressionTicks = this.activeClients
             .Where(client => client?.pawn?.ageTracker != null)
             .Select(client => Math.Max(0L, client.pawn.ageTracker.AgeBiologicalTicks - client.desiredAgeTicks))
-            .DefaultIfEmpty(0L)
-            .Max();
+            .Where(ticks => ticks > 0)
+            .OrderByDescending(ticks => ticks)
+            .ToList();
+
+        if (!regressionTicks.Any())
+        {
+            return MinContractDays;
+        }
+
+        // Campaign start already requires at least one casket; clamp so a race
+        // (casket uninstalled mid-offer) still budgets sequential time.
+        int casketCount = Math.Max(1, this.CountPlayerCryoRegenesisCaskets());
+        long wallClockRegressionTicks = this.EstimateParallelTreatmentTicks(regressionTicks, casketCount);
 
         int regressionDays = (int)Math.Ceiling(
-            (double)longestRegressionTicks
+            (double)wallClockRegressionTicks
             / RegressionTicksPerGameTick
             / GenDate.TicksPerDay);
 
         return Math.Max(MinContractDays, regressionDays + ContractHandlingBufferDays);
+    }
+
+    private int CountPlayerCryoRegenesisCaskets()
+    {
+        int count = 0;
+        foreach (Map map in Find.Maps)
+        {
+            if (!map.IsPlayerHome)
+            {
+                continue;
+            }
+
+            foreach (Building_CryoRegenesis _ in map.listerBuildings.AllBuildingsColonistOfClass<Building_CryoRegenesis>())
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// Longest-processing-time greedy schedule across <paramref name="casketCount"/>
+    /// caskets. Returns bio-age ticks that must be processed on the busiest casket
+    /// (the wall-clock regression volume before rate conversion).
+    private long EstimateParallelTreatmentTicks(List<long> regressionTicksDescending, int casketCount)
+    {
+        if (casketCount <= 1 || regressionTicksDescending.Count <= 1)
+        {
+            long total = 0L;
+            foreach (long ticks in regressionTicksDescending)
+            {
+                total += ticks;
+            }
+
+            return total;
+        }
+
+        var loads = new long[casketCount];
+        foreach (long job in regressionTicksDescending)
+        {
+            int lightest = 0;
+            for (int i = 1; i < casketCount; i++)
+            {
+                if (loads[i] < loads[lightest])
+                {
+                    lightest = i;
+                }
+            }
+
+            loads[lightest] += job;
+        }
+
+        long makespan = loads[0];
+        for (int i = 1; i < loads.Length; i++)
+        {
+            if (loads[i] > makespan)
+            {
+                makespan = loads[i];
+            }
+        }
+
+        return makespan;
     }
 
     private void SetActiveContractDeadlineDays(int contractDays)
@@ -1383,11 +1465,15 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     private void FailContractAfterPickupTimeout()
     {
-        // Ages banked → still succeed when the loading window ends without everyone aboard.
+        // Ages banked means treatment finished, not that the contract is done. Finalization
+        // only happens when the shuttle actually leaves (HasContractShuttleLeftMap) or every
+        // client is gone with it. Do not succeed here — clients may still be stranded on the
+        // map (blocked path, inaccessible shuttle), and finishing would clear the contract /
+        // unlock Royal Ascent while they remain.
         if (this.IsDepartureSuccessBanked())
         {
-            this.LogRoyaltyDebug("Pickup window expired after success was banked — success on departure.");
-            this.FinishContractAfterDeparture(true);
+            this.LogRoyaltyDebug(
+                "Pickup window expired after success was banked — waiting for real shuttle departure.");
             return;
         }
 
