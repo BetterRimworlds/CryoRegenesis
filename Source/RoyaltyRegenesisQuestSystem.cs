@@ -1288,10 +1288,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
             if (extraFactionPart == null)
             {
-                extraFactionPart = this.activeContractQuest.ExtraFaction(
-                    homeFaction,
-                    pawns,
-                    ExtraFactionType.HomeFaction);
+                extraFactionPart = new QuestPart_ExtraFaction
+                {
+                    extraFaction = new ExtraFaction(homeFaction, ExtraFactionType.HomeFaction),
+                    affectedPawns = new List<Pawn>(pawns)
+                };
+                this.activeContractQuest.AddPart(extraFactionPart);
             }
             else
             {
