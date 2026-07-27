@@ -198,12 +198,14 @@ public static class RoyaltyEmperor
 
     private static void AddGuards(Party party, Faction empire)
     {
-        PawnKindDef ranged = NamedKind("Empire_Fighter_StellicGuardRanged", empire)
-            ?? NamedKind("Empire_Fighter_Janissary", empire)
-            ?? NamedKind("Empire_Fighter_Trooper", empire);
+        // Strict lookups so the chain can advance; basic member only as last resort.
+        PawnKindDef ranged = TryNamedKind("Empire_Fighter_StellicGuardRanged")
+            ?? TryNamedKind("Empire_Fighter_Janissary")
+            ?? TryNamedKind("Empire_Fighter_Trooper")
+            ?? empire?.def?.basicMemberKind;
 
-        PawnKindDef melee = NamedKind("Empire_Fighter_StellicGuardMelee", empire)
-            ?? NamedKind("Empire_Fighter_Champion", empire)
+        PawnKindDef melee = TryNamedKind("Empire_Fighter_StellicGuardMelee")
+            ?? TryNamedKind("Empire_Fighter_Champion")
             ?? ranged;
 
         for (int i = 0; i < GuardRangedCount; i++)
@@ -300,14 +302,15 @@ public static class RoyaltyEmperor
         return Rand.RangeInclusive(WifeTargetAgeYears + 1, FemaleAgeCeilingYears - 1) + Rand.Value;
     }
 
+    /// Returns the named pawn kind, or null if the def is missing (no faction fallback).
+    private static PawnKindDef TryNamedKind(string defName)
+    {
+        return DefDatabase<PawnKindDef>.GetNamedSilentFail(defName);
+    }
+
+    /// Named kind, falling back to the faction's basic member when the def is missing.
     private static PawnKindDef NamedKind(string defName, Faction faction)
     {
-        PawnKindDef kind = DefDatabase<PawnKindDef>.GetNamedSilentFail(defName);
-        if (kind != null)
-        {
-            return kind;
-        }
-
-        return faction?.def?.basicMemberKind;
+        return TryNamedKind(defName) ?? faction?.def?.basicMemberKind;
     }
 }
