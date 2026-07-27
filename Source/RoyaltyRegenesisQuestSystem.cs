@@ -1355,15 +1355,26 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                 continue;
             }
 
-            if (this.IsClientAvailableOnMap(client.pawn))
+            if (this.IsClientAboardContractShuttle(client.pawn))
             {
-                remaining.Add(client);
+                // Only passengers in this shuttle's transporter actually departed.
+                departed.Add(client);
             }
             else
             {
-                // Aboard the leaving shuttle, skyfaller, or other off-map transport.
-                departed.Add(client);
+                remaining.Add(client);
             }
+        }
+
+        RoyaltyRegenesisClient unfinishedDeparture = departed
+            .FirstOrDefault(c => c != null && !c.everReachedDesiredAge);
+        if (unfinishedDeparture != null)
+        {
+            this.FinishContractAfterDeparture(
+                false,
+                failLabel: "CryoRegenesis contract expired",
+                failText: "The shuttle departed with a client before the requested regression was finished.");
+            return;
         }
 
         int readyDeparted = departed.Count(c => c != null && c.everReachedDesiredAge);
@@ -1384,8 +1395,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                     .Where(c => c?.pawn != null
                         && !c.pawn.Destroyed
                         && !c.pawn.Dead
-                        && !this.WasSuccessfullyReturned(c.pawn)
-                        && this.IsClientAvailableOnMap(c.pawn))
+                        && !this.WasSuccessfullyReturned(c.pawn))
                     .ToList();
                 this.ClearContractShuttle();
                 this.pickupShuttleSpawned = false;
@@ -2126,6 +2136,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     private void EndPickupWindowKeepContract(string debugReason)
     {
         this.LogRoyaltyDebug(debugReason);
+#if !RIMWORLD12
+        // A long-stay pickup is waiting forever. Dismiss it before dropping our reference
+        // so it cannot remain parked while a later pickup is spawned.
+        this.contractTransportShip?.ForceJob(ShipJobDefOf.FlyAway);
+#endif
         this.ClearContractShuttle();
         this.pickupShuttleSpawned = false;
         this.pickupShuttleSpawnTick = -1;
