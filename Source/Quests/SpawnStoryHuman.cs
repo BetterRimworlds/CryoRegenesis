@@ -65,7 +65,6 @@ public static class SpawnStoryHuman
 #if RIMWORLD12 || RIMWORLD13
         public CrownType CrownType = CrownType.Average;
 #endif
-        public string HeadGraphicPath;
         public string HairDefName;
         public Color HairColor = Color.white;
         public float Melanin = 0.5f;
