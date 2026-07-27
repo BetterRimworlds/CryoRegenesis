@@ -485,6 +485,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_References.Look(ref this.emperorAssassin, "crRoyalEmperorAssassin");
         Scribe_Values.Look(ref this.emperorAssassinLabel, "crRoyalEmperorAssassinLabel");
         Scribe_Values.Look(ref this.emperorAssassinationEvacuationActive, "crRoyalEmperorAssassinationEvac", false);
+        Scribe_References.Look(ref this.pendingEmperorKiller, "crRoyalPendingEmperorKiller");
 #if !RIMWORLD12
         Scribe_References.Look(ref this.contractTransportShip, "crRoyalContractTransportShip");
 #endif
@@ -2936,7 +2937,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         if (Find.StoryWatcher?.statsRecord != null)
         {
-            int launched = 1 + (this.emperorShuttleColonistEscapeeLabels?.Count ?? 0);
+            int launched = (this.emperorShuttleColonistEscapeeLabels?.Count ?? 0);
             Find.StoryWatcher.statsRecord.colonistsLaunched += Math.Max(1, launched);
         }
 
