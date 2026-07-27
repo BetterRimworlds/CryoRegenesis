@@ -2,6 +2,7 @@
 
 ## v7.0.0
 
+* **[2026-07-27 15:25:00 EEST]** [Quests] Hunted Assassin mark now jumps to any Knight+ who kills the Marked One.
 * **[2026-07-27 15:00:10 EEST]** [Quests] Added the Emperor "Keep What You Kill" assassination endgame.
 * **[2026-07-23 11:33:33 EEST]** Fixed simple prosthetics remaining after regeneration.
 * **[2026-07-19 09:12:20 CDT]** Repositioned the True Age to the right.

@@ -3053,23 +3053,54 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         return this.IsKnightOrHigherColonist(killer) ? killer : null;
     }
 
-    /// Empire title of knight or higher (seniority >= Knight). Dame uses the same defName.
+    /// Free colonist with Empire title of knight or higher (Dame uses the same defName).
     private bool IsKnightOrHigherColonist(Pawn pawn)
     {
-        if (!this.IsFreeColonyColonistForEmperorEndgame(pawn) || pawn.royalty == null)
+        return this.IsFreeColonyColonistForEmperorEndgame(pawn)
+            && HuntedAssassinUtility.IsEmpireKnightOrHigher(pawn);
+    }
+
+    /// Don't Kill It: the Hunted Assassin mark jumped to a new Knight+ host. If that was
+    /// our evacuation assassin, the new bearer inherits the claim and the shuttle seat.
+    public void NotifyHuntedAssassinInherited(Pawn previousBearer, Pawn heir)
+    {
+        if (heir == null || heir.Destroyed || heir.Dead || !this.emperorAssassinationEvacuationActive)
         {
-            return false;
+            return;
         }
 
-        Faction empire = this.EmpireFaction();
-        RoyalTitleDef knight = DefDatabase<RoyalTitleDef>.GetNamedSilentFail("Knight");
-        if (empire == null || knight == null)
+        // Only rebind when the dead marked pawn was (or still is recorded as) our assassin.
+        bool previousWasAssassin = previousBearer == this.emperorAssassin
+            || (this.emperorAssassin == null
+                && previousBearer != null
+                && !this.emperorAssassinLabel.NullOrEmpty()
+                && (string.Equals(
+                        previousBearer.Name?.ToStringFull,
+                        this.emperorAssassinLabel,
+                        StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(
+                        previousBearer.LabelCap,
+                        this.emperorAssassinLabel,
+                        StringComparison.OrdinalIgnoreCase)));
+
+        if (!previousWasAssassin)
         {
-            return false;
+            return;
         }
 
-        RoyalTitleDef title = pawn.royalty.GetCurrentTitle(empire);
-        return title != null && title.seniority >= knight.seniority;
+        this.emperorAssassin = heir;
+        this.emperorAssassinLabel = heir.Name?.ToStringFull
+            ?? heir.Name?.ToStringShort
+            ?? heir.LabelShort;
+        this.LogRoyaltyDebug(
+            "Assassination succession: HuntedAssassin mark inherited by "
+            + this.emperorAssassinLabel + " — shuttle seat reassigned.");
+
+        Map map = heir.MapHeld ?? this.GetTargetMap();
+        if (map != null)
+        {
+            this.EnsureAssassinationShuttleRequirements(map, heir);
+        }
     }
 
     private static string EmpireTitleLabelFor(Pawn pawn, Faction empire)
@@ -3151,23 +3182,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     private void ApplyHuntedAssassinHediff(Pawn assassin)
     {
-        if (assassin?.health?.hediffSet == null)
-        {
-            return;
-        }
-
-        HediffDef def = HuntedAssassinDefOf.HuntedAssassin
-            ?? DefDatabase<HediffDef>.GetNamedSilentFail("HuntedAssassin");
-        if (def == null)
-        {
-            Log.Warning("[CryoRegenesis] HuntedAssassin HediffDef not found.");
-            return;
-        }
-
-        if (!assassin.health.hediffSet.HasHediff(def))
-        {
-            assassin.health.AddHediff(def);
-        }
+        HuntedAssassinUtility.ApplyMark(assassin);
     }
 
     private void ShowKeepWhatYouKillAssassinationDialog(Pawn assassin, Faction empire)
