@@ -158,9 +158,9 @@ public static class RoyaltyEmperor
         });
 
         // --- Wives (1–4 each for Stellarch and Emperor) ---
-        party.wifeCountEmperor = AddWives(party, stellarch, empire, "imperial wife");
+        party.wifeCountEmperor = AddWives(party, emperor, empire, "imperial wife");
         party.wifeCount += party.wifeCountEmperor;
-        party.wifeCount += AddWives(party, emperor, empire, "stellarch wife");
+        party.wifeCount += AddWives(party, stellarch, empire, "stellarch wife");
 
         // --- Security guards (no regen contracts) ---
         AddGuards(party, empire);
