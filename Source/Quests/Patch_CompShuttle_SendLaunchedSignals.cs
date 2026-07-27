@@ -33,7 +33,8 @@ internal static class Patch_CompShuttle_SendLaunchedSignals
             return;
         }
 
-        if (!system.IsEmperorRegenContractActive())
+        if (!system.IsEmperorRegenContractActive()
+            && !system.IsEmperorAssassinationEvacuationActive())
         {
             return;
         }

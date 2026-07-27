@@ -108,7 +108,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// Labels of free colony colonists last seen aboard the Emperor-stage pickup shuttle.
     /// Snapshotted every tick while the ship is parked so departure (which destroys
     /// container contents) can still fire the Imperial Court endgame.
+    /// During assassination evacuation this list also includes colony pets for credits.
     private List<string> emperorShuttleColonistEscapeeLabels = new List<string>();
+
+    /// Humanlike passengers recorded for the assassination shuttle launch statistic.
+    /// Pets stay on the label list for credits but must not inflate colonistsLaunched.
+    private int emperorAssassinationHumanEscapeeCount;
 
     /// True once any Emperor-stage victory/defeat endgame has been started for this run.
     private bool emperorColonistEndgameTriggered;
@@ -136,6 +141,17 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     /// The number of the Emperor's wives.
     private int wifeCount = 0;
+
+    /// Killer recorded from <see cref="Pawn.Kill"/> while DamageInfo is still available.
+    private Pawn pendingEmperorKiller;
+
+    /// Knight-or-higher colonist who assassinated the Emperor under "Keep What You Kill".
+    private Pawn emperorAssassin;
+    private string emperorAssassinLabel = string.Empty;
+
+    /// True while the assassination evacuation is open: Planetkiller is armed and the
+    /// Imperial shuttle will carry the assassin, free colonists, and colony pets.
+    private bool emperorAssassinationEvacuationActive;
 
     public RoyaltyRegenesisQuestSystem(Game game)
     {
@@ -203,6 +219,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return false;
         }
 
+        // Assassination evacuation: free colonists may board freely (assassin must leave before
+        // the Planetkiller hits; companions and pets are optional).
+        if (system.IsEmperorAssassinationEvacuationActive()
+            && system.IsFreeColonyColonistForEmperorEndgame(pawn))
+        {
+            return true;
+        }
+
         // Emperor pickup: free colony colonists may leave with the Imperial shuttle, but only
         // while the Emperor is secured and the rest of the party is done. This is the only rule
         // for colonists during the Emperor stage — relatives of a client get no side door.
@@ -230,6 +254,24 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         return this.activeContractStage == RoyaltyRegenesisStage.EmperorArrival
             && this.activeClients != null
             && this.activeClients.Any();
+    }
+
+    /// True while the living Emperor under contract is this pawn.
+    public bool IsEmperorContractPawn(Pawn pawn)
+    {
+        return pawn != null && this.emperor != null && pawn == this.emperor;
+    }
+
+    /// True after a Knight+ colonist killed the Emperor and the evacuation window is open.
+    public bool IsEmperorAssassinationEvacuationActive()
+    {
+        return this.emperorAssassinationEvacuationActive;
+    }
+
+    /// Records the Emperor's killer from the Kill call (DamageInfo.Instigator).
+    public void NotifyEmperorKillInstigator(Pawn killer)
+    {
+        this.pendingEmperorKiller = killer;
     }
 
     /// A real player colonist (not a temporary quest-lodger client/escort) eligible to
@@ -432,6 +474,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Values.Look(ref this.clientsSuccessfullyReturned, "crRoyalClientsSuccessfullyReturned", 0);
         Scribe_Collections.Look(ref this.returnedClientPawnIds, "crRoyalReturnedClientPawnIds", LookMode.Value);
         Scribe_Collections.Look(ref this.emperorShuttleColonistEscapeeLabels, "crRoyalEmperorShuttleColonistEscapees", LookMode.Value);
+        Scribe_Values.Look(ref this.emperorAssassinationHumanEscapeeCount, "crRoyalEmperorAssassinationHumanEscapees", 0);
         Scribe_Values.Look(ref this.emperorColonistEndgameTriggered, "crRoyalEmperorColonistEndgameTriggered", false);
         Scribe_Values.Look(ref this.emperorNobleRequirementAnnounced, "crRoyalEmperorNobleRequirementAnnounced", false);
         Scribe_References.Look(ref this.emperor, "crRoyalEmperor");
@@ -439,6 +482,9 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Values.Look(ref this.emperorUsurpationCountLabel, "crRoyalEmperorUsurpationCountLabel");
         Scribe_References.Look(ref this.emperorCourtHonoree, "crRoyalEmperorCourtHonoree");
         Scribe_Values.Look(ref this.emperorCourtHonoreeLabel, "crRoyalEmperorCourtHonoreeLabel");
+        Scribe_References.Look(ref this.emperorAssassin, "crRoyalEmperorAssassin");
+        Scribe_Values.Look(ref this.emperorAssassinLabel, "crRoyalEmperorAssassinLabel");
+        Scribe_Values.Look(ref this.emperorAssassinationEvacuationActive, "crRoyalEmperorAssassinationEvac", false);
 #if !RIMWORLD12
         Scribe_References.Look(ref this.contractTransportShip, "crRoyalContractTransportShip");
 #endif
@@ -481,6 +527,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                 this.emperorCourtHonoreeLabel = string.Empty;
             }
 
+            if (this.emperorAssassinLabel == null)
+            {
+                this.emperorAssassinLabel = string.Empty;
+            }
+
             if (this.lastTrustBreakReason == null)
             {
                 this.lastTrustBreakReason = string.Empty;
@@ -513,10 +564,22 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         // Every tick while the Emperor pickup is parked: remember free colonists aboard
         // so the endgame still fires after the shuttle destroys its cargo on leave.
-        if (this.pickupShuttleSpawned && this.IsEmperorRegenContractActive())
+        if (this.pickupShuttleSpawned
+            && (this.IsEmperorRegenContractActive() || this.emperorAssassinationEvacuationActive))
         {
             this.RefreshEmperorShuttleColonistSnapshot();
-            this.LogImperialShuttleBoardingChanges();
+            if (this.IsEmperorRegenContractActive())
+            {
+                this.LogImperialShuttleBoardingChanges();
+            }
+        }
+
+        // Assassination evacuation outlives the contract client list — keep the shuttle
+        // open and resolve the ending when it leaves (or when the assassin dies).
+        if (this.emperorAssassinationEvacuationActive
+            && Find.TickManager.TicksGame % CheckIntervalTicks == 0)
+        {
+            this.TickAssassinationEvacuation();
         }
 
         if (Find.TickManager.TicksGame % CheckIntervalTicks != 0)
@@ -529,7 +592,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         // must still run.
         this.CheckActiveClients();
 
-        if (this.activeClients.Any())
+        if (this.activeClients.Any() || this.emperorAssassinationEvacuationActive)
         {
             return;
         }
@@ -2226,12 +2289,22 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
-        if (!this.IsRegenPickupShuttle(shuttleComp.parent) || !this.IsEmperorRegenContractActive())
+        bool assassination = this.emperorAssassinationEvacuationActive;
+        if (!this.IsRegenPickupShuttle(shuttleComp.parent)
+            || (!this.IsEmperorRegenContractActive() && !assassination))
         {
             return;
         }
 
         CompTransporter transporter = shuttleComp.Transporter;
+
+        if (assassination)
+        {
+            // Assassin is a required passenger; companions and pets may leave freely.
+            this.CaptureFreeColonistsFromTransporter(transporter);
+            this.CaptureAssassinationPassengers(transporter);
+            return;
+        }
 
         // Boarding conditions can be undone after colonists board — the Emperor's casket
         // powered back up, a guest carried back out. They must never fly off (and be destroyed
@@ -2243,6 +2316,62 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         this.CaptureFreeColonistsFromTransporter(transporter);
         this.RefreshEmperorEndgameCandidates(transporter);
+    }
+
+    /// Records assassin + free colonists + colony pets aboard the assassination shuttle.
+    private void CaptureAssassinationPassengers(CompTransporter transporter)
+    {
+        if (transporter?.innerContainer == null)
+        {
+            return;
+        }
+
+        if (this.emperorShuttleColonistEscapeeLabels == null)
+        {
+            this.emperorShuttleColonistEscapeeLabels = new List<string>();
+        }
+
+        this.emperorShuttleColonistEscapeeLabels.Clear();
+        this.emperorAssassinationHumanEscapeeCount = 0;
+        bool assassinRecorded = false;
+        foreach (Thing thing in transporter.innerContainer)
+        {
+            Pawn pawn = thing as Pawn;
+            if (pawn == null)
+            {
+                continue;
+            }
+
+            if (this.MayBoardAssassinationEvacuationShuttle(pawn)
+                || this.IsFreeColonyColonistForEmperorEndgame(pawn)
+                || pawn == this.emperorAssassin)
+            {
+                // Credits list keeps pets; launch stat counts humanlikes only.
+                this.emperorShuttleColonistEscapeeLabels.Add(pawn.LabelCap);
+                if (pawn.RaceProps != null && pawn.RaceProps.Humanlike)
+                {
+                    this.emperorAssassinationHumanEscapeeCount++;
+                }
+
+                if (pawn == this.emperorAssassin)
+                {
+                    assassinRecorded = true;
+                }
+            }
+        }
+
+        // Guarantee the assassin is recorded if they are aboard but were missed by the
+        // boarding predicates above. Do not re-add when they were already listed under
+        // LabelCap — emperorAssassinLabel is Name.ToStringFull and often differs, which
+        // would print and count the same pawn twice in the ending.
+        if (!assassinRecorded
+            && this.emperorAssassin != null
+            && transporter.innerContainer.Contains(this.emperorAssassin)
+            && !this.emperorAssassinLabel.NullOrEmpty())
+        {
+            this.emperorShuttleColonistEscapeeLabels.Add(this.emperorAssassinLabel);
+            this.emperorAssassinationHumanEscapeeCount++;
+        }
     }
 
     /// Unloads free colony colonists from the Imperial shuttle just before it launches when
@@ -2859,16 +2988,25 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             emperorPawn != null ? new LookTargets(emperorPawn) : null);
     }
 
-    /// Branch 2: the Emperor died under contract — survivors evacuate immediately and a
-    /// Planetkiller is armed for two days. Trust is destroyed.
+    /// Branch 2: the Emperor died under contract.
+    /// Knight+ colonist assassin → Keep What You Kill assassination evacuation.
+    /// Otherwise survivors evacuate immediately and a Planetkiller is armed for two days.
     private void HandleEmperorDeathEndgame(Pawn emperor, Faction empire)
     {
-        if (this.emperorColonistEndgameTriggered)
+        if (this.emperorColonistEndgameTriggered || this.emperorAssassinationEvacuationActive)
         {
             return;
         }
 
+        Pawn assassin = this.ResolveEligibleEmperorAssassin();
+        if (assassin != null)
+        {
+            this.HandleEmperorAssassinationEndgame(emperor, assassin, empire ?? this.EmpireFaction());
+            return;
+        }
+
         this.emperorColonistEndgameTriggered = true;
+        this.pendingEmperorKiller = null;
         this.LogRoyaltyDebug(
             "Emperor death endgame: " + (emperor?.Name?.ToStringShort ?? "?")
             + " — arming Planetkiller and evacuating survivors.");
@@ -2900,6 +3038,542 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             + "Trust is shattered. The Imperial Rejuvenation chain restarts from the beginning.",
             empire ?? this.EmpireFaction(),
             "Emperor killed under contract");
+    }
+
+    /// Knight or higher free colonist who struck the killing blow, if any.
+    private Pawn ResolveEligibleEmperorAssassin()
+    {
+        Pawn killer = this.pendingEmperorKiller;
+        this.pendingEmperorKiller = null;
+        if (killer == null || killer.Destroyed || killer.Dead)
+        {
+            return null;
+        }
+
+        return this.IsKnightOrHigherColonist(killer) ? killer : null;
+    }
+
+    /// Empire title of knight or higher (seniority >= Knight). Dame uses the same defName.
+    private bool IsKnightOrHigherColonist(Pawn pawn)
+    {
+        if (!this.IsFreeColonyColonistForEmperorEndgame(pawn) || pawn.royalty == null)
+        {
+            return false;
+        }
+
+        Faction empire = this.EmpireFaction();
+        RoyalTitleDef knight = DefDatabase<RoyalTitleDef>.GetNamedSilentFail("Knight");
+        if (empire == null || knight == null)
+        {
+            return false;
+        }
+
+        RoyalTitleDef title = pawn.royalty.GetCurrentTitle(empire);
+        return title != null && title.seniority >= knight.seniority;
+    }
+
+    private static string EmpireTitleLabelFor(Pawn pawn, Faction empire)
+    {
+        if (pawn?.royalty == null || empire == null)
+        {
+            return "Noble";
+        }
+
+        RoyalTitleDef title = pawn.royalty.GetCurrentTitle(empire);
+        if (title == null)
+        {
+            return "Noble";
+        }
+
+        return title.GetLabelFor(pawn).CapitalizeFirst();
+    }
+
+    private static string GenderedPronoun(Pawn pawn)
+    {
+        return pawn?.gender == Gender.Female ? "she" : "he";
+    }
+
+    private static string GenderedPossessive(Pawn pawn)
+    {
+        return pawn?.gender == Gender.Female ? "her" : "his";
+    }
+
+    private static string GenderedObjectPronoun(Pawn pawn)
+    {
+        return pawn?.gender == Gender.Female ? "her" : "him";
+    }
+
+    /// Branch 2b: Knight+ colonist killed the Emperor → Keep What You Kill assassination.
+    /// Planetkiller still arms; the assassin (required), free colonists, and pets may board
+    /// the Imperial shuttle and must leave before the world is destroyed.
+    private void HandleEmperorAssassinationEndgame(Pawn emperor, Pawn assassin, Faction empire)
+    {
+        if (this.emperorAssassinationEvacuationActive || assassin == null)
+        {
+            return;
+        }
+
+        this.emperorAssassinationEvacuationActive = true;
+        this.emperorAssassin = assassin;
+        this.emperorAssassinLabel = assassin.Name?.ToStringFull
+            ?? assassin.Name?.ToStringShort
+            ?? assassin.LabelShort;
+        this.pendingEmperorKiller = null;
+
+        this.LogRoyaltyDebug(
+            "Emperor assassination endgame: " + this.emperorAssassinLabel
+            + " killed " + (emperor?.Name?.ToStringShort ?? "the Emperor")
+            + " — HuntedAssassin + Planetkiller + evacuation window.");
+
+        this.ApplyHuntedAssassinHediff(assassin);
+        this.ShowKeepWhatYouKillAssassinationDialog(assassin, empire);
+
+        List<Pawn> imperialSurvivors = this.activeClients
+            .Where(c => c?.pawn != null && !c.pawn.Dead && !c.pawn.Destroyed && c.pawn != emperor)
+            .Select(c => c.pawn)
+            .Concat(this.contractEscorts.Where(p => p != null && !p.Dead && !p.Destroyed))
+            .Distinct()
+            .ToList();
+
+        Map map = assassin.MapHeld
+            ?? imperialSurvivors.FirstOrDefault(p => p.MapHeld != null)?.MapHeld
+            ?? this.GetTargetMap()
+            ?? emperor?.MapHeld;
+
+        if (map != null)
+        {
+            this.PrepareAssassinationEvacuationShuttle(map, imperialSurvivors, assassin, empire);
+        }
+
+        this.SchedulePlanetkiller(EmperorDeathPlanetkillerTicks);
+        this.ApplyAssassinationTrustBreak(empire, assassin);
+    }
+
+    private void ApplyHuntedAssassinHediff(Pawn assassin)
+    {
+        if (assassin?.health?.hediffSet == null)
+        {
+            return;
+        }
+
+        HediffDef def = HuntedAssassinDefOf.HuntedAssassin
+            ?? DefDatabase<HediffDef>.GetNamedSilentFail("HuntedAssassin");
+        if (def == null)
+        {
+            Log.Warning("[CryoRegenesis] HuntedAssassin HediffDef not found.");
+            return;
+        }
+
+        if (!assassin.health.hediffSet.HasHediff(def))
+        {
+            assassin.health.AddHediff(def);
+        }
+    }
+
+    private void ShowKeepWhatYouKillAssassinationDialog(Pawn assassin, Faction empire)
+    {
+        string title = EmpireTitleLabelFor(assassin, empire);
+        string fullName = assassin.Name?.ToStringFull
+            ?? assassin.Name?.ToStringShort
+            ?? assassin.LabelCap;
+        string pronoun = GenderedPronoun(assassin);
+        string possessive = GenderedPossessive(assassin);
+
+        string body =
+            title + " " + fullName + " has just assassinated The Emperor!\n\n"
+            + "Per The Empire's \"Keep What You Kill\" system of Imperial Succession, "
+            + title + " " + fullName + " has now been implanted with \"Hunted Assassin\" "
+            + "subspace tracker nanites: No matter where " + pronoun
+            + " goes in the entire Galaxy, they will be tracked by mercenaries seeking to "
+            + "become Emperor themselves!\n\n"
+            + "After 60 days of survival, " + title + " " + fullName
+            + " will be able to claim " + possessive + " proper place on the Imperial Throne.\n\n"
+            + title + " " + fullName + " must board the Imperial shuttle and leave this world "
+            + "before the Planetkiller strikes. Free colonists and pets may flee with "
+            + GenderedObjectPronoun(assassin) + ".";
+
+        Find.TickManager.Pause();
+        Find.WindowStack.Add(new Dialog_MessageBox(
+            body,
+            "OK".Translate(),
+            null,
+            null,
+            null,
+            "Keep What You Kill"));
+    }
+
+    /// Spawn/reuse the Imperial pickup: force-load Imperial guests, require the assassin,
+    /// leave Send under player control so companions and pets can board first.
+    private void PrepareAssassinationEvacuationShuttle(
+        Map map,
+        List<Pawn> imperialSurvivors,
+        Pawn assassin,
+        Faction faction)
+    {
+        if (map == null || assassin == null)
+        {
+            return;
+        }
+
+        List<Pawn> guests = (imperialSurvivors ?? new List<Pawn>())
+            .Where(p => p != null && !p.Destroyed && !p.Dead)
+            .Distinct()
+            .ToList();
+
+        this.EjectClientsFromCaskets(map, guests.Concat(new[] { assassin }).ToList());
+
+        List<Pawn> shuttleParty = guests.Concat(new[] { assassin }).Distinct().ToList();
+        if (!this.pickupShuttleSpawned || this.GetUsableContractShuttle(map) == null)
+        {
+            this.SpawnPickupShuttle(map, shuttleParty, faction, longStay: true);
+        }
+
+        Thing shuttle = this.GetUsableContractShuttle(map) ?? this.GetContractShuttleThing();
+        CompShuttle comp = shuttle?.TryGetComp<CompShuttle>();
+        CompTransporter transporter = shuttle?.TryGetComp<CompTransporter>();
+        if (comp != null)
+        {
+            this.ConfigureContractShuttleEmbarkRules(comp);
+            // Assassin is required to leave; guests should leave with the ship when possible.
+            comp.requiredPawns.Clear();
+            comp.requiredPawns.Add(assassin);
+            foreach (Pawn guest in guests)
+            {
+                if (!comp.requiredPawns.Contains(guest))
+                {
+                    comp.requiredPawns.Add(guest);
+                }
+            }
+
+#if RIMWORLD12
+            // Player must press Send after boarding companions — do not auto-leave early.
+            comp.leaveImmediatelyWhenSatisfied = false;
+#endif
+        }
+
+#if !RIMWORLD12
+        if (this.contractTransportShip != null
+            && this.contractTransportShip.curJob is ShipJob_Wait waitJob)
+        {
+            waitJob.leaveImmediatelyWhenSatisfied = false;
+            waitJob.showGizmos = true;
+        }
+#endif
+
+        // Stuff Imperial guests only — the assassin and free colonists board themselves.
+        if (transporter != null)
+        {
+            foreach (Pawn pawn in guests)
+            {
+                if (transporter.innerContainer.Contains(pawn))
+                {
+                    continue;
+                }
+
+                if (pawn.Spawned)
+                {
+                    pawn.DeSpawn();
+                }
+
+                if (!pawn.Destroyed && !transporter.innerContainer.Contains(pawn))
+                {
+                    transporter.innerContainer.TryAddOrTransfer(pawn, false);
+                }
+            }
+        }
+
+        this.pickupShuttleSpawned = true;
+        this.LogRoyaltyDebug(
+            "Assassination evacuation shuttle ready. Required assassin="
+            + assassin.LabelShort + " imperialGuests=" + guests.Count + ".");
+    }
+
+    /// Trust is broken by the Emperor's murder, but the evacuation shuttle and assassin
+    /// state remain until the ship leaves (or the world dies).
+    private void ApplyAssassinationTrustBreak(Faction empire, Pawn assassin)
+    {
+        this.EndActiveContractQuest(QuestEndOutcome.Fail, sendLetter: false);
+
+        this.ClearContractFlags(this.activeClients);
+        this.activeClients.Clear();
+        this.contractEscorts.Clear();
+        // Keep contract shuttle / pickup flags for the evacuation window.
+        this.contractStartTick = -1;
+        this.contractDeadlineTick = -1;
+        this.pickupWindowEndTick = -1;
+        this.pickupAllClientsReady = false;
+        this.contractCompletionLogged = false;
+        this.clientsHaveArrived = false;
+        this.departureSuccessBanked = false;
+        this.nextWavePickupTick = -1;
+        this.clientsSuccessfullyReturned = 0;
+        this.returnedClientPawnIds.Clear();
+        this.emperorNobleRequirementAnnounced = false;
+        this.ResetCompletionRewardState();
+
+        this.trustBreaks++;
+        this.lastTrustBreakReason = "Emperor assassinated under contract";
+        this.rulerContractsCompleted = 0;
+        this.leaderContractsCompleted = 0;
+        this.nobleContractsCompleted = 0;
+        this.royalAscentTriggered = false;
+        this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
+        this.stage = RoyaltyRegenesisStage.RulerPrisoners;
+        this.nextEventTick = Find.TickManager.TicksGame
+            + Rand.RangeInclusive(MajorResetMinDays, MajorResetMaxDays) * GenDate.TicksPerDay;
+
+        if (empire != null && empire != Faction.OfPlayer)
+        {
+            this.ApplyTrustBreakGoodwillPenalty(empire);
+        }
+
+        this.EnsureChainQuest();
+        if (this.chainQuest != null && !this.chainQuest.Historical)
+        {
+            string assassinName = assassin?.Name?.ToStringShort ?? this.emperorAssassinLabel;
+            this.chainQuest.description =
+                RoyaltyRegenesisQuestFactory.BuildChainDescriptionBody()
+                + "\n\nKEEP WHAT YOU KILL: " + assassinName
+                + " assassinated the Emperor and must flee before the Planetkiller strikes.";
+        }
+    }
+
+    private void TickAssassinationEvacuation()
+    {
+        if (!this.emperorAssassinationEvacuationActive)
+        {
+            return;
+        }
+
+        // Resolve leave first — launching destroys passengers, so the assassin ref dies with the ship.
+        if (this.pickupShuttleSpawned && this.HasContractShuttleLeftMap())
+        {
+            this.ResolveAssassinationShuttleDeparture();
+            return;
+        }
+
+        Pawn assassin = this.emperorAssassin;
+        if (assassin == null || assassin.Destroyed || assassin.Dead)
+        {
+            this.LogRoyaltyDebug(
+                "Assassination evacuation aborted — assassin is dead or missing. Planetkiller stands.");
+            this.ClearAssassinationEvacuationState(clearShuttle: true);
+            return;
+        }
+
+        Map map = assassin.MapHeld ?? this.GetTargetMap();
+        if (map != null)
+        {
+            this.EnsureAssassinationShuttleRequirements(map, assassin);
+        }
+    }
+
+    private void EnsureAssassinationShuttleRequirements(Map map, Pawn assassin)
+    {
+        Thing shuttle = this.GetUsableContractShuttle(map) ?? this.GetContractShuttleThing();
+        if (shuttle == null || shuttle.Destroyed)
+        {
+            // Shuttle was lost — call another one for the assassin.
+            this.SpawnPickupShuttle(map, new List<Pawn> { assassin }, this.EmpireFaction(), longStay: true);
+            shuttle = this.GetUsableContractShuttle(map) ?? this.GetContractShuttleThing();
+        }
+
+        CompShuttle comp = shuttle?.TryGetComp<CompShuttle>();
+        if (comp == null)
+        {
+            return;
+        }
+
+        this.ConfigureContractShuttleEmbarkRules(comp);
+        if (!comp.requiredPawns.Contains(assassin))
+        {
+            comp.requiredPawns.RemoveAll(p => p == null || p.Destroyed || p.Dead);
+            if (!comp.requiredPawns.Contains(assassin))
+            {
+                comp.requiredPawns.Add(assassin);
+            }
+        }
+
+#if !RIMWORLD12
+        if (this.contractTransportShip != null
+            && this.contractTransportShip.curJob is ShipJob_Wait waitJob)
+        {
+            waitJob.leaveImmediatelyWhenSatisfied = false;
+            waitJob.showGizmos = true;
+        }
+#endif
+    }
+
+    private void ResolveAssassinationShuttleDeparture()
+    {
+        if (!this.emperorAssassinationEvacuationActive)
+        {
+            return;
+        }
+
+        bool assassinEscaped = this.emperorShuttleColonistEscapeeLabels != null
+            && this.emperorShuttleColonistEscapeeLabels.Any(label =>
+                !label.NullOrEmpty()
+                && (string.Equals(label, this.emperorAssassin?.LabelCap, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(label, this.emperorAssassinLabel, StringComparison.OrdinalIgnoreCase)
+                    || (!this.emperorAssassinLabel.NullOrEmpty()
+                        && label.IndexOf(this.emperorAssassinLabel, StringComparison.OrdinalIgnoreCase) >= 0)));
+
+        // Also trust a still-alive assassin no longer map-held (left with the ship).
+        if (!assassinEscaped
+            && this.emperorAssassin != null
+            && !this.emperorAssassin.Destroyed
+            && !this.emperorAssassin.Dead
+            && !this.IsClientAvailableOnMap(this.emperorAssassin))
+        {
+            assassinEscaped = true;
+        }
+
+        if (assassinEscaped)
+        {
+            this.TriggerYouKeepWhatYouKillAssassinationEndgame("shuttle left with assassin");
+        }
+        else
+        {
+            this.LogRoyaltyDebug(
+                "Assassination shuttle left without the assassin — no Keep What You Kill escape ending.");
+            Find.LetterStack.ReceiveLetter(
+                "Left behind",
+                "The Imperial shuttle departed without the Emperor's assassin. "
+                + "The Planetkiller will finish what the Empire started.",
+                LetterDefOf.NegativeEvent);
+            this.ClearAssassinationEvacuationState(clearShuttle: true);
+        }
+    }
+
+    /// Victory: the hunted assassin escaped the Planetkiller on the Imperial shuttle.
+    private void TriggerYouKeepWhatYouKillAssassinationEndgame(string reason)
+    {
+        if (this.emperorColonistEndgameTriggered)
+        {
+            this.ClearAssassinationEvacuationState(clearShuttle: true);
+            return;
+        }
+
+        if (ShipCountdown.CountingDown)
+        {
+            return;
+        }
+
+        this.emperorColonistEndgameTriggered = true;
+        Pawn assassin = this.emperorAssassin;
+        Faction empire = this.EmpireFaction();
+        string title = EmpireTitleLabelFor(assassin, empire);
+        string name = assassin != null && !assassin.Destroyed
+            ? (assassin.Name?.ToStringShort ?? assassin.LabelShort)
+            : (this.emperorAssassinLabel.NullOrEmpty() ? "your assassin" : this.emperorAssassinLabel);
+        string possessive = GenderedPossessive(assassin);
+
+        this.LogRoyaltyDebug(
+            "You Keep What You Kill assassination endgame: " + title + " " + name
+            + " (" + reason + ").");
+
+        StringBuilder escapees = new StringBuilder();
+        if (assassin != null && !assassin.Destroyed)
+        {
+            escapees.AppendLine("   " + assassin.LabelCap);
+        }
+        else if (!this.emperorAssassinLabel.NullOrEmpty())
+        {
+            escapees.AppendLine("   " + this.emperorAssassinLabel);
+        }
+
+        if (this.emperorShuttleColonistEscapeeLabels != null)
+        {
+            foreach (string label in this.emperorShuttleColonistEscapeeLabels)
+            {
+                if (label.NullOrEmpty())
+                {
+                    continue;
+                }
+
+                // Skip the assassin under either LabelCap or the snapshotted full name so
+                // they are not listed twice when those strings differ.
+                if (assassin != null
+                    && string.Equals(label, assassin.LabelCap, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!this.emperorAssassinLabel.NullOrEmpty()
+                    && string.Equals(label, this.emperorAssassinLabel, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                escapees.AppendLine("   " + label);
+            }
+        }
+
+        if (Find.StoryWatcher?.statsRecord != null)
+        {
+            // Labels may include colony pets for credits; only humanlikes count as launched colonists.
+            int launched = Math.Max(1, this.emperorAssassinationHumanEscapeeCount);
+            Find.StoryWatcher.statsRecord.colonistsLaunched += launched;
+        }
+
+        string intro = "You Keep What You Kill.\n\n";
+        string ending =
+            title + " " + name + " struck down the Emperor and fled the Planetkiller on the "
+            + "Imperial shuttle, bearing the Hunted Assassin mark.\n\n"
+            + "In the proud tradition of The Empire — \"You Keep What You Kill\" — "
+            + possessive + " claim is written in blood and nanites. Survive sixty days under the "
+            + "hunt while the tracker nanites burn out, and the Imperial Throne is "
+            + possessive + " by right.\n\n"
+            + "The choice — and the chase — is yours.";
+
+        string credits = GameVictoryUtility.MakeEndCredits(intro, ending, escapees.ToString());
+        ShipCountdown.InitiateCountdown(credits);
+
+        this.stage = RoyaltyRegenesisStage.Completed;
+        this.royalAscentTriggered = true;
+        this.CompleteChainQuest();
+        this.ClearAssassinationEvacuationState(clearShuttle: true);
+    }
+
+    private void ClearAssassinationEvacuationState(bool clearShuttle)
+    {
+        this.emperorAssassinationEvacuationActive = false;
+        this.emperorAssassin = null;
+        // Keep assassin label for any late credits resolution.
+        if (clearShuttle)
+        {
+            this.ClearContractShuttle();
+            this.pickupShuttleSpawned = false;
+            this.pickupShuttleSpawnTick = -1;
+        }
+    }
+
+    /// Whether a pawn may board the assassination evacuation shuttle (colonists, assassin, pets).
+    public bool MayBoardAssassinationEvacuationShuttle(Pawn pawn)
+    {
+        if (!this.emperorAssassinationEvacuationActive || pawn == null || pawn.Destroyed || pawn.Dead)
+        {
+            return false;
+        }
+
+        if (pawn == this.emperorAssassin)
+        {
+            return true;
+        }
+
+        if (this.IsFreeColonyColonistForEmperorEndgame(pawn))
+        {
+            return true;
+        }
+
+        // Colony pets and other player animals.
+        if (pawn.Faction == Faction.OfPlayer && pawn.RaceProps != null && pawn.RaceProps.Animal)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     /// Board surviving contract guests and force the pickup to leave as soon as possible.
