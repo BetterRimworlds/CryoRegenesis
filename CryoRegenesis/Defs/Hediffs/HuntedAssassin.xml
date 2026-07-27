@@ -8,7 +8,7 @@
   <HediffDef>
     <defName>HuntedAssassin</defName>
     <label>hunted assassin</label>
-    <description>Subspace tracker nanites implanted by the Empire under its "Keep What You Kill" succession law — a mark like the old Runner contracts: wherever the bearer goes, hunters will know. The body treats the nanites as an infection and clears them over about sixty days. Survive that hunt, and Imperial custom recognizes the claim on the throne.</description>
+    <description>Subspace tracker nanites implanted by the Empire under its "Keep What You Kill" succession law — a mark like the old Runner contracts: wherever the bearer goes, hunters will know. The body treats the nanites as an infection and clears them over about sixty days. Survive that hunt, and Imperial custom recognizes the claim on the throne.\n\nIf a noble of knight rank or higher kills the Marked One, the nanites leap to the killer and begin a fresh sixty-day countdown — a succession crisis in miniature. You keep what you kill; you do not keep their leftover time.</description>
     <hediffClass>HediffWithComps</hediffClass>
     <isBad>false</isBad>
     <displayWound>false</displayWound>
