@@ -178,13 +178,15 @@ public static class SpawnStoryHuman
             request.FixedChronologicalAge = biologicalAgeYears.Value;
         }
 
-        TrySetFixedTitle(request, options?.RoyalTitleDefName, faction);
+        TrySetFixedTitle(ref request, options?.RoyalTitleDefName, faction);
 
         return PawnGenerator.GeneratePawn(request);
     }
 
     /// FixedTitle is available on Royalty installs; set by reflection when present.
-    private static void TrySetFixedTitle(PawnGenerationRequest request, string titleDefName, Faction faction)
+    /// PawnGenerationRequest is a struct, so PropertyInfo.SetValue must mutate a
+    /// boxed copy and write it back — otherwise the caller's request is unchanged.
+    private static void TrySetFixedTitle(ref PawnGenerationRequest request, string titleDefName, Faction faction)
     {
         if (titleDefName.NullOrEmpty())
         {
@@ -200,7 +202,9 @@ public static class SpawnStoryHuman
         PropertyInfo prop = typeof(PawnGenerationRequest).GetProperty("FixedTitle");
         if (prop != null && prop.CanWrite)
         {
-            prop.SetValue(request, title, null);
+            object boxed = request;
+            prop.SetValue(boxed, title, null);
+            request = (PawnGenerationRequest)boxed;
         }
     }
 
@@ -311,11 +315,14 @@ public static class SpawnStoryHuman
 
         if (pawn.story.traits != null)
         {
+            // Rebuild the list silently, then invalidate once. GainTrait per trait
+            // would notify N times; Clear alone never notifies.
             pawn.story.traits.allTraits.Clear();
             foreach (string traitDefName in definition.Traits)
             {
                 AddTraitIfFound(pawn, traitDefName);
             }
+            NotifyTraitsRebuilt(pawn);
         }
 
 #if RIMWORLD12 || RIMWORLD13
@@ -482,9 +489,11 @@ public static class SpawnStoryHuman
         pawn.relations?.ClearAllRelations();
     }
 
+    /// Adds a trait to the list without firing GainTrait side-effects.
+    /// Call <see cref="NotifyTraitsRebuilt"/> once after a batch rebuild.
     private static void AddTraitIfFound(Pawn pawn, string traitDefName)
     {
-        if (traitDefName.NullOrEmpty())
+        if (traitDefName.NullOrEmpty() || pawn?.story?.traits == null)
         {
             return;
         }
@@ -496,7 +505,57 @@ public static class SpawnStoryHuman
             return;
         }
 
-        pawn.story.traits.GainTrait(new Trait(traitDef));
+        if (pawn.story.traits.HasTrait(traitDef))
+        {
+            return;
+        }
+
+        Trait trait = new Trait(traitDef);
+        trait.pawn = pawn;
+        pawn.story.traits.allTraits.Add(trait);
+    }
+
+    /// Same cache invalidation GainTrait runs after a trait list change, once per rebuild.
+    private static void NotifyTraitsRebuilt(Pawn pawn)
+    {
+        if (pawn == null)
+        {
+            return;
+        }
+
+        pawn.Notify_DisabledWorkTypesChanged();
+
+        if (pawn.skills != null)
+        {
+            pawn.skills.Notify_SkillDisablesChanged();
+#if RIMWORLD15 || RIMWORLD16
+            pawn.skills.DirtyAptitudes();
+#endif
+        }
+
+        if (!pawn.Dead && pawn.RaceProps.Humanlike && pawn.needs?.mood != null)
+        {
+            pawn.needs.mood.thoughts.situational.Notify_SituationalThoughtsDirty();
+        }
+
+        MeditationFocusTypeAvailabilityCache.ClearFor(pawn);
+
+        // Private on TraitSet; name changed across versions (RecacheTraits vs Cache…).
+        if (pawn.story?.traits != null)
+        {
+            MethodInfo recache = typeof(TraitSet).GetMethod(
+                "RecacheTraits",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (recache == null)
+            {
+                recache = typeof(TraitSet).GetMethod(
+                    "CacheAnyTraitHasIngestibleOverrides",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+            }
+            recache?.Invoke(pawn.story.traits, null);
+        }
+
+        pawn.needs?.AddOrRemoveNeedsAsAppropriate();
     }
 
     private static void SetSkill(Pawn pawn, SkillSpec skillSpec)
