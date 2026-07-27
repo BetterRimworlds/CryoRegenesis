@@ -155,8 +155,7 @@ public static class RoyaltyRegenesisQuestFactory
         sb.AppendLine("1. Place clients in a CryoRegenesis casket.");
         sb.AppendLine("2. Reach their requested regression age before the contract deadline.");
         sb.AppendLine("3. When a client is ready, a pickup shuttle is called — load finished clients and Send.");
-        sb.AppendLine("4. Another pickup comes for anyone still treating after a partial leave.");
-        sb.AppendLine("5. Death or recruitment of a client under contract resets the whole chain.");
+        sb.AppendLine("4. Death or recruitment of a client under contract resets the whole chain.");
         return sb.ToString().TrimEnd();
     }
 
