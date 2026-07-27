@@ -132,12 +132,6 @@ public static class HuntedAssassinUtility
             return false;
         }
 
-        // Already carrying the mark — no second stack; still count as inheritance for succession.
-        if (HasMark(killer))
-        {
-            return false;
-        }
-
         // Fresh sixty days for every new host — each kill restarts the crisis, not the leftover clock.
         ApplyMark(killer, freshCountdown: true);
 
