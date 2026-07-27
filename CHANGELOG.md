@@ -2,6 +2,7 @@
 
 ## v7.0.0
 
+* **[2026-07-27 22:21:04 EEST]** [Quests] Fixed debug campaign waits at five days to greatly cut down system testing time.
 * **[2026-07-27 16:34:16 EEST]** [Quests] Prune dead guests from the evacuation manifest in Assassin end game (found by OpenAI Codex).
 * **[2026-07-27 15:25:00 EEST]** [Quests] Hunted Assassin mark now jumps to any Knight+ who kills the Marked One.
 * **[2026-07-27 15:00:10 EEST]** [Quests] Added the Emperor "Keep What You Kill" assassination endgame.

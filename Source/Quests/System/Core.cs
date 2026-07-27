@@ -33,6 +33,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     private const int RegressionTicksPerGameTick = 500;
     private const int MajorResetMinDays = 60;
     private const int MajorResetMaxDays = 90;
+    private const int DebugCampaignWaitDays = 5;
     /// Vanilla hospitality pickup grace period (Script_Hospitality_Worker shuttleLeaveDelayTicks = 3*60000).
     /// Used as a short buffer after the real deadline, not as the early-ready stay time.
     private const int ShuttleLeaveDelayDays = 3;
@@ -42,6 +43,32 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     /// Minimum how long a "someone is ready" pickup remains parked for manual loading.
     private const int ReadyPickupMinStayDays = 15;
+
+    /// Campaign pacing is shortened to a fixed five-day wait while debug mode is enabled.
+    private int RandomizedCampaignDays(int minimumDays, int maximumDays)
+    {
+        return CryoRegenesis.Settings?.debugMode == true
+            ? DebugCampaignWaitDays
+            : Rand.RangeInclusive(minimumDays, maximumDays);
+    }
+
+    private int CampaignWaitTicks(int minimumDays, int maximumDays)
+    {
+        return this.RandomizedCampaignDays(minimumDays, maximumDays) * GenDate.TicksPerDay;
+    }
+
+    private int EmperorTravelTicks(out string durationText)
+    {
+        if (CryoRegenesis.Settings?.debugMode == true)
+        {
+            durationText = "five days";
+            return DebugCampaignWaitDays * GenDate.TicksPerDay;
+        }
+
+        int years = Rand.RangeInclusive(1, 10);
+        durationText = years + " year(s)";
+        return years * GenDate.TicksPerYear;
+    }
 
     private RoyaltyRegenesisStage stage = RoyaltyRegenesisStage.NotStarted;
     private RoyaltyRegenesisStage activeContractStage = RoyaltyRegenesisStage.NotStarted;
@@ -594,7 +621,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             // Other planetary factions send clients first. The Empire only
             // notices after those contracts succeed.
             this.stage = RoyaltyRegenesisStage.RulerPrisoners;
-            this.nextEventTick = ticksGame + Rand.RangeInclusive(3, 8) * GenDate.TicksPerDay;
+            this.nextEventTick = ticksGame + this.CampaignWaitTicks(3, 8);
             this.EnsureChainQuest();
         }
         else if (this.stage != RoyaltyRegenesisStage.Completed)
@@ -647,18 +674,18 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
                     "The Stellarch has taken notice",
                     "Reports of successful CryoRegenesis treatments have reached the Stellarch. An imperial shuttle has departed. It should arrive in several days.");
                 this.stage = RoyaltyRegenesisStage.StellarchArrival;
-                this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(3, 8) * GenDate.TicksPerDay;
+                this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(3, 8);
                 break;
             case RoyaltyRegenesisStage.StellarchArrival:
                 this.StartStellarchContract(map);
                 break;
             case RoyaltyRegenesisStage.EmperorNotice:
-                int years = Rand.RangeInclusive(1, 10);
+                int travelTicks = this.EmperorTravelTicks(out string travelDuration);
                 this.SendTravelNotice(
                     "The Emperor is coming",
-                    $"The restored Stellarch's report has reached the Emperor. The imperial household has committed to the journey, but interstellar travel will take {years} year(s).");
+                    $"The restored Stellarch's report has reached the Emperor. The imperial household has committed to the journey, but interstellar travel will take {travelDuration}.");
                 this.stage = RoyaltyRegenesisStage.EmperorArrival;
-                this.nextEventTick = Find.TickManager.TicksGame + years * GenDate.TicksPerYear;
+                this.nextEventTick = Find.TickManager.TicksGame + travelTicks;
                 break;
             case RoyaltyRegenesisStage.EmperorArrival:
                 this.StartEmperorContract(map);

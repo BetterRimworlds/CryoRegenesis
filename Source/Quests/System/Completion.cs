@@ -237,12 +237,12 @@ public partial class RoyaltyRegenesisQuestSystem
                 if (this.rulerContractsCompleted < 3)
                 {
                     this.stage = RoyaltyRegenesisStage.RulerPrisoners;
-                    this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(15, 35) * GenDate.TicksPerDay;
+                    this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(15, 35);
                 }
                 else
                 {
                     this.stage = RoyaltyRegenesisStage.Leaders;
-                    this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(25, 45) * GenDate.TicksPerDay;
+                    this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(25, 45);
                 }
                 break;
             case RoyaltyRegenesisStage.Leaders:
@@ -250,13 +250,13 @@ public partial class RoyaltyRegenesisQuestSystem
                 if (this.leaderContractsCompleted < 2)
                 {
                     this.stage = RoyaltyRegenesisStage.Leaders;
-                    this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(30, 60) * GenDate.TicksPerDay;
+                    this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(30, 60);
                 }
                 else
                 {
                     // Only after other factions succeed does the Empire take interest.
                     this.stage = RoyaltyRegenesisStage.LowerNobility;
-                    this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(30, 60) * GenDate.TicksPerDay;
+                    this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(30, 60);
                 }
                 break;
             case RoyaltyRegenesisStage.LowerNobility:
@@ -264,23 +264,23 @@ public partial class RoyaltyRegenesisQuestSystem
                 if (this.nobleContractsCompleted < 2)
                 {
                     this.stage = RoyaltyRegenesisStage.LowerNobility;
-                    this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(30, 60) * GenDate.TicksPerDay;
+                    this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(30, 60);
                 }
                 else
                 {
                     this.stage = RoyaltyRegenesisStage.StellarchNotice;
-                    this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(15, 30) * GenDate.TicksPerDay;
+                    this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(15, 30);
                 }
                 break;
             case RoyaltyRegenesisStage.StellarchArrival:
                 // The restored Stellarch reports back the moment the shuttle departs — no waiting
                 // period before word reaches the Emperor. Only the interstellar travel itself takes time.
-                int emperorTravelYears = Rand.RangeInclusive(1, 10);
+                int emperorTravelTicks = this.EmperorTravelTicks(out string emperorTravelDuration);
                 this.SendTravelNotice(
                     "The Emperor is coming",
-                    $"The restored Stellarch's report has reached the Emperor. The imperial household has committed to the journey, but interstellar travel will take {emperorTravelYears} year(s).");
+                    $"The restored Stellarch's report has reached the Emperor. The imperial household has committed to the journey, but interstellar travel will take {emperorTravelDuration}.");
                 this.stage = RoyaltyRegenesisStage.EmperorArrival;
-                this.nextEventTick = Find.TickManager.TicksGame + emperorTravelYears * GenDate.TicksPerYear;
+                this.nextEventTick = Find.TickManager.TicksGame + emperorTravelTicks;
                 break;
         }
 
@@ -295,7 +295,7 @@ public partial class RoyaltyRegenesisQuestSystem
     private void ScheduleRetry(string label, string text)
     {
         Find.LetterStack.ReceiveLetter(label, text, LetterDefOf.NegativeEvent);
-        this.nextEventTick = Find.TickManager.TicksGame + Rand.RangeInclusive(30, 60) * GenDate.TicksPerDay;
+        this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(30, 60);
         this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
     }
 
@@ -567,7 +567,7 @@ public partial class RoyaltyRegenesisQuestSystem
         this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
         this.stage = RoyaltyRegenesisStage.RulerPrisoners;
         this.nextEventTick = Find.TickManager.TicksGame
-            + Rand.RangeInclusive(MajorResetMinDays, MajorResetMaxDays) * GenDate.TicksPerDay;
+            + this.CampaignWaitTicks(MajorResetMinDays, MajorResetMaxDays);
 
         if (offendedFaction != null && offendedFaction != Faction.OfPlayer)
         {

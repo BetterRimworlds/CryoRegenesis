@@ -1268,7 +1268,7 @@ public partial class RoyaltyRegenesisQuestSystem
         this.activeContractStage = RoyaltyRegenesisStage.NotStarted;
         this.stage = RoyaltyRegenesisStage.RulerPrisoners;
         this.nextEventTick = Find.TickManager.TicksGame
-            + Rand.RangeInclusive(MajorResetMinDays, MajorResetMaxDays) * GenDate.TicksPerDay;
+            + this.CampaignWaitTicks(MajorResetMinDays, MajorResetMaxDays);
 
         if (empire != null && empire != Faction.OfPlayer)
         {
