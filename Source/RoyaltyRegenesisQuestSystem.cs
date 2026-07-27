@@ -3406,13 +3406,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         }
 
         this.ConfigureContractShuttleEmbarkRules(comp);
+        // Always drop dead/destroyed guests. A required assassin still on the list used to
+        // skip this, leaving stale refs that keep AllRequiredThingsLoaded false forever.
+        comp.requiredPawns.RemoveAll(p => p == null || p.Destroyed || p.Dead);
         if (!comp.requiredPawns.Contains(assassin))
         {
-            comp.requiredPawns.RemoveAll(p => p == null || p.Destroyed || p.Dead);
-            if (!comp.requiredPawns.Contains(assassin))
-            {
-                comp.requiredPawns.Add(assassin);
-            }
+            comp.requiredPawns.Add(assassin);
         }
 
 #if !RIMWORLD12
