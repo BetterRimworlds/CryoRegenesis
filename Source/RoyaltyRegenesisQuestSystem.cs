@@ -1420,8 +1420,13 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         // destroy boarding passengers) — except Emperor murder, which arms a Planetkiller.
         if (this.activeClients.Any(client => client.pawn != null && client.pawn.Dead))
         {
-            RoyaltyRegenesisClient deadClient = this.activeClients
-                .First(client => client.pawn != null && client.pawn.Dead);
+            // Prefer the Emperor when any dead client is him. First(Dead) alone can pick a
+            // wife who died in the same check window and permanently skip the Emperor
+            // death endgame (assassination / Planetkiller).
+            RoyaltyRegenesisClient deadClient =
+                this.activeClients.FirstOrDefault(client =>
+                    client.pawn != null && client.pawn.Dead && client.pawn == this.emperor)
+                ?? this.activeClients.First(client => client.pawn != null && client.pawn.Dead);
             Pawn dead = deadClient.pawn;
             Faction sender = this.activeClients.FirstOrDefault()?.sourceFaction
                 ?? deadClient.sourceFaction;
@@ -2907,7 +2912,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             $"{title} {countName} forged an alliance with the Emperor's {(wifeCount == 1 ? "wife" : "wives")}. "
             + "In the proud tradition of The Empire: \"You Keep What You Kill\": "
             + $"Now {countName} is seen across The Empire as its latest Emperor.\n\n"
-            + "The desposed emperor sleeps in a dark cryptosleep casket in a secret base "
+            + "The deposed emperor sleeps in a dark cryptosleep casket in a secret base "
             + "long abandoned. No rescue will ever come.\n\n"
             + "The choice — and the throne — is yours.";
 
