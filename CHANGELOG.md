@@ -89,7 +89,9 @@
 * **[2024-03-15 00:44:12 CST]** Majorly refactored the deploy script.
 * **[2024-03-09 11:46:39 CST]** Update README.md
 * **[2023-07-29 01:43:18 GST]** Fixed a bug that prohibited animals from being put in the cryocasket.
-* **[2023-05-22 10:37:45 GST]** Version 3.0.0.
+
+## v3.0.0
+
 * **[2023-05-22 10:31:53 GST]** Block non-colonist humans from being placed in the casket.
 * **[2023-05-22 09:47:45 GST]** Added functionality to never heal implants.
 * **[2023-05-22 09:47:24 GST]** Added an option to not try to heal anything that isn't tendable.
@@ -101,7 +103,6 @@
 * **[2023-05-22 09:30:13 GST]** Added a proper Mod class.
 * **[2023-05-21 19:41:18 GST]** Update README.md: Added info about Cargo
 * **[2023-03-26 13:41:29 CEST]** Re-added more hair colors.
-
 
 ## v2.6.0
 

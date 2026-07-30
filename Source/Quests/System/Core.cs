@@ -43,6 +43,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
     /// Minimum how long a "someone is ready" pickup remains parked for manual loading.
     private const int ReadyPickupMinStayDays = 15;
+    private const int InitialUraniumRequirement = 500;
 
     /// Campaign pacing is shortened to a fixed five-day wait while debug mode is enabled.
     private int RandomizedCampaignDays(int minimumDays, int maximumDays)
@@ -621,6 +622,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             return;
         }
 
+        if (this.stage == RoyaltyRegenesisStage.NotStarted && !this.HasInitialCampaignResources())
+        {
+            return;
+        }
+
         int ticksGame = Find.TickManager.TicksGame;
         if (this.stage == RoyaltyRegenesisStage.NotStarted)
         {
@@ -646,6 +652,14 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         return Find.Maps.Any(map =>
             map.IsPlayerHome &&
             map.listerBuildings.AllBuildingsColonistOfClass<Building_CryoRegenesis>().Any());
+    }
+
+    private bool HasInitialCampaignResources()
+    {
+        return Find.Maps.Any(map =>
+            map.IsPlayerHome &&
+            map.listerBuildings.AllBuildingsColonistOfClass<Building_CryoRegenesis>().Any() &&
+            map.resourceCounter.GetCount(ThingDefOf.Uranium) >= InitialUraniumRequirement);
     }
 
     private Map GetTargetMap()
