@@ -857,6 +857,7 @@ public partial class RoyaltyRegenesisQuestSystem
     private void ClearEmperorShuttleColonistSnapshot()
     {
         this.emperorShuttleColonistEscapeeLabels?.Clear();
+        this.emperorEscapeeSnapshotSealed = false;
         if (!this.emperorColonistEndgameTriggered)
         {
             this.emperorUsurpationCountCandidate = null;
