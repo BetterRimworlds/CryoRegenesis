@@ -7,6 +7,7 @@
  * This file is licensed under the MIT License.
  */
 
+using System;
 using System.Reflection;
 using System.Text;
 using HarmonyLib;
@@ -27,7 +28,23 @@ public partial class RoyaltyRegenesisQuestSystem
 {
     /// Called from CompShuttle.SendLaunchedSignals just before cargo is destroyed.
     /// Ensures same-tick board-and-launch still records free colonists for the endgame.
+    /// Must never throw: on 1.2 CompShuttle.Send sets sending=true before this runs, and an
+    /// exception leaves the shuttle permanently stuck on the pad.
     public void NotifyEmperorPickupLaunching(CompShuttle shuttleComp)
+    {
+        try
+        {
+            this.NotifyEmperorPickupLaunchingInner(shuttleComp);
+        }
+        catch (Exception e)
+        {
+            Log.Error(
+                "[CryoRegenesis] NotifyEmperorPickupLaunching failed (shuttle leave must continue): "
+                + e);
+        }
+    }
+
+    private void NotifyEmperorPickupLaunchingInner(CompShuttle shuttleComp)
     {
         if (shuttleComp?.parent == null || this.emperorColonistEndgameTriggered)
         {
@@ -48,6 +65,11 @@ public partial class RoyaltyRegenesisQuestSystem
             // Assassin is a required passenger; companions and pets may leave freely.
             this.CaptureFreeColonistsFromTransporter(transporter);
             this.CaptureAssassinationPassengers(transporter);
+            this.SealEmperorEscapeeSnapshot();
+            StargateShuttleBuffer.TryTransmitFreeColonistsFromTransporter(
+                transporter,
+                this.IsFreeColonyColonistForEmperorEndgame,
+                this.LogRoyaltyDebug);
             return;
         }
 
@@ -61,6 +83,72 @@ public partial class RoyaltyRegenesisQuestSystem
 
         this.CaptureFreeColonistsFromTransporter(transporter);
         this.RefreshEmperorEndgameCandidates(transporter);
+        // Seal before Stargate handoff: that path pulls free colonists out of the shuttle,
+        // and the per-tick snapshot would otherwise clear the endgame labels next.
+        this.SealEmperorEscapeeSnapshot();
+
+        this.CacheEmperorClient();
+        Pawn emperorPawn = this.emperor;
+        bool emperorAboard = emperorPawn != null
+            && !emperorPawn.Destroyed
+            && (this.IsClientAboardContractShuttle(emperorPawn)
+                || (transporter?.innerContainer != null
+                    && transporter.innerContainer.Contains(emperorPawn)));
+        bool freeColonistsLeaving = this.emperorShuttleColonistEscapeeLabels != null
+            && this.emperorShuttleColonistEscapeeLabels.Any();
+
+        // Fire Imperial Court at launch — do not wait for departure bookkeeping.
+        // On 1.2 guests ExitMap without being Destroyed, and older departure logic
+        // could mis-classify them as still on the map and skip the ending entirely.
+        if (freeColonistsLeaving && emperorAboard)
+        {
+            Log.Message(
+                "[CryoRegenesis Royalty] Launch endgame check: free colonists leaving with Emperor aboard — firing Imperial Court.");
+            this.TryTriggerEmperorColonistEndgameFromSnapshot("launch with Emperor aboard");
+        }
+        else if (freeColonistsLeaving && this.IsEmperorInUnpoweredCryoCasket())
+        {
+            // Usurpation path: free colonists leave while the living Emperor stays sealed.
+            Log.Message(
+                "[CryoRegenesis Royalty] Launch endgame check: free colonists leaving with Emperor sealed — firing Keep What You Kill.");
+            List<RoyaltyRegenesisClient> remaining = this.activeClients
+                .Where(c => c?.pawn != null && (c.pawn == emperorPawn || this.IsClientAvailableOnMap(c.pawn)))
+                .ToList();
+            List<RoyaltyRegenesisClient> departed = this.activeClients
+                .Where(c => c != null && !remaining.Contains(c))
+                .ToList();
+            this.TryTriggerYouKeepWhatYouKillEndgame(remaining, departed, "launch with Emperor sealed");
+        }
+        else
+        {
+            Log.Message(
+                "[CryoRegenesis Royalty] Launch endgame check: freeColonists="
+                + freeColonistsLeaving
+                + " emperorAboard=" + emperorAboard
+                + " emperorSealed=" + this.IsEmperorInUnpoweredCryoCasket()
+                + " labels=" + (this.emperorShuttleColonistEscapeeLabels?.Count ?? 0));
+        }
+
+        // Soft Stargate integration: never let file I/O abort CompShuttle.Send.
+        try
+        {
+            StargateShuttleBuffer.TryTransmitFreeColonistsFromTransporter(
+                transporter,
+                this.IsFreeColonyColonistForEmperorEndgame,
+                this.LogRoyaltyDebug);
+        }
+        catch (Exception e)
+        {
+            Log.Error(
+                "[CryoRegenesis] Stargate shuttle buffer write failed (ignored so launch continues): "
+                + e);
+        }
+    }
+
+    /// Freeze free-colonist escapee labels once launch has snapshotted them.
+    private void SealEmperorEscapeeSnapshot()
+    {
+        this.emperorEscapeeSnapshotSealed = true;
     }
 
     /// Unloads free colony colonists from the Imperial shuttle just before it launches when
@@ -124,7 +212,7 @@ public partial class RoyaltyRegenesisQuestSystem
     /// Labels are stored because the shuttle destroys container contents on launch.
     private void RefreshEmperorShuttleColonistSnapshot()
     {
-        if (this.emperorColonistEndgameTriggered)
+        if (this.emperorColonistEndgameTriggered || this.emperorEscapeeSnapshotSealed)
         {
             return;
         }
@@ -148,7 +236,7 @@ public partial class RoyaltyRegenesisQuestSystem
 
     private void CaptureFreeColonistsFromTransporter(CompTransporter transporter)
     {
-        if (transporter?.innerContainer == null)
+        if (this.emperorEscapeeSnapshotSealed || transporter?.innerContainer == null)
         {
             return;
         }
@@ -925,7 +1013,7 @@ public partial class RoyaltyRegenesisQuestSystem
 
     private void CaptureAssassinationPassengers(CompTransporter transporter)
     {
-        if (transporter?.innerContainer == null)
+        if (this.emperorEscapeeSnapshotSealed || transporter?.innerContainer == null)
         {
             return;
         }

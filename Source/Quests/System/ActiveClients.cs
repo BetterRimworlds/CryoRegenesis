@@ -344,13 +344,21 @@ public partial class RoyaltyRegenesisQuestSystem
 
             if (this.IsClientAboardContractShuttle(client.pawn))
             {
-                // Only passengers in this shuttle's transporter actually departed.
+                // Still inside this shuttle's transporter (leave in progress).
                 departed.Add(client);
+                continue;
             }
-            else
+
+            // Map-reachable (spawned or in a casket) → stayed behind for a later wave.
+            if (this.IsClientAvailableOnMap(client.pawn))
             {
                 remaining.Add(client);
+                continue;
             }
+
+            // Off-map but not destroyed: 1.2 ExitMap, world pawn, or other leave path.
+            // Treating these as "remaining" used to skip Imperial Court entirely.
+            departed.Add(client);
         }
 
         // Emperor-stage branched endings (before partial-wave bookkeeping can soft-continue).

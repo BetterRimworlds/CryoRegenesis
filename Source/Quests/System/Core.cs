@@ -138,6 +138,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// During assassination evacuation this list also includes colony pets for credits.
     private List<string> emperorShuttleColonistEscapeeLabels = new List<string>();
 
+    /// Once the Imperial shuttle is launching, free-colonist labels must not be
+    /// recomputed from the transporter. Stargate handoff empties that container
+    /// before the ship leaves the map, and a later tick would wipe the endgame list.
+    private bool emperorEscapeeSnapshotSealed;
+
     /// Humanlike passengers recorded for the assassination shuttle launch statistic.
     /// Pets stay on the label list for credits but must not inflate colonistsLaunched.
     private int emperorAssassinationHumanEscapeeCount;
@@ -483,6 +488,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Values.Look(ref this.clientsSuccessfullyReturned, "crRoyalClientsSuccessfullyReturned", 0);
         Scribe_Collections.Look(ref this.returnedClientPawnIds, "crRoyalReturnedClientPawnIds", LookMode.Value);
         Scribe_Collections.Look(ref this.emperorShuttleColonistEscapeeLabels, "crRoyalEmperorShuttleColonistEscapees", LookMode.Value);
+        Scribe_Values.Look(ref this.emperorEscapeeSnapshotSealed, "crRoyalEmperorEscapeeSnapshotSealed", false);
         Scribe_Values.Look(ref this.emperorAssassinationHumanEscapeeCount, "crRoyalEmperorAssassinationHumanEscapees", 0);
         Scribe_Values.Look(ref this.emperorColonistEndgameTriggered, "crRoyalEmperorColonistEndgameTriggered", false);
         Scribe_Values.Look(ref this.emperorNobleRequirementAnnounced, "crRoyalEmperorNobleRequirementAnnounced", false);
