@@ -23,6 +23,7 @@ public class RoyaltyRegenesisClient : IExposable
     public Faction sourceFaction;
 
     /// Total biological age removed by CryoRegenesis when this contract began.
+    /// -1L means no TrueAgeTracker was available when the contract began.
     /// Lets completion distinguish actual treatment from time merely passing.
     public long contractStartRemovedAgeTicks = -1L;
 
@@ -40,6 +41,7 @@ public class RoyaltyRegenesisClient : IExposable
         Scribe_Values.Look(ref this.returnByTick, "returnByTick", 0);
         Scribe_Values.Look(ref this.isPrisoner, "isPrisoner", false);
         Scribe_References.Look(ref this.sourceFaction, "sourceFaction");
+        // -1L preserves the unset value for contracts created without a tracker.
         Scribe_Values.Look(ref this.contractStartRemovedAgeTicks, "contractStartRemovedAgeTicks", -1L);
         Scribe_Values.Look(ref this.everReachedDesiredAge, "everReachedDesiredAge", false);
     }
