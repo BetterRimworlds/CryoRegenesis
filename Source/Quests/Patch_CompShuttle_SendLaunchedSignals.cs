@@ -63,6 +63,9 @@ internal static class Patch_CompShuttle_SendLaunchedSignals
             return;
         }
 
+        // Snapshot contract passengers before vanilla destroys or hands off cargo.
+        system.SnapshotPickupLaunchClients(__instance.Transporter);
+
         if (!system.IsEmperorRegenContractActive()
             && !system.IsEmperorAssassinationEvacuationActive())
         {
