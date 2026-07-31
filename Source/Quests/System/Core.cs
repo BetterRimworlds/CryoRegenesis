@@ -452,7 +452,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         client.everReachedDesiredAge = true;
         system.LogRoyaltyDebug(
-            "Client target latched directly from casket: "
+            "Client target recorded directly from casket: "
             + (pawn?.Name?.ToStringShort ?? "?")
             + " bioTicks=" + (pawn?.ageTracker?.AgeBiologicalTicks ?? -1)
             + " desired=" + client.desiredAgeTicks);

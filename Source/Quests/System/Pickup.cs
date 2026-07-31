@@ -174,14 +174,14 @@ public partial class RoyaltyRegenesisQuestSystem
         }
         else
         {
-            bool latchedSuccess = this.IsDepartureSuccessBanked()
+            bool recordedSuccess = this.IsDepartureSuccessBanked()
                 || (this.activeClients.Any()
                     && this.activeClients.All(c => c != null && c.everReachedDesiredAge));
-            if (latchedSuccess != success)
+            if (recordedSuccess != success)
             {
                 this.LogRoyaltyDebug(
-                    "Finish success override: arg=" + success + " → latched=" + latchedSuccess);
-                success = latchedSuccess;
+                    "Finish success override: arg=" + success + " → recorded=" + recordedSuccess);
+                success = recordedSuccess;
             }
         }
 
