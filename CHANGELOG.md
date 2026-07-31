@@ -2,6 +2,11 @@
 
 ## v7.0.0
 
+* **[2026-07-31 04:26:38 EEST]** [Quests] Fixed an edge case that could complete untreated contracts.
+* **[2026-07-31 04:08:35 EEST]** [Quests] Fixed null clients during contract deadline updates.
+* **[2026-07-31 04:07:37 EEST]** [Quests] Fixed Imperial survivors during Emperor assassination escapes.
+* **[2026-07-30 17:02:39 EEST]** [Quests] Added Stargate continuity for Emperor shuttle escapees.
+* **[2026-07-27 22:21:04 EEST]** [Quests] Fixed debug campaign waits at five days to greatly cut down system testing time.
 * **[2026-07-27 16:34:16 EEST]** [Quests] Prune dead guests from the evacuation manifest in Assassin end game (found by OpenAI Codex).
 * **[2026-07-27 15:25:00 EEST]** [Quests] Hunted Assassin mark now jumps to any Knight+ who kills the Marked One.
 * **[2026-07-27 15:00:10 EEST]** [Quests] Added the Emperor "Keep What You Kill" assassination endgame.
@@ -87,7 +92,9 @@
 * **[2024-03-15 00:44:12 CST]** Majorly refactored the deploy script.
 * **[2024-03-09 11:46:39 CST]** Update README.md
 * **[2023-07-29 01:43:18 GST]** Fixed a bug that prohibited animals from being put in the cryocasket.
-* **[2023-05-22 10:37:45 GST]** Version 3.0.0.
+
+## v3.0.0
+
 * **[2023-05-22 10:31:53 GST]** Block non-colonist humans from being placed in the casket.
 * **[2023-05-22 09:47:45 GST]** Added functionality to never heal implants.
 * **[2023-05-22 09:47:24 GST]** Added an option to not try to heal anything that isn't tendable.
@@ -99,7 +106,6 @@
 * **[2023-05-22 09:30:13 GST]** Added a proper Mod class.
 * **[2023-05-21 19:41:18 GST]** Update README.md: Added info about Cargo
 * **[2023-03-26 13:41:29 CEST]** Re-added more hair colors.
-
 
 ## v2.6.0
 
