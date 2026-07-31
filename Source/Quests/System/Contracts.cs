@@ -429,6 +429,7 @@ public partial class RoyaltyRegenesisQuestSystem
     /// Only repairs clearly invalid (≤ 0) deadlines — does not push a live timer forward.
     private void EnsureContractDeadline()
     {
+        this.activeClients.RemoveAll(client => client == null);
         if (!this.activeClients.Any())
         {
             this.ClearContractTiming();

@@ -2,6 +2,7 @@
 
 ## v7.0.0
 
+* **[2026-07-31 04:08:35 EEST]** [Quests] Fixed null clients during contract deadline updates.
 * **[2026-07-31 04:07:37 EEST]** [Quests] Fixed Imperial survivors during Emperor assassination escapes.
 * **[2026-07-30 17:02:39 EEST]** [Quests] Added Stargate continuity for Emperor shuttle escapees.
 * **[2026-07-27 22:21:04 EEST]** [Quests] Fixed debug campaign waits at five days to greatly cut down system testing time.
