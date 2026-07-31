@@ -1260,7 +1260,38 @@ public partial class RoyaltyRegenesisQuestSystem
 
         this.EjectClientsFromCaskets(map, guests.Concat(new[] { assassin }).ToList());
 
-        List<Pawn> shuttleParty = guests.Concat(new[] { assassin }).Distinct().ToList();
+        // Emperor-wife clients escape with the assassin as player-faction passengers.
+        // Every other Imperial survivor remains on the map as a guaranteed hostile
+        // Empire pawn.
+        HashSet<Pawn> wives = new HashSet<Pawn>(
+            this.activeClients
+                .Where(client => client?.role != null
+                    && client.role.IndexOf("imperial wife", StringComparison.OrdinalIgnoreCase) >= 0)
+                .Select(client => client?.pawn)
+                .Where(pawn => pawn != null));
+        foreach (Pawn guest in guests)
+        {
+            this.ReleaseFromCurrentLord(guest);
+            if (wives.Contains(guest))
+            {
+                if (guest.Faction != Faction.OfPlayer)
+                {
+                    guest.SetFaction(Faction.OfPlayer);
+                }
+            }
+            else if (faction != null && guest.Faction != faction)
+            {
+                guest.SetFaction(faction);
+            }
+        }
+
+        this.MakeFactionHostileToPlayer(faction, guests.Any(guest => !wives.Contains(guest)));
+
+        List<Pawn> shuttleParty = wives
+            .Where(pawn => pawn != null && !pawn.Destroyed && !pawn.Dead)
+            .Concat(new[] { assassin })
+            .Distinct()
+            .ToList();
         if (!this.pickupShuttleSpawned || this.GetUsableContractShuttle(map) == null)
         {
             this.SpawnPickupShuttle(map, shuttleParty, faction, longStay: true);
@@ -1272,14 +1303,15 @@ public partial class RoyaltyRegenesisQuestSystem
         if (comp != null)
         {
             this.ConfigureContractShuttleEmbarkRules(comp);
-            // Assassin is required to leave; guests should leave with the ship when possible.
+            // The assassin and every Emperor-wife client must leave. Other Imperial
+            // survivors stay on-map and are not retained in the shuttle.
             comp.requiredPawns.Clear();
             comp.requiredPawns.Add(assassin);
-            foreach (Pawn guest in guests)
+            foreach (Pawn wife in wives)
             {
-                if (!comp.requiredPawns.Contains(guest))
+                if (!wife.Destroyed && !wife.Dead && !comp.requiredPawns.Contains(wife))
                 {
-                    comp.requiredPawns.Add(guest);
+                    comp.requiredPawns.Add(wife);
                 }
             }
 
@@ -1298,11 +1330,37 @@ public partial class RoyaltyRegenesisQuestSystem
         }
 #endif
 
-        // Stuff Imperial guests only — the assassin and free colonists board themselves.
+        // Remove non-wife Imperial survivors that boarded before the assassination began,
+        // then load all wives so they cannot be left behind.
         if (transporter != null)
         {
+            foreach (Pawn pawn in guests.Where(pawn => !wives.Contains(pawn)))
+            {
+                if (!transporter.innerContainer.Contains(pawn))
+                {
+                    continue;
+                }
+
+                if (!transporter.innerContainer.TryDrop(
+                    pawn,
+                    shuttle.PositionHeld,
+                    map,
+                    ThingPlaceMode.Near,
+                    out Thing _))
+                {
+                    Log.Warning(
+                        "[CryoRegenesis] Could not unload Imperial survivor "
+                        + pawn.LabelShort + " from assassination shuttle.");
+                }
+            }
+
             foreach (Pawn pawn in guests)
             {
+                if (!wives.Contains(pawn))
+                {
+                    continue;
+                }
+
                 if (transporter.innerContainer.Contains(pawn))
                 {
                     continue;
@@ -1313,10 +1371,19 @@ public partial class RoyaltyRegenesisQuestSystem
                     pawn.DeSpawn();
                 }
 
-                if (!pawn.Destroyed && !transporter.innerContainer.Contains(pawn))
+                if (pawn.Destroyed || transporter.innerContainer.TryAddOrTransfer(pawn, false))
                 {
-                    transporter.innerContainer.TryAddOrTransfer(pawn, false);
+                    continue;
                 }
+
+                // Never leave a wife despawned/unheld if the transporter rejects her.
+                if (!pawn.Spawned && !pawn.Destroyed)
+                {
+                    GenSpawn.Spawn(pawn, shuttle.PositionHeld, map, WipeMode.Vanish);
+                }
+                Log.Warning(
+                    "[CryoRegenesis] Could not load Emperor-wife client "
+                    + pawn.LabelShort + " onto assassination shuttle.");
             }
         }
 
@@ -1324,6 +1391,32 @@ public partial class RoyaltyRegenesisQuestSystem
         this.LogRoyaltyDebug(
             "Assassination evacuation shuttle ready. Required assassin="
             + assassin.LabelShort + " imperialGuests=" + guests.Count + ".");
+    }
+
+    private void MakeFactionHostileToPlayer(Faction faction, bool required)
+    {
+        if (!required || faction == null || faction == Faction.OfPlayer)
+        {
+            return;
+        }
+
+#if RIMWORLD12
+        faction.TryAffectGoodwillWith(
+            Faction.OfPlayer,
+            -1000,
+            false,
+            false,
+            "CryoRegenesis assassination",
+            null);
+#else
+        faction.TryAffectGoodwillWith(
+            Faction.OfPlayer,
+            -1000,
+            false,
+            false,
+            HistoryEventDefOf.MemberKilled,
+            null);
+#endif
     }
 
     private void ApplyAssassinationTrustBreak(Faction empire, Pawn assassin)
