@@ -293,7 +293,9 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
                     {
                         refuelable.ConsumeFuel(fuelConsumption * ((pawnAge - 10) * 0.1f));
 
-                        pawn.ageTracker.AgeBiologicalTicks = Math.Max(pawn.ageTracker.AgeBiologicalTicks - rate, this.regenesisCycle.TargetAgeTicks);
+                        pawn.ageTracker.AgeBiologicalTicks = Math.Max(
+                            pawn.ageTracker.AgeBiologicalTicks - rate,
+                            this.regenesisCycle.TargetAgeTicks);
                     }
                 }
             }
