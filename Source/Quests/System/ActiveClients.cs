@@ -356,9 +356,17 @@ public partial class RoyaltyRegenesisQuestSystem
                 continue;
             }
 
-            // Off-map but not destroyed: 1.2 ExitMap, world pawn, or other leave path.
-            // Treating these as "remaining" used to skip Imperial Court entirely.
-            departed.Add(client);
+            // Off-map clients are departed only when this shuttle's launch snapshot
+            // proves they were aboard. ExitMap, world-pawn, and other leave paths stay
+            // pending instead of being credited to this pickup.
+            if (this.pickupLaunchClientPawnIds.Contains(client.pawn.thingIDNumber))
+            {
+                departed.Add(client);
+            }
+            else
+            {
+                remaining.Add(client);
+            }
         }
 
         // Emperor-stage branched endings (before partial-wave bookkeeping can soft-continue).
@@ -390,6 +398,7 @@ public partial class RoyaltyRegenesisQuestSystem
             .FirstOrDefault(c => c != null && !c.everReachedDesiredAge);
         if (unfinishedDeparture != null)
         {
+            this.pickupLaunchClientPawnIds.Clear();
             this.FinishContractAfterDeparture(
                 false,
                 failLabel: "CryoRegenesis contract expired",
@@ -418,6 +427,7 @@ public partial class RoyaltyRegenesisQuestSystem
                         && !this.WasSuccessfullyReturned(c.pawn))
                     .ToList();
                 this.ClearContractShuttle();
+                this.pickupLaunchClientPawnIds.Clear();
                 this.pickupShuttleSpawned = false;
                 this.pickupShuttleSpawnTick = -1;
                 this.pickupWindowEndTick = -1;
@@ -458,6 +468,7 @@ public partial class RoyaltyRegenesisQuestSystem
             // Shuttle left or was destroyed without taking any ready client.
             // Keep the contract; free the pad and recover with a later pickup.
             this.ClearContractShuttle();
+            this.pickupLaunchClientPawnIds.Clear();
             this.pickupShuttleSpawned = false;
             this.pickupShuttleSpawnTick = -1;
             this.pickupWindowEndTick = -1;
@@ -488,6 +499,7 @@ public partial class RoyaltyRegenesisQuestSystem
             + " returned=" + this.clientsSuccessfullyReturned
             + "/" + this.completionRewardClientCount
             + " readyThisWave=" + readyDeparted);
+        this.pickupLaunchClientPawnIds.Clear();
         this.FinishContractAfterDeparture(
             success,
             failLabel: "CryoRegenesis contract expired",
@@ -914,4 +926,25 @@ public partial class RoyaltyRegenesisQuestSystem
         CompTransporter transporter = shuttle.TryGetComp<CompTransporter>();
         return transporter != null && transporter.innerContainer.Contains(pawn);
     }
+
+    /// Records active clients in the exact pickup transporter before launch destroys
+    /// or hands off its contents (notably on 1.2).
+    public void SnapshotPickupLaunchClients(CompTransporter transporter)
+    {
+        this.pickupLaunchClientPawnIds.Clear();
+        if (transporter?.innerContainer == null)
+        {
+            return;
+        }
+
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            Pawn pawn = client?.pawn;
+            if (pawn != null && !pawn.Destroyed && transporter.innerContainer.Contains(pawn))
+            {
+                this.pickupLaunchClientPawnIds.Add(pawn.thingIDNumber);
+            }
+        }
+    }
+
 }

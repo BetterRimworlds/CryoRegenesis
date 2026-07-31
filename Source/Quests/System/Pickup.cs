@@ -596,6 +596,10 @@ public partial class RoyaltyRegenesisQuestSystem
 
     private bool SpawnPickupShuttle(Map map, List<Pawn> living, Faction faction, bool longStay = false)
     {
+        // A new pickup gets a fresh launch manifest; the previous wave has already
+        // completed or was cleared before this method is called.
+        this.pickupLaunchClientPawnIds.Clear();
+
         // Only map-held remaining clients. Never re-import world pawns who already returned.
         List<Pawn> passengers = (living ?? new List<Pawn>())
             .Where(p => p != null && !p.Destroyed && !p.Dead
@@ -850,6 +854,7 @@ public partial class RoyaltyRegenesisQuestSystem
 #if !RIMWORLD12
         this.contractTransportShip = null;
 #endif
+        this.pickupLaunchClientPawnIds.Clear();
         // Do not clear emperorShuttleColonistEscapeeLabels here — FinishContractAfterDeparture
         // may still need them after HandleContractShuttleDeparture already nulls the ship ref.
     }

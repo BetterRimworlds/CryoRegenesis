@@ -133,6 +133,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// thingIDNumber of pawns that already returned successfully — never re-board or re-spawn them.
     private List<int> returnedClientPawnIds = new List<int>();
 
+    /// Active contract clients found in this pickup shuttle's transporter at launch.
+    /// Kept through container destruction so departure accounting can identify only
+    /// passengers that actually boarded this shuttle.
+    private List<int> pickupLaunchClientPawnIds = new List<int>();
+
     /// Labels of free colony colonists last seen aboard the Emperor-stage pickup shuttle.
     /// Snapshotted every tick while the ship is parked so departure (which destroys
     /// container contents) can still fire the Imperial Court endgame.
@@ -488,6 +493,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         Scribe_Values.Look(ref this.nextWavePickupTick, "crRoyalNextWavePickupTick", -1);
         Scribe_Values.Look(ref this.clientsSuccessfullyReturned, "crRoyalClientsSuccessfullyReturned", 0);
         Scribe_Collections.Look(ref this.returnedClientPawnIds, "crRoyalReturnedClientPawnIds", LookMode.Value);
+        Scribe_Collections.Look(ref this.pickupLaunchClientPawnIds, "crRoyalPickupLaunchClientPawnIds", LookMode.Value);
         Scribe_Collections.Look(ref this.emperorShuttleColonistEscapeeLabels, "crRoyalEmperorShuttleColonistEscapees", LookMode.Value);
         Scribe_Values.Look(ref this.emperorEscapeeSnapshotSealed, "crRoyalEmperorEscapeeSnapshotSealed", false);
         Scribe_Values.Look(ref this.emperorAssassinationHumanEscapeeCount, "crRoyalEmperorAssassinationHumanEscapees", 0);
@@ -527,6 +533,11 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
             if (this.returnedClientPawnIds == null)
             {
                 this.returnedClientPawnIds = new List<int>();
+            }
+
+            if (this.pickupLaunchClientPawnIds == null)
+            {
+                this.pickupLaunchClientPawnIds = new List<int>();
             }
 
             if (this.emperorShuttleColonistEscapeeLabels == null)
