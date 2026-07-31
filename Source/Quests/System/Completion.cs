@@ -77,7 +77,7 @@ public partial class RoyaltyRegenesisQuestSystem
         bool allEver = this.activeClients.All(c => c != null && c.everReachedDesiredAge);
         if (allEver && !this.IsDepartureSuccessBanked())
         {
-            this.LogRoyaltyDebug("All clients have latched everReachedDesiredAge → banking departure success.");
+            this.LogRoyaltyDebug("All clients have recorded everReachedDesiredAge → banking departure success.");
             this.MarkContractQuestCompleted();
         }
         else if (anyNew)
@@ -135,18 +135,18 @@ public partial class RoyaltyRegenesisQuestSystem
         return false;
     }
 
-    /// Current biological age is at or below the contracted target, forgiving natural
-    /// aging since the contract began.
+    /// Current biological age is at or below the contracted target, with a short
+    /// periodic-check allowance only when the casket has recorded sufficient treatment.
     ///
     /// The casket ejects a client the same tick it clamps them at the exact target, and
     /// they age +1 tick per tick from then on — so an exact comparison can only succeed
     /// on that single tick. The casket records that instant via
     /// <see cref="NotifyRegenesisTargetReached"/>, but if it is ever missed (pawn already
     /// ejected on load, older build, power loss on the boundary tick) an exact check can
-    /// never record again and the contract is unwinnable. Since a pawn ages at most
-    /// (now - contractStart) ticks during the contract, anyone who ever reached the
-    /// target still satisfies current <= target + elapsed, while a client whose
-    /// regression was never finished remains years over the allowance.
+    /// never record again and the contract is unwinnable. The fallback permits only one
+    /// check interval of natural aging and requires the casket to have removed at least
+    /// the age needed to reach the target during this contract. Contract time by itself
+    /// is never evidence that treatment occurred.
     private bool EvaluateAgeAgainstTarget(
         RoyaltyRegenesisClient client,
         out long currentTicks,
@@ -160,15 +160,30 @@ public partial class RoyaltyRegenesisQuestSystem
             return false;
         }
 
-        long agingAllowance = CheckIntervalTicks;
-        if (this.contractStartTick >= 0)
+        currentTicks = client.pawn.ageTracker.AgeBiologicalTicks;
+        allowedTicks = client.desiredAgeTicks + CheckIntervalTicks;
+        if (currentTicks <= client.desiredAgeTicks)
         {
-            agingAllowance += Math.Max(0, Find.TickManager.TicksGame - this.contractStartTick);
+            return true;
         }
 
-        currentTicks = client.pawn.ageTracker.AgeBiologicalTicks;
-        allowedTicks = client.desiredAgeTicks + agingAllowance;
-        return currentTicks <= allowedTicks;
+        if (currentTicks > allowedTicks)
+        {
+            return false;
+        }
+
+        TrueAgeTracker tracker = client.pawn.health?.hediffSet?
+            .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+        if (tracker == null || client.contractStartRemovedAgeTicks < 0
+            || tracker.contractStartAgeTicks <= client.desiredAgeTicks)
+        {
+            return false;
+        }
+
+        long requiredAgeRemoved = tracker.contractStartAgeTicks - client.desiredAgeTicks;
+        long ageRemovedDuringContract = tracker.cryoRegenesisRemovedAgeTicks
+            - client.contractStartRemovedAgeTicks;
+        return ageRemovedDuringContract >= requiredAgeRemoved;
     }
 
     private void LogRoyaltyDebug(string message)
