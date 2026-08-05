@@ -4,14 +4,11 @@
   <RecipeDef>
     <defName>CR_AdministerCryoRegenesisSedation</defName>
     <label>administer CryoRegenesis sedation</label>
-    <description>
-      Administer a short-acting CryoRegenesis-compatible sedative protocol. This does not consume medicine, but requires doctor work.
-    </description>
+    <description>Administer a short-acting CryoRegenesis-compatible sedative protocol. This does not consume medicine, but requires doctor work.</description>
 
     <workerClass>BetterRimworlds.CryoRegenesis.Recipe_AdministerCryoRegenesisSedation</workerClass>
 
     <jobString>Administering CryoRegenesis sedation.</jobString>
-    <jobStringTendedTo>Administering CryoRegenesis sedation to patient.</jobStringTendedTo>
 
     <workAmount>600</workAmount>
     <workSkill>Medicine</workSkill>
