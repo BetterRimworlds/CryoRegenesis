@@ -39,9 +39,9 @@ public partial class RoyaltyRegenesisQuestSystem
             .ToList();
     }
 
-    /// Vanilla Royalty hospitality guests are temporary player-faction pawns whose
-    /// original faction is retained by QuestPart_ExtraFaction. A guest tracker alone
-    /// only creates an uncontrolled visitor, with no bed assignment or Operations UI.
+    /// Keep contracted guests (and escorts) in their home faction as guests of the
+    /// colony. Joining them to the player faction turns a visiting ruler into a
+    /// colonist and appoints a replacement leader in their home faction.
     private void EnsureGuestClientsAreQuestLodgers()
     {
         if (this.pickupShuttleSpawned || this.activeContractQuest == null || this.activeContractQuest.Historical)
@@ -49,61 +49,64 @@ public partial class RoyaltyRegenesisQuestSystem
             return;
         }
 
-        foreach (IGrouping<Faction, RoyaltyRegenesisClient> factionClients in this.activeClients
-                     .Where(client => client != null && !client.isPrisoner && client.pawn != null)
-                     .GroupBy(client => client.sourceFaction))
+        this.ClearContractExtraFactionLodgerParts();
+
+        List<Pawn> pawns = this.activeClients
+            .Where(client => client != null && !client.isPrisoner && client.pawn != null)
+            .Select(client => client.pawn)
+            .Distinct()
+            .ToList();
+
+        if (this.contractEscorts != null)
         {
-            Faction homeFaction = factionClients.Key;
-            List<Pawn> pawns = factionClients.Select(client => client.pawn).Distinct().ToList();
+            pawns.AddRange(
+                this.contractEscorts.Where(p => p != null && !p.Destroyed && !pawns.Contains(p)));
+        }
 
-            // Escorts share the clients' home faction for this contract.
-            if (homeFaction != null)
+        foreach (Pawn pawn in pawns)
+        {
+            this.ReleaseFromCurrentLord(pawn);
+
+            RoyaltyRegenesisClient client = this.activeClients.FirstOrDefault(c => c?.pawn == pawn);
+            Faction homeFaction = client?.sourceFaction
+                ?? this.activeClients.FirstOrDefault()?.sourceFaction
+                ?? pawn.Faction;
+            if (homeFaction != null && homeFaction != Faction.OfPlayer && pawn.Faction != homeFaction)
             {
-                pawns.AddRange(
-                    this.contractEscorts.Where(p =>
-                        p != null && !p.Destroyed && p.Faction == homeFaction));
+                pawn.SetFaction(homeFaction);
             }
 
-            QuestPart_ExtraFaction extraFactionPart = this.activeContractQuest.PartsListForReading
-                .OfType<QuestPart_ExtraFaction>()
-                .FirstOrDefault(part =>
-                    part.extraFaction != null &&
-                    part.extraFaction.faction == homeFaction &&
-                    part.extraFaction.factionType == ExtraFactionType.HomeFaction);
-
-            if (extraFactionPart == null)
+            if (pawn.HostFaction != Faction.OfPlayer)
             {
-                extraFactionPart = new QuestPart_ExtraFaction
-                {
-                    extraFaction = new ExtraFaction(homeFaction, ExtraFactionType.HomeFaction),
-                    affectedPawns = new List<Pawn>(pawns)
-                };
-                this.activeContractQuest.AddPart(extraFactionPart);
-            }
-            else
-            {
-                extraFactionPart.affectedPawns.AddRange(
-                    pawns.Where(pawn => !extraFactionPart.affectedPawns.Contains(pawn)));
+                this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner: false);
             }
 
-            foreach (Pawn pawn in pawns)
-            {
-                this.ReleaseFromCurrentLord(pawn);
-                if (pawn.Faction != Faction.OfPlayer)
-                {
-                    pawn.SetFaction(Faction.OfPlayer);
-                }
-            }
+            this.LockRecruitment(pawn);
         }
     }
 
-    /// Returns guest lodgers to their home faction after the contract ends.
-    /// Must run while client references still exist (before <see cref="activeClients"/> is cleared).
+    /// ExtraFaction + SetFaction(OfPlayer) was the old lodger conversion. Those parts
+    /// stay on already-started contract quests and would still mark guests as lodgers.
+    private void ClearContractExtraFactionLodgerParts()
+    {
+        if (this.activeContractQuest == null)
+        {
+            return;
+        }
+
+        foreach (QuestPart_ExtraFaction part in this.activeContractQuest.PartsListForReading
+                     .OfType<QuestPart_ExtraFaction>())
+        {
+            part.affectedPawns?.Clear();
+        }
+    }
+
+    /// Returns any leftover player-faction guest conversions to their home faction
+    /// after the contract ends. Must run while client references still exist
+    /// (before <see cref="activeClients"/> is cleared).
     ///
-    /// Do NOT call this at boarding time: SetFaction away from the player turns a temporary
-    /// colonist-lodger (e.g. a planetary ruler) into a foreign Town Councilman mid-leave,
-    /// which breaks ExitOnShuttle / CompShuttle loading and soft-fails successful contracts.
-    /// Vanilla hospitality keeps ExtraFaction lodgers as OfPlayer until the quest cleans up.
+    /// Do NOT call this at boarding time: SetFaction away from the player mid-leave
+    /// can break ExitOnShuttle / CompShuttle loading and soft-fail successful contracts.
     private void RestoreGuestClientFactions()
     {
         foreach (RoyaltyRegenesisClient client in this.activeClients.Where(client => client != null && !client.isPrisoner))

@@ -13,10 +13,10 @@ using Verse;
 
 namespace BetterRimworlds.CryoRegenesis;
 
-/// Regen pickup shuttles set acceptColonists so temporary player-faction guest
-/// clients can embark. That also lets every free colonist board — which would
-/// let unrelated colonists leave with the nobility. Restrict free colonists to
-/// non-ex DirectRelations of active regen clients (and the clients themselves).
+/// Regen pickup shuttles set acceptColonists so colony pawns can embark, and
+/// this patch also allows home-faction contract guests. acceptColonists would
+/// otherwise let every free colonist board — restrict those to non-ex
+/// DirectRelations of active regen clients (and the clients themselves).
 /// During the Emperor contract any number of colonists may leave, but only while the
 /// Imperial shuttle is open to them — the Emperor alive and aboard (or sealed in a
 /// powered-off casket) and the rest of the party finished.
@@ -47,6 +47,15 @@ internal static class Patch_CompShuttle_IsAllowed
         // Keep What You Kill assassination: assassin, free colonists, and pets may board.
         if (system.IsEmperorAssassinationEvacuationActive()
             && system.MayBoardAssassinationEvacuationShuttle(pawn))
+        {
+            __result = true;
+            return;
+        }
+
+        // Contract guests stay in their home faction, so acceptColonists does not
+        // cover them. Required pawns still board via vanilla IsRequired; this lets
+        // unfinished clients and escorts embark without joining the player faction.
+        if (RoyaltyRegenesisQuestSystem.MayBoardRegenPickupShuttle(pawn))
         {
             __result = true;
             return;
