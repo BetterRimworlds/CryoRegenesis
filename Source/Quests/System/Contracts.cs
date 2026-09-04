@@ -516,6 +516,11 @@ public partial class RoyaltyRegenesisQuestSystem
             }
 #endif
         }
+        else if (pawn.playerSettings != null)
+        {
+            // Walking guests default to NoCare; doctors will ignore sedation bills.
+            pawn.playerSettings.medCare = MedicalCareCategory.Best;
+        }
     }
 
     private void LockRecruitment(Pawn pawn)
