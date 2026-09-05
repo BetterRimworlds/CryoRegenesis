@@ -113,6 +113,113 @@ public partial class RoyaltyRegenesisQuestSystem
             : null;
     }
 
+    /// Every non-Empire, non-player humanlike faction. Leader contracts walk this
+    /// whole list and only fail when none of them has an available ruler.
+    private List<Faction> PlanetaryFactionsForLeaderContracts()
+    {
+        return Find.FactionManager.AllFactionsListForReading
+            .Where(faction =>
+                faction != null
+                && faction != Faction.OfPlayer
+                && !faction.defeated
+                && faction.def != null
+                && faction.def.humanlikeFaction
+                && !this.IsEmpire(faction))
+            .ToList();
+    }
+
+    private List<Pawn> GetAvailablePlanetaryLeaders(int minimumBiologicalAge)
+    {
+        List<Pawn> leaders = new List<Pawn>();
+        foreach (Faction faction in this.PlanetaryFactionsForLeaderContracts())
+        {
+            Pawn leader = this.GetFactionLeader(faction, minimumBiologicalAge);
+            if (leader != null)
+            {
+                leaders.Add(leader);
+            }
+        }
+
+        return leaders;
+    }
+
+    private string BuildPlanetaryLeaderFailureReport(int minimumBiologicalAge)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine(
+            "No regional faction leaders are available for a CryoRegenesis stay. Retrying later.");
+        sb.AppendLine();
+        sb.AppendLine("Faction leaders:");
+
+        List<Faction> factions = this.PlanetaryFactionsForLeaderContracts()
+            .OrderBy(faction => faction.Name)
+            .ToList();
+        if (!factions.Any())
+        {
+            sb.AppendLine("• none (no non-Empire humanlike factions)");
+            return sb.ToString();
+        }
+
+        foreach (Faction faction in factions)
+        {
+            sb.AppendLine("• " + this.DescribeFactionLeaderStatus(faction, minimumBiologicalAge));
+        }
+
+        return sb.ToString();
+    }
+
+    private string DescribeFactionLeaderStatus(Faction faction, int minimumBiologicalAge)
+    {
+        Pawn leader = faction.leader;
+        if (leader == null)
+        {
+            return faction.Name + ": no faction leader";
+        }
+
+        int age = leader.ageTracker != null ? leader.ageTracker.AgeBiologicalYears : 0;
+        string name = leader.Name != null ? leader.Name.ToStringShort : leader.LabelShort;
+        if (this.GetFactionLeader(faction, minimumBiologicalAge) != null)
+        {
+            return faction.Name + ": " + name + ", age " + age;
+        }
+
+        string reason;
+        if (leader.Dead)
+        {
+            reason = "dead";
+        }
+        else if (leader.Destroyed)
+        {
+            reason = "destroyed";
+        }
+        else if (leader.Faction != faction)
+        {
+            reason = "left the faction";
+        }
+        else if (leader.Spawned)
+        {
+            reason = "on a map";
+        }
+        else if (leader.ageTracker == null || age < minimumBiologicalAge)
+        {
+            reason = "need age " + minimumBiologicalAge + "+";
+        }
+        else if (IsActiveRegenContractPawn(leader))
+        {
+            reason = "already under contract";
+        }
+        else if (Find.WorldPawns?.AllPawnsAlive.Contains(leader) != true)
+        {
+            reason = "not a world pawn";
+        }
+        else
+        {
+            reason = "unavailable";
+        }
+
+        return faction.Name + ": " + name + ", age " + age + " (" + reason + ")";
+    }
+
     private List<Pawn> GetAvailableWorldPawns(Faction faction, int minimumBiologicalAge)
     {
         if (faction == null || Find.WorldPawns == null)
