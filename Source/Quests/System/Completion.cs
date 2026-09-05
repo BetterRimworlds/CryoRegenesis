@@ -309,6 +309,11 @@ public partial class RoyaltyRegenesisQuestSystem
 
     private void ScheduleRetry(string label, string text)
     {
+        if (!label.StartsWith("[Regen]"))
+        {
+            label = "[Regen] " + label;
+        }
+
         Find.LetterStack.ReceiveLetter(label, text, LetterDefOf.NegativeEvent);
         this.nextEventTick = Find.TickManager.TicksGame + this.CampaignWaitTicks(30, 60);
         this.activeContractStage = RoyaltyRegenesisStage.NotStarted;

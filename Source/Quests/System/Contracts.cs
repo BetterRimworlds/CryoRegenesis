@@ -82,23 +82,18 @@ public partial class RoyaltyRegenesisQuestSystem
 
     private void StartLeaderContract(Map map)
     {
-        Faction sender = this.RandomPlanetarySenderFaction();
-        if (sender == null)
-        {
-            this.ScheduleRetry(
-                "No eligible factions",
-                "No non-Empire, non-Ancient planetary leaders are available for a CryoRegenesis stay. Retrying later.");
-            return;
-        }
-
-        Pawn leader = this.GetFactionLeader(sender, 31);
+        const int minimumLeaderAge = 31;
+        Pawn leader = this.GetAvailablePlanetaryLeaders(minimumLeaderAge)
+            .RandomElementWithFallback(null);
         if (leader == null)
         {
             this.ScheduleRetry(
-                "No eligible faction ruler",
-                $"{sender.Name}'s ruler is unavailable for a CryoRegenesis stay. Retrying later.");
+                "No regional faction leaders",
+                this.BuildPlanetaryLeaderFailureReport(minimumLeaderAge));
             return;
         }
+
+        Faction sender = leader.Faction;
 
         int yearsToRemove = Rand.RangeInclusive(2, 60);
         int targetAgeYears = Math.Max(
