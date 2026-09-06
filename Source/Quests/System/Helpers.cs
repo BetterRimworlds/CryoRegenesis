@@ -113,19 +113,52 @@ public partial class RoyaltyRegenesisQuestSystem
             : null;
     }
 
-    /// Every non-Empire, non-player humanlike faction. Leader contracts walk this
-    /// whole list and only fail when none of them has an available ruler.
+    /// Settled human polities a Stellarch would know: the two vanilla outlander
+    /// unions, plus any modded medieval-or-better civ. Hostility does not matter.
+    /// Empire is excluded because the Stellarch has his own later contract.
     private List<Faction> PlanetaryFactionsForLeaderContracts()
     {
         return Find.FactionManager.AllFactionsListForReading
-            .Where(faction =>
-                faction != null
-                && faction != Faction.OfPlayer
-                && !faction.defeated
-                && faction.def != null
-                && faction.def.humanlikeFaction
-                && !this.IsEmpire(faction))
+            .Where(this.IsPlanetaryCivilizationForLeaderContract)
             .ToList();
+    }
+
+    private bool IsPlanetaryCivilizationForLeaderContract(Faction faction)
+    {
+        if (faction == null || faction == Faction.OfPlayer || faction.defeated)
+        {
+            return false;
+        }
+
+        if (faction.def == null || !faction.def.humanlikeFaction)
+        {
+            return false;
+        }
+
+        if (faction.Hidden)
+        {
+            return false;
+        }
+
+        if (this.IsEmpire(faction) || this.IsAncient(faction))
+        {
+            return false;
+        }
+
+        // Pirates (and savage tribes marked unbefriendable) are warbands, not states.
+        if (faction.def.permanentEnemy)
+        {
+            return false;
+        }
+
+        // Neolithic = tribals/savages, friendly or hostile. Medieval+ keeps
+        // outlanders and modded kingdoms without per-mod checks.
+        if (faction.def.techLevel < TechLevel.Medieval)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private List<Pawn> GetAvailablePlanetaryLeaders(int minimumBiologicalAge)
@@ -156,7 +189,7 @@ public partial class RoyaltyRegenesisQuestSystem
             .ToList();
         if (!factions.Any())
         {
-            sb.AppendLine("• none (no non-Empire humanlike factions)");
+            sb.AppendLine("• none (no medieval-or-better planetary civilizations)");
             return sb.ToString();
         }
 
