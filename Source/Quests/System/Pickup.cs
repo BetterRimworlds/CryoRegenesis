@@ -40,16 +40,15 @@ public partial class RoyaltyRegenesisQuestSystem
     }
 
     /// Keep contracted guests (and escorts) in their home faction as guests of the
-    /// colony. Joining them to the player faction turns a visiting ruler into a
-    /// colonist and appoints a replacement leader in their home faction.
+    /// colony — the same arrangement as Imperial nobles. Joining a visiting ruler
+    /// to the player faction makes them a colonist, and their home faction then
+    /// appoints a replacement leader.
     private void EnsureGuestClientsAreQuestLodgers()
     {
         if (this.pickupShuttleSpawned || this.activeContractQuest == null || this.activeContractQuest.Historical)
         {
             return;
         }
-
-        this.ClearContractExtraFactionLodgerParts();
 
         List<Pawn> pawns = this.activeClients
             .Where(client => client != null && !client.isPrisoner && client.pawn != null)
@@ -65,39 +64,89 @@ public partial class RoyaltyRegenesisQuestSystem
 
         foreach (Pawn pawn in pawns)
         {
-            this.ReleaseFromCurrentLord(pawn);
-
             RoyaltyRegenesisClient client = this.activeClients.FirstOrDefault(c => c?.pawn == pawn);
             Faction homeFaction = client?.sourceFaction
                 ?? this.activeClients.FirstOrDefault()?.sourceFaction
                 ?? pawn.Faction;
-            if (homeFaction != null && homeFaction != Faction.OfPlayer && pawn.Faction != homeFaction)
-            {
-                pawn.SetFaction(homeFaction);
-            }
 
-            if (pawn.HostFaction != Faction.OfPlayer)
-            {
-                this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner: false);
-            }
-
-            this.LockRecruitment(pawn);
+            this.KeepPawnAsHomeFactionGuest(pawn, homeFaction);
         }
     }
 
-    /// ExtraFaction + SetFaction(OfPlayer) was the old lodger conversion. Those parts
-    /// stay on already-started contract quests and would still mark guests as lodgers.
-    private void ClearContractExtraFactionLodgerParts()
+    /// Home-faction guest of the colony. Never joins the player faction.
+    /// For a current faction leader, ExtraFaction HomeFaction is reserved first so a
+    /// later SetFaction to the player cannot make their polity appoint a replacement.
+    private void KeepPawnAsHomeFactionGuest(Pawn pawn, Faction homeFaction)
     {
-        if (this.activeContractQuest == null)
+        if (pawn == null || pawn.Destroyed)
         {
             return;
         }
 
-        foreach (QuestPart_ExtraFaction part in this.activeContractQuest.PartsListForReading
-                     .OfType<QuestPart_ExtraFaction>())
+        if (homeFaction == null || homeFaction == Faction.OfPlayer)
         {
-            part.affectedPawns?.Clear();
+            homeFaction = pawn.Faction;
+        }
+
+        if (homeFaction != null && homeFaction != Faction.OfPlayer && homeFaction.leader == pawn)
+        {
+            this.ReserveHomeFactionForLeader(pawn, homeFaction);
+        }
+
+        if (homeFaction != null && homeFaction != Faction.OfPlayer && pawn.Faction != homeFaction)
+        {
+            this.ReleaseFromCurrentLord(pawn);
+            pawn.SetFaction(homeFaction);
+        }
+
+        if (this.CanBeGuestOfPlayer(pawn) && pawn.HostFaction != Faction.OfPlayer)
+        {
+            this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner: false);
+        }
+
+        this.LockRecruitment(pawn);
+    }
+
+    /// Quest ExtraFaction must be on the manager cache (not only the quest part
+    /// list) or HasExtraHomeFaction stays false and SetFaction(OfPlayer) still
+    /// makes the home faction replace its leader.
+    private void ReserveHomeFactionForLeader(Pawn pawn, Faction homeFaction)
+    {
+        if (this.activeContractQuest == null || pawn == null || homeFaction == null)
+        {
+            return;
+        }
+
+        QuestPart_ExtraFaction part = this.activeContractQuest.PartsListForReading
+            .OfType<QuestPart_ExtraFaction>()
+            .FirstOrDefault(candidate =>
+                candidate.extraFaction != null
+                && candidate.extraFaction.faction == homeFaction
+                && candidate.extraFaction.factionType == ExtraFactionType.HomeFaction);
+
+        if (part == null)
+        {
+            part = new QuestPart_ExtraFaction
+            {
+                extraFaction = new ExtraFaction(homeFaction, ExtraFactionType.HomeFaction),
+                affectedPawns = new List<Pawn>(),
+            };
+            this.activeContractQuest.AddPart(part);
+            List<QuestPart_ExtraFaction> cache = Find.QuestManager?.ExtraFactionQuestParts;
+            if (cache != null && !cache.Contains(part))
+            {
+                cache.Add(part);
+            }
+        }
+
+        if (part.affectedPawns == null)
+        {
+            part.affectedPawns = new List<Pawn>();
+        }
+
+        if (!part.affectedPawns.Contains(pawn))
+        {
+            part.affectedPawns.Add(pawn);
         }
     }
 
@@ -120,6 +169,14 @@ public partial class RoyaltyRegenesisQuestSystem
             if (pawn.Faction != Faction.OfPlayer)
             {
                 continue;
+            }
+
+            // ExtraFaction first if they are still that polity's leader, then home
+            // faction. SetFaction(OfPlayer) without ExtraFaction is what makes a
+            // visiting ruler get replaced.
+            if (client.sourceFaction.leader == pawn)
+            {
+                this.ReserveHomeFactionForLeader(pawn, client.sourceFaction);
             }
 
             // Drop any leave/boarding lord first so SetFaction does not race with it.
