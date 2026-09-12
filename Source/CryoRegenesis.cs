@@ -113,6 +113,10 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
     private bool IsDisconnectedFromPowerGrid => power?.PowerNet == null;
     private bool IsPowerUnavailable => power == null || !power.PowerOn || IsDisconnectedFromPowerGrid;
 
+    /// True when the pod is acting as a normal cryptosleep casket (flicked off, unpowered,
+    /// or disconnected) rather than an active CryoRegenesis chamber.
+    public bool IsUnpoweredCryptosleepMode => this.IsPowerUnavailable;
+
     public override void SpawnSetup(Map map, bool respawningAfterLoad)
     {
         base.SpawnSetup(map, respawningAfterLoad);
@@ -219,7 +223,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             Pawn pawn = ContainedThing as Pawn;
             float pawnAge = pawn.ageTracker.AgeBiologicalTicks / GenDate.TicksPerYear;
 
-            isTargetAge = this.regenesisCycle.IsTargetAge(pawn, rate);
+            isTargetAge = this.regenesisCycle.IsTargetAge(pawn);
             hasInjuries = this.regenesisCycle.HasCurableInjuries;
 
             // if (this.isSafeToRepair == false)
@@ -233,6 +237,14 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
             if (power.PowerOn)
             {
+                // Record contract completion before the healthy-at-target branch ejects
+                // the pawn and returns. Natural Guest departure otherwise bypasses
+                // MarkTargetAgeReached entirely.
+                if (isTargetAge)
+                {
+                    this.regenesisCycle.MarkTargetAgeReached(pawn);
+                }
+
                 if (isTargetAge && !hasInjuries)
                 {
                     this.EjectContents();
@@ -253,11 +265,6 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
                     Log.Message("Not enough Uranium to heal.");
                 }
 
-                if (isTargetAge)
-                {
-                    this.regenesisCycle.MarkTargetAgeReached(pawn);
-                }
-
                 this.regenesisCycle.TryHealNextInjury(pawn, refuelable);
 
                 if (this.regenesisCycle.ShouldScheduleHealing(pawn))
@@ -272,7 +279,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
                 this.EjectContents();
             }
 
-            if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * this.regenesisCycle.TargetAge)
+            if (pawn.ageTracker.AgeBiologicalTicks > this.regenesisCycle.TargetAgeTicks)
             {
                 #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
                 power.PowerOutput = -props.PowerConsumption;
@@ -282,11 +289,13 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
                 if (power.PowerOn)
                 {
-                    if (pawn.ageTracker.AgeBiologicalTicks > GenDate.TicksPerYear * this.regenesisCycle.TargetAge)
+                    if (pawn.ageTracker.AgeBiologicalTicks > this.regenesisCycle.TargetAgeTicks)
                     {
                         refuelable.ConsumeFuel(fuelConsumption * ((pawnAge - 10) * 0.1f));
 
-                        pawn.ageTracker.AgeBiologicalTicks = Math.Max(pawn.ageTracker.AgeBiologicalTicks - rate, GenDate.TicksPerYear * this.regenesisCycle.TargetAge);
+                        pawn.ageTracker.AgeBiologicalTicks = Math.Max(
+                            pawn.ageTracker.AgeBiologicalTicks - rate,
+                            this.regenesisCycle.TargetAgeTicks);
                     }
                 }
             }
@@ -478,6 +487,14 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
             //string bioTime = "AgeBiological".Translate(new object[]{years,quadrums,days});
             string bioTime = "AgeBiological".Translate((NamedArgument) years,
                 (NamedArgument) quadrums, (NamedArgument) days);
+
+            var trueAgeTracker = pawn.health?.hediffSet?
+                .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+            if (trueAgeTracker != null && trueAgeTracker.underRegenContract && trueAgeTracker.desiredAgeTicks > 0)
+            {
+                bioTime += "\nContract target age: " + trueAgeTracker.GetContractTargetAgeYears().ToString("0.#")
+                    + " (" + trueAgeTracker.GetContractProgressPercent().ToString("0") + "% there)";
+            }
 
             if (this.regenesisCycle.HasCurableInjuries)
             {

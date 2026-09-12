@@ -22,12 +22,11 @@ public static class RegenesisThoughts
 {
     private const int YearsPerStack = 15;
 
-    /// <summary>
     /// Grant stackable body-positivity memories after a CryoRegenesis eject that
     /// actually de-aged the pawn. Stage, description years, and duration use
     /// lifetime years erased from the True Age tracker (must be updated first).
     /// Stack count scales with how many years this session removed.
-    /// </summary>
+    /// <param name="pawn">The target HumanLike.</param>
     /// <param name="sessionYearsRemoved">Whole years of bio-age removed this eject (gate + multi-stack).</param>
     public static void AddBodyPositivityThought(Pawn pawn, int sessionYearsRemoved)
     {
@@ -95,7 +94,11 @@ public static class RegenesisThoughts
         #if !RIMWORLD12 && !RIMWORLD13
         if (lastThought.CurStageIndex >= 2)
         {
-            if (pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
+            // Regen-quest contract clients must never become voluntarily recruitable.
+            bool underContract = (tracker != null && tracker.underRegenContract)
+                || RoyaltyRegenesisQuestSystem.IsActiveRegenContractPawn(pawn);
+
+            if (!underContract && pawn.IsPrisoner && pawn.guest != null && !pawn.guest.Recruitable)
             {
                 pawn.guest.Recruitable = true;
                 Messages.Message("Grateful to be so much younger, " + pawn.Name + " is now recruitable.", pawn, MessageTypeDefOf.PositiveEvent);

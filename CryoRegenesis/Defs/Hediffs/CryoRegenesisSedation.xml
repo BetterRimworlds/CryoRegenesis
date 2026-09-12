@@ -4,9 +4,7 @@
   <HediffDef>
     <defName>CryoRegenesisSedation</defName>
     <label>CryoRegenesis sedation</label>
-    <description>
-      A short-acting neuromuscular suppression state used to safely prepare a pawn for CryoRegenesis casket insertion.
-    </description>
+    <description>A short-acting neuromuscular suppression state used to safely prepare a pawn for CryoRegenesis casket insertion.</description>
 
     <hediffClass>HediffWithComps</hediffClass>
     <initialSeverity>1.0</initialSeverity>
