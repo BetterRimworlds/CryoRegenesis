@@ -388,7 +388,11 @@ public partial class RoyaltyRegenesisQuestSystem
             tracker.contractStartAgeTicks = pawn.ageTracker.AgeBiologicalTicks;
         }
 
-        this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner);
+        if (isPrisoner || this.CanBeGuestOfPlayer(pawn))
+        {
+            this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner);
+        }
+
         this.LockRecruitment(pawn);
 
         if (isPrisoner && !pawn.health.hediffSet.HasHediff(HediffDefOf.Anesthetic))
@@ -487,9 +491,26 @@ public partial class RoyaltyRegenesisQuestSystem
         this.ResetCompletionRewardState();
     }
 
+    /// Guest of the colony while remaining in <paramref name="pawn"/>'s own faction.
+    /// Vanilla refuses Guest status when the pawn is already player-faction or hostile.
+    private bool CanBeGuestOfPlayer(Pawn pawn)
+    {
+        if (pawn?.guest == null || pawn.Faction == null || pawn.Faction == Faction.OfPlayer)
+        {
+            return false;
+        }
+
+        return !pawn.Faction.HostileTo(Faction.OfPlayer);
+    }
+
     private void ApplyGuestOrPrisonerStatus(Pawn pawn, bool isPrisoner)
     {
         if (pawn?.guest == null)
+        {
+            return;
+        }
+
+        if (!isPrisoner && !this.CanBeGuestOfPlayer(pawn))
         {
             return;
         }
@@ -610,7 +631,7 @@ public partial class RoyaltyRegenesisQuestSystem
     private void DeliverByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction)
     {
         Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
-            owningFaction: null,
+            owningFaction: faction,
             requiredPawns: null,
             leaveImmediatelyWhenSatisfied: true,
             dropEverythingOnArrival: true,
@@ -648,7 +669,7 @@ public partial class RoyaltyRegenesisQuestSystem
     private void DeliverByTransportShip(Map map, List<Pawn> pawns, Faction faction)
     {
         Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
-            owningFaction: null,
+            owningFaction: faction,
             requiredPawns: null,
             hideControls: true);
 

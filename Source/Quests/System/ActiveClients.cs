@@ -868,6 +868,7 @@ public partial class RoyaltyRegenesisQuestSystem
         {
             this.clientsHaveArrived = true;
             this.LogRoyaltyDebug("All clients delivered and available on map.");
+            this.EnsureGuestClientsAreQuestLodgers();
         }
     }
 

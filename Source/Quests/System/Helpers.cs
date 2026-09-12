@@ -114,8 +114,10 @@ public partial class RoyaltyRegenesisQuestSystem
     }
 
     /// Settled human polities a Stellarch would know: the two vanilla outlander
-    /// unions, plus any modded medieval-or-better civ. Hostility does not matter.
-    /// Empire is excluded because the Stellarch has his own later contract.
+    /// unions, plus any modded medieval-or-better civ. Currently hostile factions
+    /// are skipped — rulers arrive as guests, and vanilla will not host a guest
+    /// from a hostile faction. Empire is excluded because the Stellarch has his
+    /// own later contract.
     private List<Faction> PlanetaryFactionsForLeaderContracts()
     {
         return Find.FactionManager.AllFactionsListForReading
@@ -147,6 +149,13 @@ public partial class RoyaltyRegenesisQuestSystem
 
         // Pirates (and savage tribes marked unbefriendable) are warbands, not states.
         if (faction.def.permanentEnemy)
+        {
+            return false;
+        }
+
+        // Guest contracts only. Vanilla will not make a hostile pawn a Guest of
+        // the colony, and without that status a visiting ruler is not a guest.
+        if (faction.HostileTo(Faction.OfPlayer))
         {
             return false;
         }
