@@ -290,6 +290,15 @@ public class RegenesisCycle
                 continue;
             }
 #endif
+#if RIMWORLD15 || RIMWORLD16
+            // Entity, void, and mutant hediffs are plot or identity states,
+            // not wounds. Healing a metalhorror implant would erase the infection
+            // without emergence.
+            if (IsAnomalySystemHediff(hediff))
+            {
+                continue;
+            }
+#endif
 
             if (!CryoRegenesis.Settings.healSimpleProsthetics && !hediff.def.tendable)
             {
@@ -362,6 +371,31 @@ public class RegenesisCycle
             case "XenogermLossShock":
             case "RegenerationComa":
             case "OvumExtracted":
+                return true;
+            default:
+                return false;
+        }
+    }
+#endif
+
+#if RIMWORLD15 || RIMWORLD16
+    private static bool IsAnomalySystemHediff(Hediff hediff)
+    {
+        if (hediff is Hediff_MetalhorrorImplant
+            || hediff is Hediff_Inhumanized
+            || hediff is Hediff_CubeInterest
+            || hediff is Hediff_CubeWithdrawal
+            || hediff is Hediff_Shambler
+            || hediff is Hediff_MeatHunger
+            || hediff is Hediff_DuplicateSickness)
+        {
+            return true;
+        }
+
+        switch (hediff.def.defName)
+        {
+            case "RevenantHypnosis":
+            case "AwokenHypnosis":
                 return true;
             default:
                 return false;
