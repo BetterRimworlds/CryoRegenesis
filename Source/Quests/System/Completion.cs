@@ -50,6 +50,7 @@ public partial class RoyaltyRegenesisQuestSystem
             if (this.EvaluateAgeAgainstTarget(client, out _, out _))
             {
                 client.everReachedDesiredAge = true;
+                this.RecordHonorBasisFromClient(client);
                 anyNew = true;
                 Pawn p = client.pawn;
                 this.LogRoyaltyDebug(

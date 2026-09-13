@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <LetterDef>
+    <defName>CR_BestowHonor</defName>
+    <letterClass>BetterRimworlds.CryoRegenesis.ChoiceLetter_BestowHonor</letterClass>
+    <color>(218, 165, 32)</color>
+    <flashInterval>-1</flashInterval>
+  </LetterDef>
+
+</Defs>

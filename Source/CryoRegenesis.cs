@@ -324,6 +324,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
         // True Age ledger must update before body-positivity thoughts, which
         // read lifetime years erased from the tracker.
         int sessionYearsRemoved = 0;
+        bool reachedTargetAge = this.regenesisCycle.IsTargetAge(pawn);
         if (pawn.ageTracker != null)
         {
             int currentAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
@@ -368,6 +369,11 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
         base.EjectContents();
 
         this.ResetTrueAgeTracking();
+
+        if (reachedTargetAge && sessionYearsRemoved > 0 && pawn.NonHumanlikeOrWildMan() == false)
+        {
+            RoyaltyRegenesisQuestSystem.NotifyNobleRegenesisCompleted(pawn, sessionYearsRemoved);
+        }
 
         // if (pawn.IsColonist == false)
         // {

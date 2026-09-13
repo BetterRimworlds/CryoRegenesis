@@ -107,6 +107,39 @@ chain escalates — lower nobility, the Stellarch, and eventually the highest se
 Death or recruitment under contract shatters trust: progress resets, and patrons will stay away for a long time. Honor the
 bargain and the Empire may eventually open paths that most colonies never see.
 
+### Honor
+
+Successful CryoRegenesis of an Empire noble is worth Imperial Honor (favor). A **Bestow Honor** letter lets you choose any
+colonist to receive it.
+
+- **Active regen contract:** one offer when the contract succeeds (the shuttle leaves with treatment complete). Several
+  nobles → the **highest title** only.
+- **No active contract:** any titled Empire member who finishes in a CryoRegenesis casket — an Empire guest, or a colonist
+  who already holds an Empire title.
+- Honor is favor, not a skipped title ceremony. Freeholder still applies immediately; Knight and above still use the usual
+  bestowing ceremony once they have enough Honor.
+
+Years restored become decades (years ÷ 10, rounded; **5.0 years counts as one decade**), then multiplied by rank:
+
+| Title | Multiplier |
+|---|---|
+| Freeholder | 1× |
+| Novice | 2× |
+| Acolyte | 2.5× |
+| Knight | 3× |
+| Praetor | 5× |
+| Baron | 7× |
+| Count | 8× |
+| Duke, Consul, Stellarch, Emperor, and every higher rank | 10× |
+
+Example: a Knight restored 47 years → 5 decades × 3 = **15 Honor**.
+
+| Emperor ending | Honor |
+|---|---|
+| Imperial Court (leave with the rejuvenated Emperor) | 1,000 |
+| Consul (default win: Emperor restored, Royal Ascent) | 100 |
+| Keep What You Kill (usurpation or assassination) | 0 |
+
 ### Endings
 
 Fulfilling the Imperial chain can unlock a true endgame path off this planet — the Empire does not forget those who keep its

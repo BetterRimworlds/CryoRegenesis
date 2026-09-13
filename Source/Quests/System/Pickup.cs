@@ -39,10 +39,9 @@ public partial class RoyaltyRegenesisQuestSystem
             .ToList();
     }
 
-    /// Keep contracted guests (and escorts) in their home faction as guests of the
-    /// colony — the same arrangement as Imperial nobles. Joining a visiting ruler
-    /// to the player faction makes them a colonist, and their home faction then
-    /// appoints a replacement leader.
+    /// Same as working nobles: stay in their own faction as guests of the colony.
+    /// Do not join the player faction. That is what makes a visiting ruler get
+    /// replaced. ExtraFaction is only a safety net if something else joins them.
     private void EnsureGuestClientsAreQuestLodgers()
     {
         if (this.pickupShuttleSpawned || this.activeContractQuest == null || this.activeContractQuest.Historical)
@@ -73,9 +72,7 @@ public partial class RoyaltyRegenesisQuestSystem
         }
     }
 
-    /// Home-faction guest of the colony. Never joins the player faction.
-    /// For a current faction leader, ExtraFaction HomeFaction is reserved first so a
-    /// later SetFaction to the player cannot make their polity appoint a replacement.
+    /// Home-faction guest of the colony. Never SetFaction to the player.
     private void KeepPawnAsHomeFactionGuest(Pawn pawn, Faction homeFaction)
     {
         if (pawn == null || pawn.Destroyed)
@@ -107,9 +104,8 @@ public partial class RoyaltyRegenesisQuestSystem
         this.LockRecruitment(pawn);
     }
 
-    /// Quest ExtraFaction must be on the manager cache (not only the quest part
-    /// list) or HasExtraHomeFaction stays false and SetFaction(OfPlayer) still
-    /// makes the home faction replace its leader.
+    /// So HasExtraHomeFaction is true if anything later joins them to the player.
+    /// Must also be on the quest-manager cache, not only the quest part list.
     private void ReserveHomeFactionForLeader(Pawn pawn, Faction homeFaction)
     {
         if (this.activeContractQuest == null || pawn == null || homeFaction == null)
@@ -132,11 +128,13 @@ public partial class RoyaltyRegenesisQuestSystem
                 affectedPawns = new List<Pawn>(),
             };
             this.activeContractQuest.AddPart(part);
+#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
             List<QuestPart_ExtraFaction> cache = Find.QuestManager?.ExtraFactionQuestParts;
             if (cache != null && !cache.Contains(part))
             {
                 cache.Add(part);
             }
+#endif
         }
 
         if (part.affectedPawns == null)
@@ -171,9 +169,6 @@ public partial class RoyaltyRegenesisQuestSystem
                 continue;
             }
 
-            // ExtraFaction first if they are still that polity's leader, then home
-            // faction. SetFaction(OfPlayer) without ExtraFaction is what makes a
-            // visiting ruler get replaced.
             if (client.sourceFaction.leader == pawn)
             {
                 this.ReserveHomeFactionForLeader(pawn, client.sourceFaction);
@@ -247,6 +242,11 @@ public partial class RoyaltyRegenesisQuestSystem
 
         RoyaltyRegenesisStage finishedStage = this.activeContractStage;
         bool triggerEndgame = this.activeClients.Any(client => client != null && client.triggerRoyalAscent);
+        this.RecordHonorBasisFromActiveClients();
+        int contractHonor = success ? this.ComputeContractHonorAmount() : 0;
+        string contractHonorBody = contractHonor > 0
+            ? this.BuildContractHonorLetterBody(contractHonor)
+            : null;
 
         // Safety net for Branch 3 only when the Emperor himself is no longer on the map
         // (he left with the shuttle). Never fire Imperial Court for an abandoned Emperor.
@@ -309,6 +309,7 @@ public partial class RoyaltyRegenesisQuestSystem
             this.LogRoyaltyDebug("Outcome: SUCCESS — CompleteActiveContract (shuttle departed).");
             this.activeContractStage = finishedStage;
             this.GrantCompletionRewardIfEligible(finishedStage);
+            this.OfferContractHonorIfEligible(finishedStage, contractHonor, contractHonorBody);
             this.EndActiveContractQuest(QuestEndOutcome.Success);
             this.CompleteActiveContract();
         }

@@ -485,6 +485,11 @@ public partial class RoyaltyRegenesisQuestSystem
 
     private void TryMakeRoyalAscentAvailable()
     {
+        this.OfferFixedHonor(
+            HonorGrant.ConsulDefaultHonor,
+            "The Imperial court names you Consul of this world and grants 100 Honor.\n\n"
+            + "You may bestow 100 Honor on one of your colonists.");
+
         Find.LetterStack.ReceiveLetter(
             "Imperial CryoRegenesis complete",
             "The Emperor has been restored to age 30. Royal Ascent endgame protocols are now being activated.",

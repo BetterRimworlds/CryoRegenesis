@@ -456,6 +456,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         }
 
         client.everReachedDesiredAge = true;
+        system.RecordHonorBasisFromClient(client);
         system.LogRoyaltyDebug(
             "Client target recorded directly from casket: "
             + (pawn?.Name?.ToStringShort ?? "?")
@@ -513,6 +514,7 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 #endif
         Scribe_References.Look(ref this.contractShuttle, "crRoyalContractShuttle");
         this.ExposeCompletionRewardData();
+        this.ExposeHonorData();
 
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {

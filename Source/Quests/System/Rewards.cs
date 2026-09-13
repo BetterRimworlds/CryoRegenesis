@@ -35,6 +35,7 @@ public partial class RoyaltyRegenesisQuestSystem
     private void ResetCompletionRewardState()
     {
         this.completionRewardGranted = false;
+        this.ResetHonorBasis();
     }
 
     private void GrantCompletionRewardIfEligible(RoyaltyRegenesisStage contractStage)

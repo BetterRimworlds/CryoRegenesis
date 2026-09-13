@@ -998,6 +998,11 @@ public partial class RoyaltyRegenesisQuestSystem
             + "or purchase a ship and set a course for home.\n\n");
         ending.Append("The choice is yours.");
 
+        this.OfferFixedHonor(
+            HonorGrant.EmperorCourtHonor,
+            "The rejuvenated Emperor grants 1,000 Honor to the colony.\n\n"
+            + "You may bestow 1,000 Honor on one of your colonists.");
+
         string credits = GameVictoryUtility.MakeEndCredits(intro, ending.ToString(), escapees.ToString());
         ShipCountdown.InitiateCountdown(credits);
 

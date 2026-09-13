@@ -32,6 +32,14 @@ public class RoyaltyRegenesisClient : IExposable
     /// Survives subsequent natural aging so pickup success is not lost.
     public bool everReachedDesiredAge;
 
+    /// Biological age (ticks) when this contract began, for Honor years-regressed.
+    public long contractStartAgeTicks;
+
+    /// Empire title at contract start (Honor uses the highest-ranking treated noble).
+    public string empireTitleDefName;
+    public string empireTitleLabel;
+    public int empireTitleSeniority = -1;
+
     public void ExposeData()
     {
         Scribe_References.Look(ref this.pawn, "pawn");
@@ -44,5 +52,9 @@ public class RoyaltyRegenesisClient : IExposable
         // -1L preserves the unset value for contracts created without a tracker.
         Scribe_Values.Look(ref this.contractStartRemovedAgeTicks, "contractStartRemovedAgeTicks", -1L);
         Scribe_Values.Look(ref this.everReachedDesiredAge, "everReachedDesiredAge", false);
+        Scribe_Values.Look(ref this.contractStartAgeTicks, "contractStartAgeTicks", 0L);
+        Scribe_Values.Look(ref this.empireTitleDefName, "empireTitleDefName");
+        Scribe_Values.Look(ref this.empireTitleLabel, "empireTitleLabel");
+        Scribe_Values.Look(ref this.empireTitleSeniority, "empireTitleSeniority", -1);
     }
 }

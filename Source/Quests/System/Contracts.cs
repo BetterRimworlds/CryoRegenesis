@@ -419,6 +419,7 @@ public partial class RoyaltyRegenesisQuestSystem
         client.isPrisoner = isPrisoner;
         client.sourceFaction = sourceFaction;
         client.contractStartRemovedAgeTicks = tracker?.cryoRegenesisRemovedAgeTicks ?? -1L;
+        this.SnapshotClientEmpireTitle(client);
         this.activeClients.Add(client);
         this.completionRewardClientCount = this.activeClients.Count;
 

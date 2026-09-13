@@ -46,7 +46,16 @@ public static class RoyaltyRegenesisDebugActions
         Current.Game?.GetComponent<RoyaltyRegenesisQuestSystem>()
             ?.DebugTriggerNextEvent();
     }
-}
 
-/// No-op root so Royalty Regenesis QuestScriptDefs are valid.
-/// Chain and contract quests are created in code via RoyaltyRegenesisQuestFactory, not QuestGen.
+    [DebugAction("CryoRegenesis", "Test Bestow Honor letter")]
+    public static void TestBestowHonorLetter()
+    {
+        RoyaltyRegenesisQuestSystem system = Current.Game?.GetComponent<RoyaltyRegenesisQuestSystem>();
+        if (system == null)
+        {
+            return;
+        }
+
+        system.DebugOfferHonorLetter();
+    }
+}
