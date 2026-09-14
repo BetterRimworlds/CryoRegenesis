@@ -45,7 +45,9 @@ public class ChoiceLetter_BestowHonor : ChoiceLetter
             }
 
             List<Pawn> recipients = HonorGrant.HonorRecipients()
-                .OrderBy(p => p.LabelShort)
+                .Where(HonorGrant.IsEligibleHonorRecipient)
+                .OrderByDescending(HonorGrant.EmpireSeniorityOf)
+                .ThenBy(p => p.LabelShort)
                 .ToList();
 
             if (!recipients.Any())
@@ -72,13 +74,24 @@ public class ChoiceLetter_BestowHonor : ChoiceLetter
         Faction empire = HonorGrant.EmpireFactionOrNull();
         string name = pawn.Name?.ToStringShort ?? pawn.LabelShort;
         string extra = string.Empty;
+        if (pawn.ageTracker != null)
+        {
+            extra = pawn.ageTracker.AgeBiologicalYears.ToString();
+        }
+
         if (pawn.royalty != null && empire != null)
         {
             RoyalTitleDef title = pawn.royalty.GetCurrentTitle(empire);
             int current = pawn.royalty.GetFavor(empire);
-            extra = title != null
-                ? " (" + title.GetLabelFor(pawn) + ", " + current + " Honor)"
-                : " (" + current + " Honor)";
+            string honorPart = title != null
+                ? title.GetLabelFor(pawn) + ", " + current + " Honor"
+                : current + " Honor";
+            extra = extra.NullOrEmpty() ? honorPart : extra + ", " + honorPart;
+        }
+
+        if (!extra.NullOrEmpty())
+        {
+            extra = " (" + extra + ")";
         }
 
         DiaOption option = new DiaOption("Bestow " + this.honorAmount + " Honor on " + name + extra);

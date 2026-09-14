@@ -121,24 +121,24 @@ colonist to receive it.
 
 Years restored become decades (years ÷ 10, rounded; **5.0 years counts as one decade**), then multiplied by rank:
 
-| Title | Multiplier |
-|---|---|
-| Freeholder | 1× |
-| Novice | 2× |
-| Acolyte | 2.5× |
-| Knight | 3× |
-| Praetor | 5× |
-| Baron | 7× |
-| Count | 8× |
-| Duke, Consul, Stellarch, Emperor, and every higher rank | 10× |
+| Title                   | Honor Per Decade |
+|-------------------------|------------------|
+| Freeholder              | 1×               |
+| Novice                  | 2×               |
+| Acolyte                 | 2.5×             |
+| Knight                  | 3×               |
+| Praetor                 | 5×               |
+| Baron                   | 7×               |
+| Count                   | 8×               |
+| Duke, Consul, Stellarch | 10×              |
 
 Example: a Knight restored 47 years → 5 decades × 3 = **15 Honor**.
 
-| Emperor ending | Honor |
-|---|---|
-| Imperial Court (leave with the rejuvenated Emperor) | 1,000 |
-| Consul (default win: Emperor restored, Royal Ascent) | 100 |
-| Keep What You Kill (usurpation or assassination) | 0 |
+| Emperor ending                                       | Honor |
+|------------------------------------------------------|-------|
+| Imperial Court (leave with the rejuvenated Emperor)  | 1,000 |
+| Consul (default win: Emperor restored, Royal Ascent) | 100   |
+| Keep What You Kill (usurpation or assassination)     | 0     |
 
 ### Endings
 

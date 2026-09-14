@@ -187,12 +187,48 @@ public static class HonorGrant
 
             foreach (Pawn pawn in map.mapPawns.FreeColonists)
             {
-                if (pawn != null && !pawn.Dead && !pawn.Destroyed && pawn.royalty != null)
+                if (IsEligibleHonorRecipient(pawn))
                 {
                     yield return pawn;
                 }
             }
         }
+    }
+
+    /// A real, free player colonist. Guests, prisoners, slaves, and quest-lodgers
+    /// (the Imperial Bestower and contracted nobles) never receive Honor.
+    public static bool IsEligibleHonorRecipient(Pawn pawn)
+    {
+        if (pawn == null || pawn.Dead || pawn.Destroyed || pawn.royalty == null)
+        {
+            return false;
+        }
+
+        if (pawn.Faction != Faction.OfPlayer || pawn.HostFaction != null)
+        {
+            return false;
+        }
+
+        if (pawn.IsQuestLodger() || pawn.IsPrisoner)
+        {
+            return false;
+        }
+
+#if RIMWORLD13 || RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+        if (pawn.IsSlave)
+        {
+            return false;
+        }
+#endif
+
+        return pawn.IsFreeColonist;
+    }
+
+    /// Imperial seniority of a pawn's current title; untitled colonists sort last.
+    public static int EmpireSeniorityOf(Pawn pawn)
+    {
+        RoyalTitleDef title = EmpireTitleOf(pawn);
+        return title?.seniority ?? -1;
     }
 
     public static void Bestow(Pawn pawn, int amount)
