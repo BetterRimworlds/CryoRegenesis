@@ -39,9 +39,11 @@ public partial class RoyaltyRegenesisQuestSystem
             .ToList();
     }
 
-    /// Same as working nobles: stay in their own faction as guests of the colony.
-    /// Do not join the player faction. That is what makes a visiting ruler get
-    /// replaced. ExtraFaction is only a safety net if something else joins them.
+    /// Vanilla Royalty hospitality guests are temporary player-faction pawns whose
+    /// original faction is retained by QuestPart_ExtraFaction. Guest status alone
+    /// only creates an uncontrolled visitor, with no bed assignment or Operations UI.
+    /// ExtraFaction must be registered (including the quest-manager cache) before
+    /// SetFaction(OfPlayer), or a visiting faction leader is replaced at home.
     private void EnsureGuestClientsAreQuestLodgers()
     {
         if (this.pickupShuttleSpawned || this.activeContractQuest == null || this.activeContractQuest.Historical)
@@ -63,52 +65,47 @@ public partial class RoyaltyRegenesisQuestSystem
 
         foreach (Pawn pawn in pawns)
         {
+            if (pawn == null || pawn.Destroyed)
+            {
+                continue;
+            }
+
             RoyaltyRegenesisClient client = this.activeClients.FirstOrDefault(c => c?.pawn == pawn);
             Faction homeFaction = client?.sourceFaction
                 ?? this.activeClients.FirstOrDefault()?.sourceFaction
                 ?? pawn.Faction;
+            if (homeFaction == Faction.OfPlayer)
+            {
+                homeFaction = null;
+            }
 
-            this.KeepPawnAsHomeFactionGuest(pawn, homeFaction);
+            if (homeFaction != null)
+            {
+                this.RegisterExtraHomeFaction(pawn, homeFaction);
+            }
+
+            if (pawn.Faction != Faction.OfPlayer)
+            {
+                this.ReleaseFromCurrentLord(pawn);
+                pawn.SetFaction(Faction.OfPlayer);
+            }
+
+            if (pawn.playerSettings != null)
+            {
+                pawn.playerSettings.medCare = MedicalCareCategory.Best;
+            }
+
+            this.LockRecruitment(pawn);
         }
     }
 
-    /// Home-faction guest of the colony. Never SetFaction to the player.
-    private void KeepPawnAsHomeFactionGuest(Pawn pawn, Faction homeFaction)
+    /// So HasExtraHomeFaction is true before SetFaction(OfPlayer). Must also be on
+    /// the quest-manager cache, not only the quest part list — 1.4+ HasExtraHomeFaction
+    /// reads that cache, and AddPart after QuestManager.Add does not fill it.
+    private void RegisterExtraHomeFaction(Pawn pawn, Faction homeFaction)
     {
-        if (pawn == null || pawn.Destroyed)
-        {
-            return;
-        }
-
-        if (homeFaction == null || homeFaction == Faction.OfPlayer)
-        {
-            homeFaction = pawn.Faction;
-        }
-
-        if (homeFaction != null && homeFaction != Faction.OfPlayer && homeFaction.leader == pawn)
-        {
-            this.ReserveHomeFactionForLeader(pawn, homeFaction);
-        }
-
-        if (homeFaction != null && homeFaction != Faction.OfPlayer && pawn.Faction != homeFaction)
-        {
-            this.ReleaseFromCurrentLord(pawn);
-            pawn.SetFaction(homeFaction);
-        }
-
-        if (this.CanBeGuestOfPlayer(pawn) && pawn.HostFaction != Faction.OfPlayer)
-        {
-            this.ApplyGuestOrPrisonerStatus(pawn, isPrisoner: false);
-        }
-
-        this.LockRecruitment(pawn);
-    }
-
-    /// So HasExtraHomeFaction is true if anything later joins them to the player.
-    /// Must also be on the quest-manager cache, not only the quest part list.
-    private void ReserveHomeFactionForLeader(Pawn pawn, Faction homeFaction)
-    {
-        if (this.activeContractQuest == null || pawn == null || homeFaction == null)
+        if (this.activeContractQuest == null || pawn == null || homeFaction == null
+            || homeFaction == Faction.OfPlayer)
         {
             return;
         }
@@ -128,14 +125,15 @@ public partial class RoyaltyRegenesisQuestSystem
                 affectedPawns = new List<Pawn>(),
             };
             this.activeContractQuest.AddPart(part);
-#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
-            List<QuestPart_ExtraFaction> cache = Find.QuestManager?.ExtraFactionQuestParts;
-            if (cache != null && !cache.Contains(part))
-            {
-                cache.Add(part);
-            }
-#endif
         }
+
+#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+        List<QuestPart_ExtraFaction> cache = Find.QuestManager?.ExtraFactionQuestParts;
+        if (cache != null && !cache.Contains(part))
+        {
+            cache.Add(part);
+        }
+#endif
 
         if (part.affectedPawns == null)
         {
@@ -171,7 +169,7 @@ public partial class RoyaltyRegenesisQuestSystem
 
             if (client.sourceFaction.leader == pawn)
             {
-                this.ReserveHomeFactionForLeader(pawn, client.sourceFaction);
+                this.RegisterExtraHomeFaction(pawn, client.sourceFaction);
             }
 
             // Drop any leave/boarding lord first so SetFaction does not race with it.

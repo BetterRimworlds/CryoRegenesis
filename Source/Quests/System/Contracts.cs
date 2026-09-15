@@ -632,7 +632,7 @@ public partial class RoyaltyRegenesisQuestSystem
     private void DeliverByLegacyShuttle(Map map, List<Pawn> pawns, Faction faction)
     {
         Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
-            owningFaction: faction,
+            owningFaction: null,
             requiredPawns: null,
             leaveImmediatelyWhenSatisfied: true,
             dropEverythingOnArrival: true,
@@ -670,7 +670,7 @@ public partial class RoyaltyRegenesisQuestSystem
     private void DeliverByTransportShip(Map map, List<Pawn> pawns, Faction faction)
     {
         Thing shuttle = QuestGen_Shuttle.GenerateShuttle(
-            owningFaction: faction,
+            owningFaction: null,
             requiredPawns: null,
             hideControls: true);
 
