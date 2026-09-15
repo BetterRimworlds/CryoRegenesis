@@ -240,8 +240,9 @@ public partial class RoyaltyRegenesisQuestSystem
 
         RoyaltyRegenesisStage finishedStage = this.activeContractStage;
         bool triggerEndgame = this.activeClients.Any(client => client != null && client.triggerRoyalAscent);
+        bool alreadyOfferedHonor = this.honorOfferedThisContract;
         this.RecordHonorBasisFromActiveClients();
-        int contractHonor = success ? this.ComputeContractHonorAmount() : 0;
+        int contractHonor = success && !alreadyOfferedHonor ? this.ComputeContractHonorAmount() : 0;
         string contractHonorBody = contractHonor > 0
             ? this.BuildContractHonorLetterBody(contractHonor)
             : null;
@@ -307,7 +308,10 @@ public partial class RoyaltyRegenesisQuestSystem
             this.LogRoyaltyDebug("Outcome: SUCCESS — CompleteActiveContract (shuttle departed).");
             this.activeContractStage = finishedStage;
             this.GrantCompletionRewardIfEligible(finishedStage);
-            this.OfferContractHonorIfEligible(finishedStage, contractHonor, contractHonorBody);
+            if (!alreadyOfferedHonor)
+            {
+                this.OfferContractHonorIfEligible(finishedStage, contractHonor, contractHonorBody);
+            }
             this.EndActiveContractQuest(QuestEndOutcome.Success);
             this.CompleteActiveContract();
         }

@@ -90,6 +90,8 @@ public partial class RoyaltyRegenesisQuestSystem
                 + " banked=" + this.departureSuccessBanked
                 + " pickupAllClientsReady=" + this.pickupAllClientsReady);
         }
+
+        this.TryOfferHonorWhenHighestHonorClientReady();
     }
 
     /// Banks success the moment every client has reached their target age.

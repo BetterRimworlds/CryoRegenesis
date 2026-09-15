@@ -20,6 +20,7 @@ public partial class RoyaltyRegenesisQuestSystem
     private string honorBasisTitleLabel = string.Empty;
     private string honorBasisPawnLabel = string.Empty;
     private float honorBasisYears;
+    private bool honorOfferedThisContract;
 
     public bool HasActiveRegenContract
     {
@@ -51,6 +52,7 @@ public partial class RoyaltyRegenesisQuestSystem
         Scribe_Values.Look(ref this.honorBasisTitleLabel, "crRoyalHonorBasisTitleLabel");
         Scribe_Values.Look(ref this.honorBasisPawnLabel, "crRoyalHonorBasisPawnLabel");
         Scribe_Values.Look(ref this.honorBasisYears, "crRoyalHonorBasisYears", 0f);
+        Scribe_Values.Look(ref this.honorOfferedThisContract, "crRoyalHonorOfferedThisContract", false);
 
         if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
@@ -78,6 +80,7 @@ public partial class RoyaltyRegenesisQuestSystem
         this.honorBasisTitleLabel = string.Empty;
         this.honorBasisPawnLabel = string.Empty;
         this.honorBasisYears = 0f;
+        this.honorOfferedThisContract = false;
     }
 
     private void SnapshotClientEmpireTitle(RoyaltyRegenesisClient client)
@@ -109,28 +112,24 @@ public partial class RoyaltyRegenesisQuestSystem
             return;
         }
 
-        this.RefreshClientTitleSnapshot(client);
-
-        int seniority = client.empireTitleSeniority;
-        if (seniority < 0)
+        int amount = this.HonorAmountForClient(client);
+        if (amount <= 0)
         {
             return;
         }
 
-        float years = this.YearsRegressedForClient(client);
-        if (seniority > this.honorBasisSeniority)
+        int current = this.ComputeContractHonorAmount();
+        if (amount < current)
         {
-            this.honorBasisSeniority = seniority;
-            this.honorBasisTitleDefName = client.empireTitleDefName ?? string.Empty;
-            this.honorBasisTitleLabel = client.empireTitleLabel ?? string.Empty;
-            this.honorBasisPawnLabel = this.ClientHonorName(client);
-            this.honorBasisYears = years;
+            return;
         }
-        else if (seniority == this.honorBasisSeniority && years > this.honorBasisYears)
+
+        if (amount == current && client.empireTitleSeniority <= this.honorBasisSeniority)
         {
-            this.honorBasisYears = years;
-            this.honorBasisPawnLabel = this.ClientHonorName(client);
+            return;
         }
+
+        this.ApplyHonorBasisFromClient(client);
     }
 
     private void RecordHonorBasisFromActiveClients()
@@ -203,6 +202,107 @@ public partial class RoyaltyRegenesisQuestSystem
         return "the client";
     }
 
+    private int HonorAmountForClient(RoyaltyRegenesisClient client)
+    {
+        if (client == null)
+        {
+            return 0;
+        }
+
+        this.RefreshClientTitleSnapshot(client);
+        if (client.empireTitleSeniority < 0)
+        {
+            return 0;
+        }
+
+        return HonorGrant.Calculate(
+            client.empireTitleDefName,
+            client.empireTitleSeniority,
+            this.YearsRegressedForClient(client));
+    }
+
+    private void ApplyHonorBasisFromClient(RoyaltyRegenesisClient client)
+    {
+        this.RefreshClientTitleSnapshot(client);
+        this.honorBasisSeniority = client.empireTitleSeniority;
+        this.honorBasisTitleDefName = client.empireTitleDefName ?? string.Empty;
+        this.honorBasisTitleLabel = client.empireTitleLabel ?? string.Empty;
+        this.honorBasisPawnLabel = this.ClientHonorName(client);
+        this.honorBasisYears = this.YearsRegressedForClient(client);
+    }
+
+    /// Client whose title and years restored yield the most Honor. Does not require
+    /// that they have reached the contracted age yet.
+    private RoyaltyRegenesisClient FindHighestHonorClient(out int honor)
+    {
+        honor = 0;
+        RoyaltyRegenesisClient best = null;
+        int bestSeniority = -1;
+        float bestYears = 0f;
+        if (this.activeClients == null)
+        {
+            return null;
+        }
+
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            if (client == null)
+            {
+                continue;
+            }
+
+            int amount = this.HonorAmountForClient(client);
+            if (amount <= 0)
+            {
+                continue;
+            }
+
+            float years = this.YearsRegressedForClient(client);
+            int seniority = client.empireTitleSeniority;
+            if (amount < honor)
+            {
+                continue;
+            }
+
+            if (amount == honor
+                && (seniority < bestSeniority
+                    || (seniority == bestSeniority && years <= bestYears)))
+            {
+                continue;
+            }
+
+            honor = amount;
+            best = client;
+            bestSeniority = seniority;
+            bestYears = years;
+        }
+
+        return best;
+    }
+
+    /// Offer Honor as soon as the highest-Honor client on this contract reaches
+    /// their target age. Do not wait for the last shuttle.
+    private void TryOfferHonorWhenHighestHonorClientReady()
+    {
+        if (this.honorOfferedThisContract
+            || this.activeContractStage == RoyaltyRegenesisStage.EmperorArrival)
+        {
+            return;
+        }
+
+        RoyaltyRegenesisClient best = this.FindHighestHonorClient(out int honor);
+        if (best == null || honor <= 0 || !best.everReachedDesiredAge)
+        {
+            return;
+        }
+
+        this.ApplyHonorBasisFromClient(best);
+        this.OfferContractHonorIfEligible(
+            this.activeContractStage,
+            honor,
+            this.BuildContractHonorLetterBody(honor));
+    }
+
     private int ComputeContractHonorAmount()
     {
         if (this.honorBasisSeniority < 0)
@@ -233,7 +333,7 @@ public partial class RoyaltyRegenesisQuestSystem
         int honorAmount,
         string body)
     {
-        if (honorAmount <= 0 || body.NullOrEmpty())
+        if (this.honorOfferedThisContract || honorAmount <= 0 || body.NullOrEmpty())
         {
             return;
         }
@@ -243,7 +343,10 @@ public partial class RoyaltyRegenesisQuestSystem
             return;
         }
 
-        this.SendHonorLetter(honorAmount, body, "Bestow Honor");
+        if (this.SendHonorLetter(honorAmount, body, "Bestow Honor"))
+        {
+            this.honorOfferedThisContract = true;
+        }
     }
 
     private void OfferFixedHonor(int honorAmount, string body)
@@ -256,11 +359,11 @@ public partial class RoyaltyRegenesisQuestSystem
         this.SendHonorLetter(honorAmount, body, "Bestow Honor");
     }
 
-    private void SendHonorLetter(int honorAmount, string body, string label)
+    private bool SendHonorLetter(int honorAmount, string body, string label)
     {
         if (!ModsConfig.RoyaltyActive || honorAmount <= 0 || body.NullOrEmpty())
         {
-            return;
+            return false;
         }
 
         LetterDef def = CryoRegenesisLetterDefOf.CR_BestowHonor
@@ -268,7 +371,7 @@ public partial class RoyaltyRegenesisQuestSystem
         if (def == null)
         {
             Log.Warning("[CryoRegenesis] CR_BestowHonor letter def is missing; granting no Honor choice.");
-            return;
+            return false;
         }
 
         ChoiceLetter made = LetterMaker.MakeLetter(
@@ -281,12 +384,13 @@ public partial class RoyaltyRegenesisQuestSystem
         if (letter == null)
         {
             Log.Warning("[CryoRegenesis] Bestow Honor letter used the wrong letter class.");
-            return;
+            return false;
         }
 
         letter.honorAmount = honorAmount;
         HonorGrant.ReceiveLetter(letter);
         this.LogRoyaltyDebug("Offered Honor letter for " + honorAmount + " Honor.");
+        return true;
     }
 
     public void DebugOfferHonorLetter()
