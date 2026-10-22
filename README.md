@@ -94,7 +94,14 @@ The combination of resource costs and permanent Luciferium addiction ensures res
 
 Last 365 days. For more, see [CHANGELOG.md](CHANGELOG.md).
 
-## v7.0.0
+#### v7.1.0
+
+* **[2026-09-13 05:40:46 EEST]** Stopped CryoRegenesis from healing Anomaly entities and void states.
+* **[2026-09-13 05:40:21 EEST]** Stopped CryoRegenesis from healing Biotech gene needs and birth.
+* **[2026-10-21 03:35:01 EEST]** Moved the age line cover on the character card to fit the 1.6 layout.
+* **[2026-08-05 07:35:42 EEST]** Added better Rimworld v1.6 support.
+
+#### v7.0.0
 
 * **[2026-07-23 11:33:33 EEST]** Fixed simple prosthetics remaining after regeneration.
 * **[2026-07-19 09:12:20 CDT]** Repositioned the True Age to the right.
@@ -113,18 +120,18 @@ Last 365 days. For more, see [CHANGELOG.md](CHANGELOG.md).
 * **[2026-07-07 19:10:03 COT]** Added the missing True Age def.
 * **[2026-07-02 12:46:22 COT]** Added support for taking Royalty guests and prisoners to the CryoRegenesis casket.
 
-## v6.0.0
+#### v6.0.0
 
 * **[2026-06-29 05:24:28 COT]** [m] Simple README and About.xml improvements.
 * **[2026-06-28 19:40:41 COT]** Moved the True Age below the Royalty indicator.
 * **[2026-06-28 17:13:38 COT]** Greatly simplified the csproj.
 
-## v6.1.0
+#### v6.1.0
 
 * **[2026-05-28 22:26:31 COT]** Added cryosleep counter as well to the new True Age popup.
 * **[2026-05-28 18:09:22 COT]** Fixed Colonist despawning / lost forever when entering an unpowered CryoRegen pod.
 
-## v6.0.0
+#### v6.0.0
 
 * **[2026-05-25 18:42:17 COT]** Updated the README for v6.0.0.
 * **[2026-05-25 12:43:28 COT]** Completely reimplemented the True Age display to not use global UI widgets.
@@ -135,7 +142,7 @@ Last 365 days. For more, see [CHANGELOG.md](CHANGELOG.md).
 * **[2026-05-25 09:27:53 COT]** Added a True Age mechanism for tracking total Living Time.
 * **[2026-05-25 09:08:39 COT]** Refactored out Cosmetics, Resurrection, and Happy Thoughts from the CryoRegenesis god class.
 
-## v5.1.0
+#### v5.1.0
 
 * **[2026-05-05 11:04:27 COT]** Translated into many different languages.
 * **[2026-04-29 21:03:02 CDT]** Greatly enhanced the Regenesis High.
@@ -145,7 +152,7 @@ Last 365 days. For more, see [CHANGELOG.md](CHANGELOG.md).
 * **[2026-04-29 06:55:59 CDT]** Fixed Ejection to properly handle prisoners
 * **[2026-04-29 06:52:14 CDT]** Added BetterRandom utility class for deterministic random number generation
 
-## v5.0.0: Resurrection Improvements
+#### v5.0.0: Resurrection Improvements
 
 * **[2026-04-29 05:06:26 CDT]** Fail the build if any of the Rimworld versions fail to compile.
 * **[2025-07-22 23:47:41 ART]** Added happy thoughts about being regenerated.

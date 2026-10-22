@@ -1,5 +1,12 @@
 # BetterRimworlds/CryoRegenesis ChangeLog
 
+## v7.1.0
+
+* **[2026-09-13 05:40:46 EEST]** Stopped CryoRegenesis from healing Anomaly entities and void states.
+* **[2026-09-13 05:40:21 EEST]** Stopped CryoRegenesis from healing Biotech gene needs and birth.
+* **[2026-10-21 03:35:01 EEST]** Moved the age line cover on the character card to fit the 1.6 layout.
+* **[2026-08-05 07:35:42 EEST]** Added better Rimworld v1.6 support.
+
 ## v7.0.0
 
 * **[2026-07-23 11:33:33 EEST]** Fixed simple prosthetics remaining after regeneration.
