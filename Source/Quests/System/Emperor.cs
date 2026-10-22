@@ -1115,6 +1115,15 @@ public partial class RoyaltyRegenesisQuestSystem
             return;
         }
 
+        if (!this.IsKnightOrHigherColonist(heir))
+        {
+            this.LogRoyaltyDebug(
+                "HuntedAssassin mark passed to non-colony pawn " + heir.LabelShort
+                + " — assassination evacuation ends.");
+            this.ClearAssassinationEvacuationState(clearShuttle: true);
+            return;
+        }
+
         this.emperorAssassin = heir;
         this.emperorAssassinLabel = heir.Name?.ToStringFull
             ?? heir.Name?.ToStringShort
@@ -1211,7 +1220,9 @@ public partial class RoyaltyRegenesisQuestSystem
 
     private void ApplyHuntedAssassinHediff(Pawn assassin)
     {
-        HuntedAssassinUtility.ApplyMark(assassin);
+        // The Keep What You Kill dialog promises a fresh sixty-day hunt, even when the
+        // assassin already inherited the mark and still has part of an older countdown.
+        HuntedAssassinUtility.ApplyMark(assassin, freshCountdown: true);
     }
 
 

@@ -239,7 +239,10 @@ public partial class RoyaltyRegenesisQuestSystem
         }
 
         RoyaltyRegenesisStage finishedStage = this.activeContractStage;
-        bool triggerEndgame = this.activeClients.Any(client => client != null && client.triggerRoyalAscent);
+        // Keep the ending trigger when the Emperor already left in an earlier wave and his
+        // client record was removed from activeClients.
+        bool triggerEndgame = finishedStage == RoyaltyRegenesisStage.EmperorArrival
+            || this.activeClients.Any(client => client != null && client.triggerRoyalAscent);
         bool alreadyOfferedHonor = this.honorOfferedThisContract;
         this.RecordHonorBasisFromActiveClients();
         int contractHonor = success && !alreadyOfferedHonor ? this.ComputeContractHonorAmount() : 0;
@@ -512,9 +515,9 @@ public partial class RoyaltyRegenesisQuestSystem
         if (this.IsEmperorRegenContractActive())
         {
             body += "\n\nAny number of your colonists may board this shuttle, but only once the "
-                + "Emperor is alive and either aboard it himself or sealed in a powered-off "
-                + "CryoRegenesis casket, and every other guest is offworld or aboard at their "
-                + "target age. Until then colonists are turned away at the ramp.\n\n"
+                + "Emperor is alive and either regenerated and aboard it himself, or sealed in a "
+                + "powered-off CryoRegenesis casket, and every other guest is offworld or aboard "
+                + "at their target age. Until then colonists are turned away at the ramp.\n\n"
                 + "Once the Emperor is regenerated or sealed away, every archon of your colony "
                 + "must be aboard before the shuttle will launch — and it will not leave the "
                 + "Emperor behind unless one of them is there to take his throne.\n\n"
@@ -708,9 +711,13 @@ public partial class RoyaltyRegenesisQuestSystem
         CompShuttle compShuttle = shuttle?.TryGetComp<CompShuttle>();
         if (shuttle == null || compShuttle == null)
         {
-            Log.Error("[CryoRegenesis] Pickup shuttle generation failed; destroying clients off-map.");
-            this.DestroyClientsOffMap(passengers);
-            return true;
+            Log.Error("[CryoRegenesis] Pickup shuttle generation failed; keeping clients on map for a later pickup.");
+            if (shuttle != null && !shuttle.Destroyed)
+            {
+                shuttle.Destroy(DestroyMode.Vanish);
+            }
+
+            return false;
         }
 
         this.ConfigureContractShuttleEmbarkRules(compShuttle);
@@ -726,20 +733,25 @@ public partial class RoyaltyRegenesisQuestSystem
             cell = DropCellFinder.RandomDropSpot(map);
         }
 
+        Skyfaller skyfaller = SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShuttleIncoming, shuttle);
         if (!GenPlace.TryPlaceThing(
-                SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShuttleIncoming, shuttle),
+                skyfaller,
                 cell,
                 map,
                 ThingPlaceMode.Near))
         {
-            Log.Warning("[CryoRegenesis] Could not place pickup shuttle; destroying clients off-map.");
-            this.DestroyClientsOffMap(passengers);
-            if (!shuttle.Destroyed)
+            Log.Warning("[CryoRegenesis] Could not place pickup shuttle; keeping clients on map for a later pickup.");
+            if (!skyfaller.Destroyed)
+            {
+                skyfaller.Destroy(DestroyMode.Vanish);
+            }
+            else if (!shuttle.Destroyed)
             {
                 shuttle.Destroy(DestroyMode.Vanish);
             }
 
-            return true;
+            this.EndPickupWindowKeepContract("Cleared pickup window after shuttle placement failure.");
+            return false;
         }
 
         // No ExitOnShuttle lord — player loads ready clients manually (Autoload / carry).
@@ -763,9 +775,8 @@ public partial class RoyaltyRegenesisQuestSystem
 
         if (shuttle == null)
         {
-            Log.Error("[CryoRegenesis] Pickup shuttle generation failed; destroying clients off-map.");
-            this.DestroyClientsOffMap(passengers);
-            return true;
+            Log.Error("[CryoRegenesis] Pickup shuttle generation failed; keeping clients on map for a later pickup.");
+            return false;
         }
 
         // Empty ship — contents must never include prior returnees.
@@ -949,6 +960,7 @@ public partial class RoyaltyRegenesisQuestSystem
             if (tracker != null)
             {
                 tracker.underRegenContract = false;
+                tracker.desiredAgeTicks = 0;
             }
         }
     }

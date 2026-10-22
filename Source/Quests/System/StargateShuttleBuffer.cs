@@ -222,7 +222,18 @@ internal static class StargateShuttleBuffer
         }
 
         // Fallback: TransmitContents(keepContents: true) writes the whole buffer, then
-        // the caller still destroys only the escapees we transferred.
+        // the caller still destroys only the escapees we transferred. Use it only when
+        // the buffer contains nothing else, or unrelated gate cargo would be saved too.
+        bool onlyEscapees = buffer.Count > 0
+            && buffer.All(thing => thing is Pawn pawn && escapees.Contains(pawn));
+        if (!onlyEscapees)
+        {
+            log?.Invoke(
+                "Cannot use whole-buffer Shuttle.xml fallback: the gate holds cargo that is "
+                + "not part of this escapee group.");
+            return false;
+        }
+
         if (!TryResolveTransmitContents(buffer.GetType(), log))
         {
             return false;

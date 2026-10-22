@@ -711,20 +711,4 @@ public partial class RoyaltyRegenesisQuestSystem
             }
         }
     }
-
-    private void DestroyClientsOffMap(IEnumerable<Pawn> pawns)
-    {
-        foreach (Pawn pawn in pawns.Where(p => p != null && !p.Destroyed))
-        {
-            if (pawn.Spawned)
-            {
-                pawn.DeSpawn(DestroyMode.Vanish);
-            }
-
-            if (!pawn.Destroyed)
-            {
-                pawn.Destroy(DestroyMode.Vanish);
-            }
-        }
-    }
 }

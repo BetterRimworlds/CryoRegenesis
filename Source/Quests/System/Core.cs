@@ -325,8 +325,8 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
     /// Whether the Emperor's Imperial shuttle is currently open to free colony colonists.
     /// Any number of them (none through all of them) may leave, but only while both
     /// conditions hold:
-    ///   1. The Emperor is alive and either already inside the shuttle or sealed in a
-    ///      powered-off CryoRegenesis casket.
+    ///   1. The Emperor is alive and either regenerated and already inside the shuttle,
+    ///      or sealed in a powered-off CryoRegenesis casket.
     ///   2. Every other contracted guest is already offworld, or inside the shuttle after
     ///      reaching their target age.
     /// Checked live on every embark test, so the door opens the moment the last guest is
@@ -352,6 +352,12 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         {
             blockReason = emperorPawn.LabelShort
                 + " is neither aboard the shuttle nor sealed in a powered-off CryoRegenesis casket";
+            return false;
+        }
+
+        if (!this.IsEmperorRegeneratedOrSealed())
+        {
+            blockReason = emperorPawn.LabelShort + " is aboard but has not reached their target age";
             return false;
         }
 

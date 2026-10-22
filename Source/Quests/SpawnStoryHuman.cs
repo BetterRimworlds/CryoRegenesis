@@ -398,7 +398,7 @@ public static class SpawnStoryHuman
         }
 
         pawn.ageTracker.AgeBiologicalTicks = definition.AgeBiologicalTicks;
-        if (definition.BirthAbsTicks != 0)
+        if (definition.BirthAbsTicks != -1)
         {
             pawn.ageTracker.BirthAbsTicks = definition.BirthAbsTicks;
         }

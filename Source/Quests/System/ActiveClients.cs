@@ -336,13 +336,26 @@ public partial class RoyaltyRegenesisQuestSystem
 
         foreach (RoyaltyRegenesisClient client in this.activeClients)
         {
-            if (client?.pawn == null || client.pawn.Destroyed)
+            Pawn pawn = client?.pawn;
+            if (pawn == null)
             {
                 departed.Add(client);
                 continue;
             }
 
-            if (this.IsClientAboardContractShuttle(client.pawn))
+            if (pawn.Destroyed)
+            {
+                // Only a pawn destroyed by this shuttle's launch counts as departed.
+                // A client destroyed elsewhere must not be credited as a return.
+                if (this.pickupLaunchClientPawnIds.Contains(pawn.thingIDNumber))
+                {
+                    departed.Add(client);
+                }
+
+                continue;
+            }
+
+            if (this.IsClientAboardContractShuttle(pawn))
             {
                 // Still inside this shuttle's transporter (leave in progress).
                 departed.Add(client);
@@ -350,7 +363,7 @@ public partial class RoyaltyRegenesisQuestSystem
             }
 
             // Map-reachable (spawned or in a casket) → stayed behind for a later wave.
-            if (this.IsClientAvailableOnMap(client.pawn))
+            if (this.IsClientAvailableOnMap(pawn))
             {
                 remaining.Add(client);
                 continue;
@@ -359,7 +372,7 @@ public partial class RoyaltyRegenesisQuestSystem
             // Off-map clients are departed only when this shuttle's launch snapshot
             // proves they were aboard. ExitMap, world-pawn, and other leave paths stay
             // pending instead of being credited to this pickup.
-            if (this.pickupLaunchClientPawnIds.Contains(client.pawn.thingIDNumber))
+            if (this.pickupLaunchClientPawnIds.Contains(pawn.thingIDNumber))
             {
                 departed.Add(client);
             }

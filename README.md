@@ -112,8 +112,8 @@ bargain and the Empire may eventually open paths that most colonies never see.
 Successful CryoRegenesis of an Empire noble is worth Imperial Honor (favor). A **Bestow Honor** letter lets you choose any
 colonist to receive it.
 
-- **Active regen contract:** one offer when the contract succeeds (the shuttle leaves with treatment complete). Several
-  nobles → the **highest title** only.
+- **Active regen contract:** one offer when the highest-Honor client reaches the target age, regardless of shuttle
+  departure or contract success. Several nobles → the **highest calculated Honor** only.
 - **No active contract:** any titled Empire member who finishes in a CryoRegenesis casket — an Empire guest, or a colonist
   who already holds an Empire title.
 - Honor is favor, not a skipped title ceremony. Freeholder still applies immediately; Knight and above still use the usual
@@ -124,7 +124,7 @@ Years restored become decades (years ÷ 10, rounded; **5.0 years counts as one d
 | Title                   | Honor Per Decade |
 |-------------------------|------------------|
 | Freeholder              | 1×               |
-| Novice                  | 2×               |
+| Yeoman                  | 2×               |
 | Acolyte                 | 2.5×             |
 | Knight                  | 3×               |
 | Praetor                 | 5×               |

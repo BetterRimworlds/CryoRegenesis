@@ -14,7 +14,7 @@ namespace BetterRimworlds.CryoRegenesis;
 
 /// Honor (Imperial favor) granted for CryoRegenesis of Empire nobles.
 /// Years removed become decades (years / 10, rounded; 5.0 years counts as one
-/// decade), then multiplied by the treated noble's title: Freeholder 1×, Novice 2×,
+/// decade), then multiplied by the treated noble's title: Freeholder 1×, Yeoman 2×,
 /// Acolyte 2.5×, Knight 3×, Praetor 5×, Baron 7×, Count 8×, and 10× for every
 /// higher rank.
 public static class HonorGrant

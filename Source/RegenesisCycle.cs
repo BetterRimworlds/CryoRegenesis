@@ -25,6 +25,7 @@ public class RegenesisCycle
     private IList<Hediff> hediffsToHeal = new List<Hediff>();
     private bool enteredHealthy;
     private long restoreCoolDown = NoRegenesisInProgress;
+    private int nextTargetAgeHealTick = -1;
     private int targetAge;
     private long targetAgeTicks;
     private string ttlToHeal;
@@ -52,13 +53,13 @@ public class RegenesisCycle
     {
         this.origAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
         this.restoreCoolDown = NoRegenesisInProgress;
+        this.nextTargetAgeHealTick = -1;
         this.ttlToHeal = null;
         this.InitializeForLoadedPawn(pawn);
     }
 
     public void MarkTargetAgeReached(Pawn pawn)
     {
-        this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks;
         RoyaltyRegenesisQuestSystem.NotifyRegenesisTargetReached(pawn);
     }
 
@@ -118,15 +119,33 @@ public class RegenesisCycle
 
     public bool TryHealNextInjury(Pawn pawn, CompRefuelable refuelable)
     {
-        if (!this.HasCurableInjuries || this.restoreCoolDown <= NoRegenesisInProgress)
+        if (!this.HasCurableInjuries)
         {
             return false;
         }
 
-        long ticksLeft = pawn.ageTracker.AgeBiologicalTicks - this.restoreCoolDown;
-        if (pawn.ageTracker.AgeBiologicalTicks > this.restoreCoolDown)
+        // Biological age stops at the target, so the age-based cooldown cannot advance
+        // there. Continue healing remaining injuries on a real-time schedule instead.
+        bool atTargetAge = this.IsTargetAge(pawn);
+        if (atTargetAge)
         {
-            return false;
+            if (this.nextTargetAgeHealTick >= 0
+                && Find.TickManager.TicksGame < this.nextTargetAgeHealTick)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (this.restoreCoolDown <= NoRegenesisInProgress)
+            {
+                return false;
+            }
+
+            if (pawn.ageTracker.AgeBiologicalTicks > this.restoreCoolDown)
+            {
+                return false;
+            }
         }
 
         Hediff hediff = this.hediffsToHeal[0];
@@ -147,10 +166,18 @@ public class RegenesisCycle
 
         this.hediffsToHeal.RemoveAt(0);
 
-        this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
-        if (ticksLeft < 0)
+        if (atTargetAge)
         {
-            this.restoreCoolDown += ticksLeft;
+            this.nextTargetAgeHealTick = Find.TickManager.TicksGame + GenDate.TicksPerDay;
+        }
+        else
+        {
+            long ticksLeft = pawn.ageTracker.AgeBiologicalTicks - this.restoreCoolDown;
+            this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
+            if (ticksLeft < 0)
+            {
+                this.restoreCoolDown += ticksLeft;
+            }
         }
 
         if (CryoRegenesis.Settings.debugMode)
@@ -477,7 +504,7 @@ public class RegenesisCycle
         TrueAgeTracker tracker =
             pawn.health?.hediffSet?.GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
 
-        if (tracker?.desiredAgeTicks > 0)
+        if (tracker != null && tracker.underRegenContract && tracker.desiredAgeTicks > 0)
         {
             this.targetAgeTicks = tracker.desiredAgeTicks;
             this.targetAge = (int)Math.Ceiling((double)this.targetAgeTicks / GenDate.TicksPerYear);

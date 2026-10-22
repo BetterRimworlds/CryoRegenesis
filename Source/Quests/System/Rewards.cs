@@ -20,6 +20,10 @@ public partial class RoyaltyRegenesisQuestSystem
     /// Uranium paid per treated client on contract completion (inclusive range).
     private const int UraniumPerPersonMin = 500;
     private const int UraniumPerPersonMax = 600;
+
+    /// Bounds placement retries so a fully blocked map cannot freeze the game.
+    private const int MaxRewardPlacementAttempts = 10;
+
     private bool completionRewardGranted;
 
     /// Party size of the current contract, recorded as clients are prepared.
@@ -45,7 +49,7 @@ public partial class RoyaltyRegenesisQuestSystem
             return;
         }
 
-        Map map = this.GetTargetMap();
+        Map map = this.GetTargetMap() ?? Find.AnyPlayerHomeMap;
         if (map == null)
         {
             Log.Warning("[CryoRegenesis] Could not deliver the contract reward because no player home map is available.");
@@ -100,7 +104,8 @@ public partial class RoyaltyRegenesisQuestSystem
             dropCell = DropCellFinder.RandomDropSpot(map);
         }
 
-        while (remaining > 0)
+        int failedAttempts = 0;
+        while (remaining > 0 && failedAttempts < MaxRewardPlacementAttempts)
         {
             Thing stack = ThingMaker.MakeThing(reward.def);
             stack.stackCount = Math.Min(remaining, reward.def.stackLimit);
@@ -109,7 +114,20 @@ public partial class RoyaltyRegenesisQuestSystem
             {
                 remaining -= stack.stackCount;
                 delivered.Add(stack);
+                failedAttempts = 0;
+                continue;
             }
+
+            // Try another drop spot, but never leave the loop condition unchanged:
+            // a fully blocked map would otherwise retry forever on the main thread.
+            failedAttempts++;
+            dropCell = DropCellFinder.RandomDropSpot(map);
+        }
+
+        if (remaining > 0)
+        {
+            Log.Warning("[CryoRegenesis] Could not place " + remaining + " " + reward.label
+                + " for the contract reward; the remaining items were not delivered.");
         }
     }
 

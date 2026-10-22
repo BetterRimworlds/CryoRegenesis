@@ -118,6 +118,17 @@ Royalty Regenesis chain
 │   │   └── SpawnStoryHuman.cs           (scripted non–world-pawn humans)
 │   └── SpawnStoryHuman.cs               (also used outside Emperor build)
 │
+├── Honor
+│   ├── HonorGrant.cs                    (Honor amounts + title multipliers)
+│   └── ChoiceLetter_BestowHonor.cs      (player chooses the Honor recipient)
+│
+├── Hunted Assassin
+│   ├── HuntedAssassinDefOf.cs           (mark hediff DefOf)
+│   ├── HuntedAssassinUtility.cs         (apply / query / mark inheritance)
+│   └── Kill patches
+│       ├── Patch_Pawn_Kill_EmperorAssassin.cs
+│       └── Patch_Pawn_Kill_HuntedAssassin.cs
+│
 ├── Quest UI / QuestGen
 │   ├── QuestParts.cs                    (status parts + quest factory)
 │   └── Nodes.cs                         (no-op QuestScriptDef roots)
@@ -131,16 +142,22 @@ Royalty Regenesis chain
                                          (same-tick colonist escapee snapshot)
 ```
 
-1. `Nodes.cs` — No-op QuestGen roots so chain/contract QuestScriptDefs are valid (quests are built in code).
-2. `Partners.cs` — Romantic companions who accompany royalty clients (target ages, relation filters).
-3. `Patch_CompShuttle_IsAllowed.cs` — Harmony: who may board regen pickup shuttles (clients, relations, Emperor rules).
-4. `Patch_CompShuttle_SendLaunchedSignals.cs` — Harmony: snapshot colonist escapees on same-tick Imperial shuttle launch.
-5. `QuestParts.cs` — Live Quests-tab status parts plus factory that builds chain/contract `Quest` objects.
-6. `RoyaltyEmperor.cs` — Builds the final Imperial party (Emperor, Stellarch, wives, non-regen guards).
-7. `RoyaltyRegenesisClient.cs` — Serializable active-contract client record (pawn, target age, role, success latch).
-8. `RoyaltyRegenesisDebugActions.cs` — Dev-mode debug actions to jump stages or fire the next quest event.
-9. `RoyaltyRegenesisStage.cs` — Campaign stage enum from foreign trials through Emperor completion.
-10. `SpawnStoryHuman.cs` — Scripted pawn generator for story humans who are not world pawns (Emperor, wives, …).
+1. `ChoiceLetter_BestowHonor.cs` — Choice letter that lets the player pick which colonist receives Imperial Honor.
+2. `HonorGrant.cs` — Honor calculation: years regressed to decades, then title multipliers.
+3. `HuntedAssassinDefOf.cs` — DefOf binding for the Hunted Assassin mark hediff.
+4. `HuntedAssassinUtility.cs` — Applies, queries, and transfers the Hunted Assassin mark.
+5. `Nodes.cs` — No-op QuestGen roots so chain/contract QuestScriptDefs are valid (quests are built in code).
+6. `Partners.cs` — Romantic companions who accompany royalty clients (target ages, relation filters).
+7. `Patch_CompShuttle_IsAllowed.cs` — Harmony: who may board regen pickup shuttles (clients, relations, Emperor rules).
+8. `Patch_CompShuttle_SendLaunchedSignals.cs` — Harmony: snapshot colonist escapees on same-tick Imperial shuttle launch.
+9. `Patch_Pawn_Kill_EmperorAssassin.cs` — Harmony: records the Emperor's killer before the damage context is lost.
+10. `Patch_Pawn_Kill_HuntedAssassin.cs` — Harmony: transfers the mark from a slain Marked One to a worthy killer.
+11. `QuestParts.cs` — Live Quests-tab status parts plus factory that builds chain/contract `Quest` objects.
+12. `RoyaltyEmperor.cs` — Builds the final Imperial party (Emperor, Stellarch, wives, non-regen guards).
+13. `RoyaltyRegenesisClient.cs` — Serializable active-contract client record (pawn, target age, role, success latch).
+14. `RoyaltyRegenesisDebugActions.cs` — Dev-mode debug actions to jump stages or fire the next quest event.
+15. `RoyaltyRegenesisStage.cs` — Campaign stage enum from foreign trials through Emperor completion.
+16. `SpawnStoryHuman.cs` — Scripted pawn generator for story humans who are not world pawns (Emperor, wives, …).
 
 ---
 
@@ -165,6 +182,10 @@ RoyaltyRegenesisQuestSystem
 ├── Completion.cs          age latches, stage advance, progress text, trust breaks
 │   └── Rewards.cs         grant completion caches (uranium / Luciferium / tier loot)
 │
+├── Honor.cs               Honor offer timing, selection, and fixed rewards
+│
+├── StargateShuttleBuffer.cs  optional Stargate handoff for Imperial evacuees
+│
 └── Helpers.cs             factions, pawn kinds, titles, Royal Ascent unlock
 ```
 
@@ -174,5 +195,7 @@ RoyaltyRegenesisQuestSystem
 4. `Core.cs` — Fields, constructor, public API, save/load, tick loop, campaign advance, debug entry points.
 5. `Emperor.cs` — Emperor boarding rules, colonist endgames, usurpation, and planetkiller path.
 6. `Helpers.cs` — Faction / pawn-kind helpers, royal titles, and Royal Ascent unlock.
-7. `Pickup.cs` — Pickup spawn/board, contract finish/fail, and guest-lodger bookkeeping.
-8. `Rewards.cs` — Contract completion reward tiers (uranium, Luciferium, random cache).
+7. `Honor.cs` — Honor offer timing, recipient selection, and fixed endgame rewards.
+8. `Pickup.cs` — Pickup spawn/board, contract finish/fail, and guest-lodger bookkeeping.
+9. `Rewards.cs` — Contract completion reward tiers (uranium, Luciferium, random cache).
+10. `StargateShuttleBuffer.cs` — Optional Stargate handoff for free colonists leaving with the Emperor.
