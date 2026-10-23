@@ -156,6 +156,15 @@ public partial class RoyaltyRegenesisQuestSystem
     {
         foreach (RoyaltyRegenesisClient client in this.activeClients.Where(client => client != null && !client.isPrisoner))
         {
+            // These clients now escape with the assassin, rather than return home.
+            // Keep them player-faction so launch snapshots and Stargate include them.
+            if (this.emperorAssassinationEvacuationActive
+                && client.role != null
+                && client.role.IndexOf("imperial wife", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                continue;
+            }
+
             Pawn pawn = client.pawn;
             if (pawn == null || pawn.Destroyed || client.sourceFaction == null)
             {
