@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <LangVersion>10</LangVersion>
 
     <ProjectGuid>{675CE9D5-460C-496A-A6A9-8D3873EDEE88}</ProjectGuid>
