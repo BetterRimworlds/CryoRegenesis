@@ -224,14 +224,14 @@ public partial class RoyaltyRegenesisQuestSystem
             return;
         }
 
-        int targetAge = Rand.RangeInclusive(21, 35);
-        Pawn stellarch = this.GetAvailableWorldPawns(empire, targetAge + 1).RandomElementWithFallback(null);
+        Pawn stellarch = this.GetFactionLeader(empire, 22);
         if (stellarch == null)
         {
-            this.ScheduleRetry("No eligible Stellarch", "No eligible Imperial world pawn is available for the Stellarch's CryoRegenesis stay. Retrying later.");
+            this.ScheduleRetry("No eligible Stellarch", "The Empire's faction leader is unavailable for the Stellarch's CryoRegenesis stay. Retrying later.");
             return;
         }
 
+        int targetAge = Rand.RangeInclusive(21, Math.Min(35, stellarch.ageTracker.AgeBiologicalYears - 1));
         long targetTicks = targetAge * (long)GenDate.TicksPerYear;
         List<Pawn> party = new List<Pawn> { stellarch };
         int contractDays = MinContractDays;
