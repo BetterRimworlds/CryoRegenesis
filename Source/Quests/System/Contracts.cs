@@ -143,10 +143,20 @@ public partial class RoyaltyRegenesisQuestSystem
         }
 
         // Each noble must be older than the youngest requestable age (21) to have anything to regress.
-        List<Pawn> availableNobles = this.GetAvailableWorldPawns(empire, 22);
+        RoyalTitleDef freeholder = DefDatabase<RoyalTitleDef>.GetNamedSilentFail("Freeholder");
+        RoyalTitleDef knight = DefDatabase<RoyalTitleDef>.GetNamedSilentFail("Knight");
+        List<Pawn> availableNobles = this.GetAvailableWorldPawns(empire, 22)
+            .Where(pawn =>
+            {
+                RoyalTitleDef title = pawn.royalty?.GetCurrentTitle(empire);
+                return title != null && freeholder != null && knight != null
+                    && title.seniority >= freeholder.seniority
+                    && title.seniority <= knight.seniority;
+            })
+            .ToList();
         if (!availableNobles.Any())
         {
-            this.ScheduleRetry("No eligible imperial nobles", "No eligible Imperial world pawns are available for a CryoRegenesis stay. Retrying later.");
+            this.ScheduleRetry("No eligible imperial nobles", "No eligible Imperial world pawns with titles from Freeholder through Knight or Dame are available for a CryoRegenesis stay. Retrying later.");
             return;
         }
 
@@ -189,7 +199,7 @@ public partial class RoyaltyRegenesisQuestSystem
 
         if (nobleCount == 0)
         {
-            this.ScheduleRetry("No eligible imperial nobles", "No eligible Imperial world pawns are available for a CryoRegenesis stay. Retrying later.");
+            this.ScheduleRetry("No eligible imperial nobles", "No eligible Imperial world pawns with titles from Freeholder through Knight or Dame are available for a CryoRegenesis stay. Retrying later.");
             return;
         }
 
