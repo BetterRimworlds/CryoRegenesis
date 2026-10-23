@@ -389,6 +389,12 @@ public partial class RoyaltyRegenesisQuestSystem
         int contractDays,
         bool triggerRoyalAscent = false)
     {
+        if (this.activeClients.Count == 0)
+        {
+            // Reward and honor state belong to the contract, not its cleanup.
+            this.ResetCompletionRewardState();
+        }
+
         desiredAgeTicks = Math.Max(0, Math.Min(desiredAgeTicks, pawn.ageTracker.AgeBiologicalTicks));
         TrueAgeTracker tracker = RegenesisThoughts.GetOrAddTrueAgeTracker(pawn, pawn.ageTracker.AgeBiologicalTicks);
         if (tracker != null)
@@ -498,8 +504,6 @@ public partial class RoyaltyRegenesisQuestSystem
         {
             this.ClearEmperorShuttleColonistSnapshot();
         }
-
-        this.ResetCompletionRewardState();
     }
 
     /// Guest of the colony while remaining in <paramref name="pawn"/>'s own faction.
