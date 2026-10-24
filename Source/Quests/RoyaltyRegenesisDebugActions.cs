@@ -11,7 +11,7 @@ using RimWorld;
 using RimWorld.QuestGen;
 using Verse;
 
-#if RIMWORLD15 || RIMWORLD16
+#if RIMWORLD15 || RIMWORLD16 || RIMWORLD17
 using LudeonTK;
 #endif
 

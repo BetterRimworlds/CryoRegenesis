@@ -272,7 +272,7 @@ public class RegenesisCycle
         };
         this.hediffsToHeal = new List<Hediff>();
 
-        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
         var hediffsOfPawn = new List<Hediff>();
         pawn.health.hediffSet.GetHediffs<Hediff>(ref hediffsOfPawn);
         foreach (Hediff hediff in hediffsOfPawn.ToList())

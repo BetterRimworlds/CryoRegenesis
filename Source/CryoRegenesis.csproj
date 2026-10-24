@@ -42,8 +42,16 @@
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.6' ">
     <RimWorldVersion>1.6</RimWorldVersion>
-    <RimWorldInstall>/rimworld/1.6-steam</RimWorldInstall>
+    <RimWorldInstall>/rimworld/1.6</RimWorldInstall>
     <DefineConstants>RIMWORLD16</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release v1.7' ">
+    <TargetFramework>net10.0</TargetFramework>
+    <RimWorldVersion>1.7</RimWorldVersion>
+    <RimWorldInstall>/rimworld/1.7-steam</RimWorldInstall>
+    <DefineConstants>RIMWORLD17</DefineConstants>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(RimWorldVersion)' != '' ">
@@ -54,11 +62,11 @@
     <Error Text="Unsupported configuration '$(Configuration)'. Use one of: $(Configurations)" />
   </Target>
 
-  <ItemGroup>
+  <ItemGroup Condition=" '$(TargetFramework)' != 'net10.0' ">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(RimWorldVersion)' != '' ">
+  <ItemGroup Condition=" '$(RimWorldVersion)' != '' and '$(RimWorldVersion)' != '1.7' ">
     <Reference Include="Assembly-CSharp">
       <HintPath>$(RimWorldInstall)/RimWorldLinux_Data/Managed/Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
@@ -86,6 +94,28 @@
 
     <Reference Include="0Harmony">
       <HintPath>$(RimWorldInstall)/Mods/Harmony/Current/Assemblies/0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(RimWorldVersion)' == '1.7' ">
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorldInstall)/Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="UnityStubs">
+      <HintPath>$(RimWorldInstall)/UnityStubs.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="Waylith">
+      <HintPath>$(RimWorldInstall)/Waylith.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="0Harmony">
+      <HintPath>$(RimWorldInstall)/Mods/Harmony/1.7/Assemblies/0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>

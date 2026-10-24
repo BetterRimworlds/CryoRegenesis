@@ -176,7 +176,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
         }
     }
 
-    #if RIMWORLD16
+    #if RIMWORLD16 || RIMWORLD17
     protected override void Tick()
     #else
     public override void Tick()

@@ -193,7 +193,7 @@ public class Resurrector
             Log.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!");
             Messages.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!", resurrectedPawn, MessageTypeDefOf.PositiveEvent);
 
-            #if RIMWORLD15 || RIMWORLD16
+            #if RIMWORLD15 || RIMWORLD16 || RIMWORLD17
             ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
             #else
             ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
