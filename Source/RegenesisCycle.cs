@@ -25,7 +25,9 @@ public class RegenesisCycle
     private IList<Hediff> hediffsToHeal = new List<Hediff>();
     private bool enteredHealthy;
     private long restoreCoolDown = NoRegenesisInProgress;
+    private int nextTargetAgeHealTick = -1;
     private int targetAge;
+    private long targetAgeTicks;
     private string ttlToHeal;
     private int origAge;
 
@@ -33,6 +35,7 @@ public class RegenesisCycle
     public bool HasCurableInjuries => this.hediffsToHeal.Any();
     public int OriginalAge => this.origAge;
     public int TargetAge => this.targetAge;
+    public long TargetAgeTicks => this.targetAgeTicks;
     public string TtlToHeal => this.ttlToHeal;
 
     public void ExposeData()
@@ -50,23 +53,24 @@ public class RegenesisCycle
     {
         this.origAge = Mathf.RoundToInt(pawn.ageTracker.AgeBiologicalYearsFloat);
         this.restoreCoolDown = NoRegenesisInProgress;
+        this.nextTargetAgeHealTick = -1;
         this.ttlToHeal = null;
         this.InitializeForLoadedPawn(pawn);
     }
 
     public void MarkTargetAgeReached(Pawn pawn)
     {
-        this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks;
+        RoyaltyRegenesisQuestSystem.NotifyRegenesisTargetReached(pawn);
     }
 
-    public bool IsTargetAge(Pawn pawn, int rate)
+    public bool IsTargetAge(Pawn pawn)
     {
-        return pawn.ageTracker.AgeBiologicalTicks <= ((GenDate.TicksPerYear * this.targetAge) + rate);
+        return pawn.ageTracker.AgeBiologicalTicks <= this.targetAgeTicks;
     }
 
     public void UpdateHealingEta(Pawn pawn, int rate)
     {
-        if (!this.HasCurableInjuries || this.IsTargetAge(pawn, rate) || this.restoreCoolDown == NoRegenesisInProgress)
+        if (!this.HasCurableInjuries || this.IsTargetAge(pawn) || this.restoreCoolDown == NoRegenesisInProgress)
         {
             return;
         }
@@ -115,15 +119,33 @@ public class RegenesisCycle
 
     public bool TryHealNextInjury(Pawn pawn, CompRefuelable refuelable)
     {
-        if (!this.HasCurableInjuries || this.restoreCoolDown <= NoRegenesisInProgress)
+        if (!this.HasCurableInjuries)
         {
             return false;
         }
 
-        long ticksLeft = pawn.ageTracker.AgeBiologicalTicks - this.restoreCoolDown;
-        if (pawn.ageTracker.AgeBiologicalTicks > this.restoreCoolDown)
+        // Biological age stops at the target, so the age-based cooldown cannot advance
+        // there. Continue healing remaining injuries on a real-time schedule instead.
+        bool atTargetAge = this.IsTargetAge(pawn);
+        if (atTargetAge)
         {
-            return false;
+            if (this.nextTargetAgeHealTick >= 0
+                && Find.TickManager.TicksGame < this.nextTargetAgeHealTick)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (this.restoreCoolDown <= NoRegenesisInProgress)
+            {
+                return false;
+            }
+
+            if (pawn.ageTracker.AgeBiologicalTicks > this.restoreCoolDown)
+            {
+                return false;
+            }
         }
 
         Hediff hediff = this.hediffsToHeal[0];
@@ -144,10 +166,18 @@ public class RegenesisCycle
 
         this.hediffsToHeal.RemoveAt(0);
 
-        this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
-        if (ticksLeft < 0)
+        if (atTargetAge)
         {
-            this.restoreCoolDown += ticksLeft;
+            this.nextTargetAgeHealTick = Find.TickManager.TicksGame + GenDate.TicksPerDay;
+        }
+        else
+        {
+            long ticksLeft = pawn.ageTracker.AgeBiologicalTicks - this.restoreCoolDown;
+            this.restoreCoolDown = pawn.ageTracker.AgeBiologicalTicks - GenDate.TicksPerYear;
+            if (ticksLeft < 0)
+            {
+                this.restoreCoolDown += ticksLeft;
+            }
         }
 
         if (CryoRegenesis.Settings.debugMode)
@@ -178,6 +208,11 @@ public class RegenesisCycle
 
     public bool ShouldEjectAfterHealing(Pawn pawn)
     {
+        if (RoyaltyRegenesisQuestSystem.IsActiveRegenContractPawn(pawn))
+        {
+            return false;
+        }
+
         return CryoRegenesis.Settings.regenUntilHealed
             && !this.enteredHealthy
             && pawn.RaceProps.Humanlike
@@ -237,7 +272,7 @@ public class RegenesisCycle
         };
         this.hediffsToHeal = new List<Hediff>();
 
-        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
         var hediffsOfPawn = new List<Hediff>();
         pawn.health.hediffSet.GetHediffs<Hediff>(ref hediffsOfPawn);
         foreach (Hediff hediff in hediffsOfPawn.ToList())
@@ -458,10 +493,21 @@ public class RegenesisCycle
         if (pawn.RaceProps.Humanlike)
         {
             this.targetAge = CryoRegenesis.Settings.targetAge;
+            this.targetAgeTicks = GenDate.TicksPerYear * (long)this.targetAge;
         }
         else
         {
             this.targetAge = (int)Math.Floor(pawn.RaceProps.lifeExpectancy * 0.25);
+            this.targetAgeTicks = GenDate.TicksPerYear * (long)this.targetAge;
+        }
+
+        TrueAgeTracker tracker =
+            pawn.health?.hediffSet?.GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+
+        if (tracker != null && tracker.underRegenContract && tracker.desiredAgeTicks > 0)
+        {
+            this.targetAgeTicks = tracker.desiredAgeTicks;
+            this.targetAge = (int)Math.Ceiling((double)this.targetAgeTicks / GenDate.TicksPerYear);
         }
 
         if (CryoRegenesis.Settings.debugMode)
