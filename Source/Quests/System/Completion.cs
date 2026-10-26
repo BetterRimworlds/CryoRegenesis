@@ -124,18 +124,8 @@ public partial class RoyaltyRegenesisQuestSystem
             return false;
         }
 
-        if (client.everReachedDesiredAge)
-        {
-            return true;
-        }
-
-        if (this.EvaluateAgeAgainstTarget(client, out _, out _))
-        {
-            client.everReachedDesiredAge = true;
-            return true;
-        }
-
-        return false;
+        return client.everReachedDesiredAge
+            || this.EvaluateAgeAgainstTarget(client, out _, out _);
     }
 
     /// Current biological age is at or below the contracted target, with a short
