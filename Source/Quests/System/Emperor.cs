@@ -672,7 +672,7 @@ public partial class RoyaltyRegenesisQuestSystem
 
         wifeCount = CountLivingWives(emperor);
 
-        #if RIMWORLD16
+        #if RIMWORLD16 || RIMWORLD17
         string title = "Archon";
         #else
         string title = "Count";

@@ -317,7 +317,7 @@ public class RegenesisCycle
                 continue;
             }
 
-#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
             // Gene needs, birth, and xenogerm process hediffs are marked bad
             // but are not injuries. Healing them strips xenotypes or aborts labor.
             if (IsBiotechSystemHediff(hediff))
@@ -325,7 +325,7 @@ public class RegenesisCycle
                 continue;
             }
 #endif
-#if RIMWORLD15 || RIMWORLD16
+#if RIMWORLD15 || RIMWORLD16 || RIMWORLD17
             // Entity, void, and mutant hediffs are plot or identity states,
             // not wounds. Healing a metalhorror implant would erase the infection
             // without emergence.
@@ -381,7 +381,7 @@ public class RegenesisCycle
                && !hediff.def.addedPartProps.betterThanNatural;
     }
 
-#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
     private static bool IsBiotechSystemHediff(Hediff hediff)
     {
         if (hediff is Hediff_ChemicalDependency
@@ -413,7 +413,7 @@ public class RegenesisCycle
     }
 #endif
 
-#if RIMWORLD15 || RIMWORLD16
+#if RIMWORLD15 || RIMWORLD16 || RIMWORLD17
     private static bool IsAnomalySystemHediff(Hediff hediff)
     {
         if (hediff is Hediff_MetalhorrorImplant

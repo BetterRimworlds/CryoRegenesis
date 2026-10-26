@@ -214,7 +214,7 @@ public static class HonorGrant
             return false;
         }
 
-#if RIMWORLD13 || RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+#if RIMWORLD13 || RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
         if (pawn.IsSlave)
         {
             return false;

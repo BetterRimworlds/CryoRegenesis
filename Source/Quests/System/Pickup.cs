@@ -127,7 +127,7 @@ public partial class RoyaltyRegenesisQuestSystem
             this.activeContractQuest.AddPart(part);
         }
 
-#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
         List<QuestPart_ExtraFaction> cache = Find.QuestManager?.ExtraFactionQuestParts;
         if (cache != null && !cache.Contains(part))
         {
