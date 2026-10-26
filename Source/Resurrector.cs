@@ -190,14 +190,24 @@ public class Resurrector
         if (this.ResurrectionProgress >= 1.0f)
         {
             var resurrectedPawn = corpse.InnerPawn;
-            Log.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!");
-            Messages.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!", resurrectedPawn, MessageTypeDefOf.PositiveEvent);
 
-            #if RIMWORLD15 || RIMWORLD16
-            ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
+            #if RIMWORLD15 || RIMWORLD16 || RIMWORLD17
+            bool success = ResurrectionUtility.TryResurrectWithSideEffects(resurrectedPawn);
             #else
+            bool success = true;
             ResurrectionUtility.ResurrectWithSideEffects(resurrectedPawn);
             #endif
+
+            if (!success)
+            {
+                Messages.Message($"[CryoRegenesis] {resurrectedPawn.Name} could not be resurrected.", resurrectedPawn, MessageTypeDefOf.NegativeEvent);
+                this.ResurrectionProgress = 0f;
+                onRejected();
+                return;
+            }
+
+            Log.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!");
+            Messages.Message($"[CryoRegenesis] {resurrectedPawn.Name} has been resurrected!", resurrectedPawn, MessageTypeDefOf.PositiveEvent);
 
             this.ResurrectionProgress = 0f;
             this.AddLuciferiumSideEffect(resurrectedPawn);

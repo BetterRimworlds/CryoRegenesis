@@ -111,7 +111,7 @@ public class Cosmetics
 
     private void RerenderPawn(Pawn pawn)
     {
-        #if !RIMWORLD15 && !RIMWORLD16
+        #if !RIMWORLD15 && !RIMWORLD16 && !RIMWORLD17
         // Tell the pawn's Drawer that the Person has had a hair-change makeover.
         // This code is from https://github.com/KiameV/rimworld-changedresser/blob/f0b8fcf9073cd1c232fcd26b0b083cb3137924a3/Source/UI/DresserUI.cs
         // Copyright (c) 2017 Travis Offtermatt
@@ -125,7 +125,7 @@ public class Cosmetics
 
     private void ChangeHairColor(Pawn pawn, Color hairColor)
     {
-        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
         pawn.story.HairColor = hairColor;
         #else
         pawn.story.hairColor = hairColor;
@@ -151,7 +151,7 @@ public class Cosmetics
     private bool HasWhiteOrGrayHair(Pawn pawn)
     {
         string hsv;
-        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+        #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
         Color hairColor = pawn.story.HairColor;
         #else
         Color hairColor = pawn.story.hairColor;

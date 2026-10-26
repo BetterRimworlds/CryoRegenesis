@@ -35,13 +35,13 @@ function sync_mod() {
     rm -rf /rimworld/1.4/Mods/${MOD}
     rm -rf /rimworld/1.5/Mods/${MOD}
     rm -rf /rimworld/1.6/Mods/${MOD}
-    rm -rf /rimworld/1.6-steam/Mods/${MOD}
+    rm -rf /rimworld/1.7-steam/Mods/${MOD}
 
     cp -af /rimworld/1.2/Mods/${MOD} /rimworld/1.3/Mods
     cp -af /rimworld/1.2/Mods/${MOD} /rimworld/1.4/Mods
     cp -af /rimworld/1.2/Mods/${MOD} /rimworld/1.5/Mods
     cp -af /rimworld/1.2/Mods/${MOD} /rimworld/1.6/Mods
-    cp -af /rimworld/1.2/Mods/${MOD} /rimworld/1.6-steam/Mods
+    cp -af /rimworld/1.2/Mods/${MOD} /rimworld/1.7-steam/Mods
 }
 
 function build() {
@@ -64,6 +64,12 @@ function build() {
         echo "One or more builds failed. Aborting sync."
         return 1
     fi
+
+    echo "Building for configuration: v1.7"
+    dotnet build "$solutionPath" --configuration "Release v1.7" || {
+        echo "1.7 build failed. Aborting sync."
+        return 1
+    }
 
     sync_mod
     echo "All builds completed!"

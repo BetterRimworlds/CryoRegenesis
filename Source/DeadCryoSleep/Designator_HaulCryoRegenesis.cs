@@ -28,7 +28,7 @@ public class Designator_HaulCryoRegenesis : Designator
         iconDrawScale = GenUI.IconDrawScale(DeadCryosleepDefOf.CryoRegenesisCasket);
     }
 
-    #if !RIMWORLD16
+    #if !RIMWORLD16 && !RIMWORLD17
     public override int DraggableDimensions => 2;
     #endif
 
