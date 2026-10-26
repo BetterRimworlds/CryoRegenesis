@@ -393,14 +393,6 @@ public partial class RoyaltyRegenesisQuestSystem
         return true;
     }
 
-    public void DebugOfferHonorLetter()
-    {
-        this.SendHonorLetter(
-            50,
-            "Debug: choose a colonist to receive 50 Honor.",
-            "Bestow Honor");
-    }
-
     /// Off-contract: a titled Empire noble finished a CryoRegenesis treatment.
     public static void NotifyNobleRegenesisCompleted(Pawn pawn, float yearsRegressed)
     {
