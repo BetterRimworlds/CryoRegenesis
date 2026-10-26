@@ -458,17 +458,42 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
 
         if (!system.EvaluateAgeAgainstTarget(client, out _, out _))
         {
+            // The exact crossing tick was missed (pawn ejected on load, older
+            // build, power loss). Record the target directly and send the
+            // readiness letter here, because RefreshClientAgeProgress only
+            // letters clients whose flag it flips itself.
+            client.everReachedDesiredAge = true;
+            system.RecordHonorBasisFromClient(client);
+            system.LogRoyaltyDebug(
+                "Client target recorded directly from casket (fallback): "
+                + (pawn?.Name?.ToStringShort ?? "?")
+                + " bioTicks=" + (pawn?.ageTracker?.AgeBiologicalTicks ?? -1)
+                + " desired=" + client.desiredAgeTicks);
+            if (pawn != null && !pawn.Destroyed)
+            {
+                string clientLabel = RoyaltyRegenesisQuestFactory.FormatContractClientName(pawn, client.role);
+                Find.LetterStack.ReceiveLetter(
+                    "Regenesis client ready",
+                    clientLabel + " has reached the contracted target age of "
+                    + ((float)client.desiredAgeTicks / GenDate.TicksPerYear).ToString("0.#")
+                    + ". Their part of the contract is fulfilled.",
+                    LetterDefOf.PositiveEvent,
+                    new LookTargets(pawn));
+            }
+            system.RefreshClientAgeProgress();
             return;
         }
 
-        client.everReachedDesiredAge = true;
-        system.RecordHonorBasisFromClient(client);
+        // Normal case: this is the exact crossing tick. Let the periodic
+        // progress scan perform the first transition so the client gets the
+        // standard readiness letter and honor record.
+        system.RefreshClientAgeProgress();
         system.LogRoyaltyDebug(
             "Client target recorded directly from casket: "
             + (pawn?.Name?.ToStringShort ?? "?")
             + " bioTicks=" + (pawn?.ageTracker?.AgeBiologicalTicks ?? -1)
-            + " desired=" + client.desiredAgeTicks);
-        system.RefreshClientAgeProgress();
+            + " desired=" + client.desiredAgeTicks
+            + " transitioned=" + client.everReachedDesiredAge);
     }
 
     public override void ExposeData()

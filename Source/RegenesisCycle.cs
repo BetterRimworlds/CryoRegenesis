@@ -41,6 +41,7 @@ public class RegenesisCycle
     public void ExposeData()
     {
         Scribe_Values.Look(ref this.origAge, "OrigAge", 50);
+        Scribe_Values.Look(ref this.nextTargetAgeHealTick, "nextTargetAgeHealTick", -1);
     }
 
     public void InitializeForLoadedPawn(Pawn pawn)
