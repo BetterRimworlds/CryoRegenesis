@@ -3,7 +3,7 @@
  * Carry-to-CryoRegenesis float menu.
  *
  * RW 1.2–1.5: Harmony postfix on FloatMenuMakerMap.AddHumanlikeOrders.
- * RW 1.6:     FloatMenuOptionProvider subclass (auto-discovered by the game).
+ * RW 1.6+:    FloatMenuOptionProvider subclass (auto-discovered by the game).
  */
 
 using HarmonyLib;
@@ -186,7 +186,7 @@ internal static class CryoCarryHelper
 //  RimWorld 1.2 – 1.5:  Harmony postfix on AddHumanlikeOrders
 // =========================================================================
 
-#if !RIMWORLD16
+#if !RIMWORLD16 && !RIMWORLD17
 
 [HarmonyPatch(typeof(FloatMenuMakerMap), "AddHumanlikeOrders")]
 public static class Patch_FloatMenuMakerMap_AddHumanlikeOrders_CryoRegenesis
@@ -303,14 +303,14 @@ public static class Patch_FloatMenuMakerMap_AddHumanlikeOrders_CryoRegenesis
     }
 }
 
-#endif // !RIMWORLD16
+#endif // !RIMWORLD16 && !RIMWORLD17
 
 
 // =========================================================================
-//  RimWorld 1.6:  FloatMenuOptionProvider subclass (auto-discovered)
+//  RimWorld 1.6+:  FloatMenuOptionProvider subclass (auto-discovered)
 // =========================================================================
 
-#if RIMWORLD16
+#if RIMWORLD16 || RIMWORLD17
 
 /// The game's FloatMenuMakerMap.Init() uses reflection to find every
 /// concrete subclass of FloatMenuOptionProvider and instantiates it.
@@ -391,4 +391,4 @@ public class FloatMenuOptionProvider_CryoRegenesis : FloatMenuOptionProvider
     }
 }
 
-#endif // RIMWORLD16
+#endif // RIMWORLD16 || RIMWORLD17

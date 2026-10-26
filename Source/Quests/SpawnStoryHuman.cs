@@ -528,7 +528,7 @@ public static class SpawnStoryHuman
         if (pawn.skills != null)
         {
             pawn.skills.Notify_SkillDisablesChanged();
-#if RIMWORLD15 || RIMWORLD16
+#if RIMWORLD15 || RIMWORLD16 || RIMWORLD17
             pawn.skills.DirtyAptitudes();
 #endif
         }

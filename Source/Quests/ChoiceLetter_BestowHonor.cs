@@ -30,7 +30,7 @@ public class ChoiceLetter_BestowHonor : ChoiceLetter
 
     public override bool CanDismissWithRightClick => false;
 
-#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
     public override bool ShouldAutomaticallyOpenLetter => true;
 #endif
 

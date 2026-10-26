@@ -281,7 +281,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
             if (pawn.ageTracker.AgeBiologicalTicks > this.regenesisCycle.TargetAgeTicks)
             {
-                #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+                #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
                 power.PowerOutput = -props.PowerConsumption;
                 #else
                 power.PowerOutput = -ActivePowerConsumption;
@@ -422,7 +422,7 @@ public partial class Building_CryoRegenesis : Building_CryptosleepCasket, IThing
 
             if (!IsPowerUnavailable)
             {
-                #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+                #if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
                 power.PowerOutput = -props.PowerConsumption;
                 #else
                 power.PowerOutput = -ActivePowerConsumption;

@@ -156,65 +156,68 @@ occasional terrible idea. The caskets keep secrets. So do we.
 
 Last 365 days. For more, see [CHANGELOG.md](CHANGELOG.md).
 
+#### v8.0.1
+
+* **[2026-10-26 15:51:23 GST]** Improved support for Rimworld v1.7.
+
 #### v8.0.0
 
-* **[2026-10-26 11:45:12 +04]** [Quests] Stopped the contract description from recording client readiness.
-* **[2026-10-26 11:32:50 +04]** Better rimworld v1.7 support for the DLCs.
-* **[2026-10-26 11:23:45 +04]** [Quests] Moved the Royalty debug helpers into their own file.
-* **[2026-10-26 11:22:01 +04]** [Quests] Fixed DebugStartAt leaving stale regen contracts on canceled clients.
-* **[2026-10-26 11:13:36 +04]** Fixed failed resurrections reporting success and ejecting revived corpses.
-* **[2026-10-24 13:16:41 +04]** Upgraded to Rimworld v1.7.
-* **[2026-10-23 11:38:21 +04]** [Quests] Fixed missing rewards after the first completed contract.
-* **[2026-10-23 11:22:16 +04]** [Quests] Fixed Imperial wives disappearing during assassination escape.
-* **[2026-10-23 08:28:27 +04]** [Quests] Fixed lower nobility contracts to select titled nobles.
-* **[2026-10-23 06:17:39 +04]** [Quests] Fixed Stellarch contracts to select the Empire leader.
-* **[2026-09-15 16:44:31 +04]** [Quests] Offer the contract Honor as soon as the highest-Honor client is ready.
-* **[2026-09-15 15:35:07 +04]** [Quests] Fixed Imperial nobles arriving as uncontrolled strangers.
-* **[2026-09-14 15:23:38 +04]** [Quests] More tweaks to Nobility giving Honor.
-* **[2026-09-13 06:27:24 +04]** [Quests] Doll out Honor for Imperial regenesis.
-* **[2026-09-12 23:17:08 +04]** [Quests] Fixed: Faction Leaders are no longer deposed when coming for regenesis.
-* **[2026-09-07 01:35:08 +04]** [Quests] Tightens which faction leaders are sent (e.g., not hostile nor Ancients).
-* **[2026-09-05 01:16:17 +04]** [Quests] Searches for a world leader among all the factions instead of failing at the first.
-* **[2026-09-05 11:48:15 +04]** [Quests] Fixed planetary ruler contracts stalling on a single faction.
-* **[2026-07-31 06:07:50 +04]** [Quests] Only credit clients aboard pickup shuttles. (Found by PantoAI)
-* **[2026-07-31 05:48:07 +04]** Fixed TrueAge ledger double-counting. (Found by PantoAI)
-* **[2026-07-31 05:26:46 +04]** [Quests] Fixed an edge case that could inappropriately mark untreated contracts as done. (Found by CodeAnt)
-* **[2026-07-31 05:08:44 +04]** [Quests] Fixed an extreme edge case during contract deadline updates. (Found by CodeAnt)
-* **[2026-07-31 05:07:51 +04]** [Quests] Changed the behavior of the Emperor's wives and guards after his assassination.
-* **[2026-07-31 03:54:25 +04]** [Quests] Added an initial requirement of 500 Uranium to begin the Regen Quests.
-* **[2026-07-30 18:03:29 +04]** [Quests] Added Stargate continuity for Emperor shuttle escapees.
-* **[2026-07-28 12:39:36 +04]** Added an ARCHITECTURE.md doc.
-* **[2026-07-27 23:23:58 +04]** [Quests] Fixed debug campaign waits at five days to greatly cut down system testing time.
-* **[2026-07-27 23:11:56 +04]** [Quests] Split the Royalty quest system into focused modules under Quests/.
-* **[2026-07-27 17:34:49 +04]** [Quests] Prune dead guests from the evacuation manifest in Assassin end game (found by OpenAI Codex).
-* **[2026-07-27 16:25:10 +04]** [Quests] Hunted Assassin mark now jumps to any Knight+ who kills the Marked One.
-* **[2026-07-27 16:00:45 +04]** [Quests] Added the Emperor "Keep What You Kill" assassination endgame.
-* **[2026-07-25 17:06:03 +04]** [Quests] Completed the Emperor Dies "Planet Killer" end game.
-* **[2026-07-25 15:21:34 +04]** [Quests] Completed the Emperor "Keep What You Kill" Diplomatic end game.
-* **[2026-07-25 12:18:49 +04]** [Quests] Completed the Emperor standard Regen end game.
-* **[2026-07-25 07:37:08 +04]** [Quests] Added a new victory ending when colonists leave on the Imperial shuttle.
-* **[2026-07-24 11:34:09 +04]** [Quests] Show royal titles and wife roles on regen contract client lists.
-* **[2026-07-24 11:33:11 +04]** [Quests] Built the final Emperor CryoRegenesis party with Stellarch, wives, and guards.
-* **[2026-07-22 04:13:21 +04]** [Quests] Immediately dispatch the Emperor (don't wait) once the Stellarch has been regenerated.
-* **[2026-07-19 10:20:04 +04]** [Quests] Only direct relations (not exes) of regen-quest nobility may board pickup shuttles.
-* **[2026-07-19 10:16:25 +04]** [Quests] Increased contract uranium rewards to 500-600 per treated client.
-* **[2026-07-26 09:20:03 +04]** [Quests] Start Royal Ascent via QuestUtility instead of reflection (by CodeRabbit).
-* **[2026-07-19 08:03:07 +04]** [Quests] Regen contracts use hospitality multi-wave pickups for ready clients.
-* **[2026-07-18 17:04:51 +04]** [Quests] Now brings lovers, fiancés, and spouses along on regen contracts.
-* **[2026-07-18 16:53:20 +04]** [Quests] More than 1 noble will arrive now [2-10].
-* **[2026-07-11 04:11:28 +04]** [Quests] Fixed Royalty regen quests to complete correctly.
-* **[2026-07-11 03:26:55 +04]** [Quests] Spawn the leaders from the World Pawns list directly.
-* **[2026-07-11 02:48:02 +04]** [Quests] Added Rewards for the ReGen quests.
-* **[2026-07-11 01:33:19 +04]** [Quests] Fixed Regen Quest rulers arriving as uncontrollable visitors.
-* **[2026-07-11 00:10:47 +04]** [Quests] Removed the worthless DoRecruit Harmony patch.
-* **[2026-07-10 23:22:33 +04]** [Quests] Reworked Royalty CryoRegenesis contracts around parked shuttles and banked completion.
-* **[2026-07-10 10:05:12 +04]** [Quests] Display the Regenesis quest contract's target age.
-* **[2026-07-10 09:18:44 +04]** [Quests] Fixed the no-recruitment of guests procedure for Rimworld v1.2.
-* **[2026-07-10 08:42:05 +04]** [Quests] Stopped body-positivity gratitude from recruiting contract clients.
-* **[2026-07-10 08:18:17 +04]** [Quests] Added the Royalty CryoRegenesis quest chain foundation.
-* **[2026-07-09 05:41:08 +04]** [Quests] Taught CryoRegenesis to honor True Age contract target ages.
-* **[2026-07-09 04:27:33 +04]** [Quests] Extended TrueAgeTracker for contracted target ages.
-
+* **[2026-10-26 11:45:12 GST]** [Quests] Stopped the contract description from recording client readiness.
+* **[2026-10-26 11:32:50 GST]** Better rimworld v1.7 support for the DLCs.
+* **[2026-10-26 11:23:45 GST]** [Quests] Moved the Royalty debug helpers into their own file.
+* **[2026-10-26 11:22:01 GST]** [Quests] Fixed DebugStartAt leaving stale regen contracts on canceled clients.
+* **[2026-10-26 11:13:36 GST]** Fixed failed resurrections reporting success and ejecting revived corpses.
+* **[2026-10-24 12:16:41 EEST]** Upgraded to Rimworld v1.7.
+* **[2026-10-23 10:38:21 EEST]** [Quests] Fixed missing rewards after the first completed contract.
+* **[2026-10-23 10:22:16 EEST]** [Quests] Fixed Imperial wives disappearing during assassination escape.
+* **[2026-10-23 07:28:27 EEST]** [Quests] Fixed lower nobility contracts to select titled nobles.
+* **[2026-10-23 05:17:39 EEST]** [Quests] Fixed Stellarch contracts to select the Empire leader.
+* **[2026-09-15 15:44:31 EEST]** [Quests] Offer the contract Honor as soon as the highest-Honor client is ready.
+* **[2026-09-15 14:35:07 EEST]** [Quests] Fixed Imperial nobles arriving as uncontrolled strangers.
+* **[2026-09-14 14:23:38 EEST]** [Quests] More tweaks to Nobility giving Honor.
+* **[2026-09-13 05:27:24 EEST]** [Quests] Doll out Honor for Imperial regenesis.
+* **[2026-09-12 22:17:08 EEST]** [Quests] Fixed: Faction Leaders are no longer deposed when coming for regenesis.
+* **[2026-09-07 00:35:08 EEST]** [Quests] Tightens which faction leaders are sent (e.g., not hostile nor Ancients).
+* **[2026-09-05 10:48:15 EEST]** [Quests] Fixed planetary ruler contracts stalling on a single faction.
+* **[2026-09-05 00:16:17 EEST]** [Quests] Searches for a world leader among all the factions instead of failing at the first.
+* **[2026-07-31 05:07:50 EEST]** [Quests] Only credit clients aboard pickup shuttles. (Found by PantoAI)
+* **[2026-07-31 04:48:07 EEST]** Fixed TrueAge ledger double-counting. (Found by PantoAI)
+* **[2026-07-31 04:26:46 EEST]** [Quests] Fixed an edge case that could inappropriately mark untreated contracts as done. (Found by CodeAnt)
+* **[2026-07-31 04:08:44 EEST]** [Quests] Fixed an extreme edge case during contract deadline updates. (Found by CodeAnt)
+* **[2026-07-31 04:07:51 EEST]** [Quests] Changed the behavior of the Emperor's wives and guards after his assassination.
+* **[2026-07-31 02:54:25 EEST]** [Quests] Added an initial requirement of 500 Uranium to begin the Regen Quests.
+* **[2026-07-30 17:03:29 EEST]** [Quests] Added Stargate continuity for Emperor shuttle escapees.
+* **[2026-07-28 11:39:36 EEST]** Added an ARCHITECTURE.md doc.
+* **[2026-07-27 22:23:58 EEST]** [Quests] Fixed debug campaign waits at five days to greatly cut down system testing time.
+* **[2026-07-27 22:11:56 EEST]** [Quests] Split the Royalty quest system into focused modules under Quests/.
+* **[2026-07-27 16:34:49 EEST]** [Quests] Prune dead guests from the evacuation manifest in Assassin end game (found by OpenAI Codex).
+* **[2026-07-27 15:25:10 EEST]** [Quests] Hunted Assassin mark now jumps to any Knight+ who kills the Marked One.
+* **[2026-07-27 15:00:45 EEST]** [Quests] Added the Emperor "Keep What You Kill" assassination endgame.
+* **[2026-07-26 08:20:03 EEST]** [Quests] Start Royal Ascent via QuestUtility instead of reflection (by CodeRabbit).
+* **[2026-07-25 16:06:03 EEST]** [Quests] Completed the Emperor Dies "Planet Killer" end game.
+* **[2026-07-25 14:21:34 EEST]** [Quests] Completed the Emperor "Keep What You Kill" Diplomatic end game.
+* **[2026-07-25 11:18:49 EEST]** [Quests] Completed the Emperor standard Regen end game.
+* **[2026-07-25 06:37:08 EEST]** [Quests] Added a new victory ending when colonists leave on the Imperial shuttle.
+* **[2026-07-24 10:34:09 EEST]** [Quests] Show royal titles and wife roles on regen contract client lists.
+* **[2026-07-24 10:33:11 EEST]** [Quests] Built the final Emperor CryoRegenesis party with Stellarch, wives, and guards.
+* **[2026-07-22 03:13:21 EEST]** [Quests] Immediately dispatch the Emperor (don't wait) once the Stellarch has been regenerated.
+* **[2026-07-19 01:20:04 CDT]** [Quests] Only direct relations (not exes) of regen-quest nobility may board pickup shuttles.
+* **[2026-07-19 01:16:25 CDT]** [Quests] Increased contract uranium rewards to 500-600 per treated client.
+* **[2026-07-18 23:03:07 CDT]** [Quests] Regen contracts use hospitality multi-wave pickups for ready clients.
+* **[2026-07-18 08:04:51 CDT]** [Quests] Now brings lovers, fiancés, and spouses along on regen contracts.
+* **[2026-07-18 07:53:20 CDT]** [Quests] More than 1 noble will arrive now [2-10].
+* **[2026-07-10 19:11:28 CDT]** [Quests] Fixed Royalty regen quests to complete correctly.
+* **[2026-07-10 18:26:55 CDT]** [Quests] Spawn the leaders from the World Pawns list directly.
+* **[2026-07-10 17:48:02 CDT]** [Quests] Added Rewards for the ReGen quests.
+* **[2026-07-10 16:33:19 CDT]** [Quests] Fixed Regen Quest rulers arriving as uncontrollable visitors.
+* **[2026-07-10 15:10:47 CDT]** [Quests] Removed the worthless DoRecruit Harmony patch.
+* **[2026-07-10 14:22:33 COT]** [Quests] Reworked Royalty CryoRegenesis contracts around parked shuttles and banked completion.
+* **[2026-07-10 01:05:12 COT]** [Quests] Display the Regenesis quest contract's target age.
+* **[2026-07-10 00:18:44 COT]** [Quests] Fixed the no-recruitment of guests procedure for Rimworld v1.2.
+* **[2026-07-09 23:42:05 COT]** [Quests] Stopped body-positivity gratitude from recruiting contract clients.
+* **[2026-07-09 23:18:17 COT]** [Quests] Added the Royalty CryoRegenesis quest chain foundation.
+* **[2026-07-08 20:41:08 COT]** [Quests] Taught CryoRegenesis to honor True Age contract target ages.
+* **[2026-07-08 19:27:33 COT]** [Quests] Extended TrueAgeTracker for contracted target ages.
 
 #### v7.1.0
 

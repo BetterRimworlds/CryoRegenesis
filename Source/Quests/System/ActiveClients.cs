@@ -16,7 +16,7 @@ using RimWorld.QuestGen;
 using Verse;
 using Verse.AI.Group;
 
-#if RIMWORLD15 || RIMWORLD16
+#if RIMWORLD15 || RIMWORLD16 || RIMWORLD17
 using LudeonTK;
 #endif
 
@@ -704,7 +704,7 @@ public partial class RoyaltyRegenesisQuestSystem
         // keeps unrelated colonists off non-Emperor regen pickups.
         compShuttle.acceptColonists = true;
         compShuttle.onlyAcceptColonists = false;
-#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16
+#if RIMWORLD14 || RIMWORLD15 || RIMWORLD16 || RIMWORLD17
         compShuttle.acceptChildren = true;
         compShuttle.onlyAcceptHealthy = false;
         compShuttle.acceptColonyPrisoners = true;

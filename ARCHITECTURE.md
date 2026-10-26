@@ -11,7 +11,19 @@ Trees use only files in that section (plus a note when work continues in another
 
 ---
 
-## Root (`Source/`)
+## Root (`Source/`) — 17 root files, 3,135 lines
+
+`Source/` contains 49 C# files and 13,251 lines in total. Counts include comments and blank lines; `obj/` and `bin/` are excluded.
+
+| Directory                    | Files | Lines |
+|-----------------------------:|------:|------:|
+| `Source/` (root-level files) |    17 | 3,135 |
+| `Source/DeadCryoSleep/`      |     5 |   267 |
+| `Source/Quests/`             |    27 | 9,849 |
+| ↳ `Source/Quests/System/`    |    11 | 7,481 |
+| **Total** | **49** | **13,251** |
+
+`System/` is included in `Source/Quests/`, so the total does not double-count it.
 
 ```
 CryoRegenesis (mod)
@@ -29,9 +41,8 @@ CryoRegenesis (mod)
 │   │   ├── TrueAgeTracker.cs            (True Age hediff + DefOf)
 │   │   └── Eject side effects
 │   │       ├── RegenesisThoughts.cs
-│   │       ├── Thought_RegenesisBodyPositivity.cs
-│   │       │   └── Thought_DurationBased.cs
-│   │       └── Hediff_CryoRegenesisWithdrawal.cs
+│   │       └── Thought_RegenesisBodyPositivity.cs
+│   │           └── Thought_DurationBased.cs
 │   │
 │   └── Corpse occupant (resurrection)
 │       ├── Resurrector.cs               (fuel stages → resurrect)
@@ -48,32 +59,36 @@ CryoRegenesis (mod)
 ├── UI
 │   └── CharacterCardAgePatch.cs         (show True Age on character card)
 │
-└── Utility
-    └── BetterRandom.cs
+├── Utility
+│   └── BetterRandom.cs
+│
+└── Subdirectories
+    ├── DeadCryoSleep/                   (5 files, 267 lines — see DeadCryoSleep/)
+    └── Quests/                          (Royalty Regen Quests; 27 files, 9,849 lines — see Regen Quests/)
+        └── System/                      (11 files, 7,481 lines — see Quest system partials/)
 ```
 
-1. `AllowHostedGuestsPatch.cs` — Harmony: float-menu “carry to CryoRegenesis” for guests and valid targets.
+1. `AllowHostedGuestsPatch.cs` — Harmony (RW 1.2–1.5) / float-menu provider (RW 1.6+): “carry to CryoRegenesis” for guests and valid targets.
 2. `BetterRandom.cs` — Small random-helper utilities used across the mod.
 3. `CharacterCardAgePatch.cs` — Harmony: shows True Age on the character card when the tracker is present.
 4. `Cosmetics.cs` — Chance-based hair-color restoration when a pawn is de-aged.
 5. `CryoRegenesis.cs` — Mod entrypoint (Harmony bootstrap, settings UI) and main `Building_CryoRegenesis` casket behavior.
 6. `CryoRegenesis.TrueAge.cs` — Partial of the casket: snapshots bio-age on entry and updates the True Age ledger on eject.
 7. `CryoRegenesisRecipeInjector.cs` — Injects CryoRegenesis recipes onto humanlike race defs at startup.
-8. `Hediff_CryoRegenesisWithdrawal.cs` — Withdrawal hediff applied when regen sedation / cycle effects end.
-9. `JobDriver_CarryToCryoRegenesis.cs` — Colonist job: carry a downed / immobile patient into a CryoRegenesis casket.
-10. `Recipe_AdministerCryoRegenesisSedation.cs` — Surgery recipe that sedates a pawn and queues them for casket treatment.
-11. `RegenesisCycle.cs` — Per-occupant healing / de-aging cycle state machine used by the casket.
-12. `RegenesisThoughts.cs` — Grants body-positivity (and related) thoughts after a successful regen eject.
-13. `Resurrector.cs` — Dead-body resurrection state machine hosted by the casket.
-14. `Settings.cs` — Mod settings (target age, heal-until-healthy, prosthetics, debug) and settings window.
-15. `Thought_DurationBased.cs` — Base thought type with explicit duration handling for stacked regen memories.
-16. `Thought_LuciferiumSideEffect.cs` — Duration-based thought for Luciferium-related regen side effects.
-17. `Thought_RegenesisBodyPositivity.cs` — Stackable body-positivity memory after de-aging.
-18. `TrueAgeTracker.cs` — Invisible hediff that tracks True Age (conscious life) and regen-contract flags.
+8. `JobDriver_CarryToCryoRegenesis.cs` — Colonist job: carry a downed / immobile patient into a CryoRegenesis casket.
+9. `Recipe_AdministerCryoRegenesisSedation.cs` — Surgery recipe that sedates a pawn and queues them for casket treatment.
+10. `RegenesisCycle.cs` — Per-occupant healing / de-aging cycle state machine used by the casket.
+11. `RegenesisThoughts.cs` — Grants body-positivity (and related) thoughts after a successful regen eject.
+12. `Resurrector.cs` — Dead-body resurrection state machine hosted by the casket.
+13. `Settings.cs` — Mod settings (target age, heal-until-healthy, prosthetics, debug) and settings window.
+14. `Thought_DurationBased.cs` — Base thought type with explicit duration handling for stacked regen memories.
+15. `Thought_LuciferiumSideEffect.cs` — Duration-based thought for Luciferium-related regen side effects.
+16. `Thought_RegenesisBodyPositivity.cs` — Stackable body-positivity memory after de-aging.
+17. `TrueAgeTracker.cs` — Invisible hediff that tracks True Age (conscious life) and regen-contract flags.
 
 ---
 
-## DeadCryoSleep (`Source/DeadCryoSleep/`)
+## DeadCryoSleep (`Source/DeadCryoSleep/`) — 5 files, 267 lines
 
 Corpse-haul designator / workgiver so colonists can put bodies into CryoRegenesis caskets (Frontier Developments–style dead cryptosleep flow). Continues into Root: `Building_CryoRegenesis` + `Resurrector.cs`.
 
@@ -99,7 +114,7 @@ DeadCryoSleep (corpse → casket)
 
 ---
 
-## Quests (`Source/Quests/`)
+## Regen Quests (`Source/Quests/`) — 27 files, 9,849 lines (16 here + 11 in `System/`)
 
 Royalty / planetary-ruler CryoRegenesis contract chain (requires Royalty DLC). Campaign brain lives in `System/` (separate section below).
 
@@ -134,7 +149,7 @@ Royalty Regenesis chain
 │   └── Nodes.cs                         (no-op QuestScriptDef roots)
 │
 ├── Dev tools
-│   └── RoyaltyRegenesisDebugActions.cs  → System (DebugStartAt / next event)
+│   └── RoyaltyRegenesisDebugActions.cs  → System/Debug.cs (DebugStartAt / next event)
 │
 └── Shuttle integration (Harmony)
     ├── Patch_CompShuttle_IsAllowed.cs   (who may board regen pickups)
@@ -154,20 +169,21 @@ Royalty Regenesis chain
 10. `Patch_Pawn_Kill_HuntedAssassin.cs` — Harmony: transfers the mark from a slain Marked One to a worthy killer.
 11. `QuestParts.cs` — Live Quests-tab status parts plus factory that builds chain/contract `Quest` objects.
 12. `RoyaltyEmperor.cs` — Builds the final Imperial party (Emperor, Stellarch, wives, non-regen guards).
-13. `RoyaltyRegenesisClient.cs` — Serializable active-contract client record (pawn, target age, role, success latch).
+13. `RoyaltyRegenesisClient.cs` — Serializable active-contract client record (pawn, target age, role, one-time completion flag).
 14. `RoyaltyRegenesisDebugActions.cs` — Dev-mode debug actions to jump stages or fire the next quest event.
 15. `RoyaltyRegenesisStage.cs` — Campaign stage enum from foreign trials through Emperor completion.
 16. `SpawnStoryHuman.cs` — Scripted pawn generator for story humans who are not world pawns (Emperor, wives, …).
 
 ---
 
-## Quest system partials (`Source/Quests/System/`)
+## Quest system partials (`Source/Quests/System/`) — 11 files, 7,481 lines
 
 All of these are partials of one type: `RoyaltyRegenesisQuestSystem` (`GameComponent`).
 
 ```
 RoyaltyRegenesisQuestSystem
 ├── Core.cs                fields, public API, ExposeData, Tick, AdvanceCampaign
+├── Debug.cs               DebugStartAt, next event, debug Honor letter
 │
 ├── Contracts.cs           start stage contracts, prep clients, deliver
 │   └── (uses Partners / RoyaltyEmperor / SpawnStoryHuman from parent folder)
@@ -179,7 +195,7 @@ RoyaltyRegenesisQuestSystem
 ├── Emperor.cs             Imperial boarding, colonist endgames, usurpation, planetkiller
 │   └── (hooked by Patch_CompShuttle_* in parent folder)
 │
-├── Completion.cs          age latches, stage advance, progress text, trust breaks
+├── Completion.cs          age-target completion flags, stage advance, progress text, trust breaks
 │   └── Rewards.cs         grant completion caches (uranium / Luciferium / tier loot)
 │
 ├── Honor.cs               Honor offer timing, selection, and fixed rewards
@@ -192,10 +208,11 @@ RoyaltyRegenesisQuestSystem
 1. `ActiveClients.cs` — Active-contract monitoring, multi-wave pickups, and shuttle departure handling.
 2. `Completion.cs` — Age-target evaluation, stage advancement, progress text, and trust-break handling.
 3. `Contracts.cs` — Stage contract starters, client prep, deadlines, and delivery shuttles.
-4. `Core.cs` — Fields, constructor, public API, save/load, tick loop, campaign advance, debug entry points.
-5. `Emperor.cs` — Emperor boarding rules, colonist endgames, usurpation, and planetkiller path.
-6. `Helpers.cs` — Faction / pawn-kind helpers, royal titles, and Royal Ascent unlock.
-7. `Honor.cs` — Honor offer timing, recipient selection, and fixed endgame rewards.
-8. `Pickup.cs` — Pickup spawn/board, contract finish/fail, and guest-lodger bookkeeping.
-9. `Rewards.cs` — Contract completion reward tiers (uranium, Luciferium, random cache).
-10. `StargateShuttleBuffer.cs` — Optional Stargate handoff for free colonists leaving with the Emperor.
+4. `Core.cs` — Fields, constructor, public API, save/load, tick loop, and campaign advance.
+5. `Debug.cs` — Debug-only helpers: jump to a stage, fire the next event, or send a test Honor letter.
+6. `Emperor.cs` — Emperor boarding rules, colonist endgames, usurpation, and planetkiller path.
+7. `Helpers.cs` — Faction / pawn-kind helpers, royal titles, and Royal Ascent unlock.
+8. `Honor.cs` — Honor offer timing, recipient selection, and fixed endgame rewards.
+9. `Pickup.cs` — Pickup spawn/board, contract finish/fail, and guest-lodger bookkeeping.
+10. `Rewards.cs` — Contract completion reward tiers (uranium, Luciferium, random cache).
+11. `StargateShuttleBuffer.cs` — Optional Stargate handoff for free colonists leaving with the Emperor.
