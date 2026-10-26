@@ -747,6 +747,17 @@ public partial class RoyaltyRegenesisQuestSystem : GameComponent
         }
 
         this.EndActiveContractQuest(QuestEndOutcome.Fail, sendLetter: false);
+        foreach (RoyaltyRegenesisClient client in this.activeClients)
+        {
+            TrueAgeTracker tracker = client?.pawn?.health?.hediffSet?
+                .GetFirstHediffOfDef(TrueAgeDefOf.TrueAgeTracker) as TrueAgeTracker;
+            if (tracker != null)
+            {
+                tracker.underRegenContract = false;
+                tracker.desiredAgeTicks = 0;
+            }
+        }
+
         this.activeClients.Clear();
         this.ClearContractShuttle();
         this.ClearContractTiming();
